@@ -1,7 +1,11 @@
 {
     "server": {
-        "http_port": ":36136"
+        "http_port": ":8090"
     },
+    "hlsMsPerSegment": 10000,
+    "hlsDirectory": "./hls",
+    "hlsWindowSize": 5,
+    "hlsWindowCapacity" : 10,
     "streams": [
         {
             "guid": "c2680f08-07cc-4dee-9231-685893e2661f",

@@ -1,4 +1,11 @@
 .vscode/
 *.exe
 cmd/video_server/video_server
+cmd/video_server/video_server.exe
 cmd/video_server/hls/*
+example_client/mse_example/node_modules
+example_client/mse_example/.nuxt
+example_client/mse_example/package-lock.json
+example_client/hls_example/node_modules
+example_client/hls_example/.nuxt
+example_client/hls_example/package-lock.json

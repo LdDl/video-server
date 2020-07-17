@@ -23,7 +23,7 @@ func (element *AppConfiguration) startHls(streamID uuid.UUID, ch chan av.Packet,
 
 	// Create playlist for HLS streams
 	playlistFileName := filepath.Join(element.HlsDirectory, fmt.Sprintf("%s.m3u8", streamID))
-	fmt.Println("Need to start HLS:", playlistFileName, element.HlsDirectory)
+	log.Printf("Need to start HLS: %s\n", playlistFileName)
 	playlist, err := m3u8.NewMediaPlaylist(element.HlsWindowSize, element.HlsCapacity)
 	if err != nil {
 		return errors.Wrap(err, "Can't create new mediaplayer list")
@@ -116,6 +116,7 @@ func (element *AppConfiguration) startHls(streamID uuid.UUID, ch chan av.Packet,
 		}
 		playlistFile.Write(playlist.Encode().Bytes())
 		playlistFile.Close()
+		log.Printf("m3u8 file has been re-created: %s\n", playlistFileName)
 
 		// Cleanup segments
 		if err := element.removeOutdatedSegments(streamID, playlist); err != nil {
