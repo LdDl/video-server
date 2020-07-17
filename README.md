@@ -9,7 +9,6 @@
 
 - [About](#about)
 - [Installation](#installation)
-    - [go get](#go-get)
     - [Binaries](#binaries)
     - [From source](#from-source)
 - [Usage](#usage)
@@ -24,12 +23,6 @@
 Simple WS/HTTP server for re-streaming video (RTSP) to client in MSE/HLS format.
 
 ## Instalation
-### Go get
-Install it via go get:
-```shell
-go install github.com/LdDl/video-server/...
-```
-
 ### Binaries
 Linux - [link](https://github.com/LdDl/video-server/releases/download/v0.1.0/linux-video_server.tar.xz)
 
