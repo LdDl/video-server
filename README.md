@@ -102,5 +102,7 @@ You can check it [here](LICENSE.md)
 
 ## Developers
 Roman - https://github.com/webver
+
 Pavel - https://github.com/Pavel7824
+
 Dimitrii Lopanov - https://github.com/LdDl
