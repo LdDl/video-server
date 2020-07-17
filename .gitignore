@@ -1,0 +1,4 @@
+.vscode/
+*.exe
+cmd/video_server/video_server
+cmd/video_server/hls/*
