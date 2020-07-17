@@ -1,3 +1,8 @@
+[![GoDoc](https://godoc.org/github.com/LdDl/video-server?status.svg)](https://godoc.org/github.com/LdDl/video-server)
+[![Sourcegraph](https://sourcegraph.com/github.com/LdDl/video-server/-/badge.svg)](https://sourcegraph.com/github.com/LdDl/video-server?badge)
+[![Go Report Card](https://goreportcard.com/badge/github.com/LdDl/video-server)](https://goreportcard.com/report/github.com/LdDl/video-server)
+[![GitHub tag](https://img.shields.io/github/tag/LdDl/video-server.svg)](https://github.com/LdDl/video-server/releases)
+
 # video_server
 
 ## Table of Contents
@@ -25,9 +30,9 @@ go install github.com/LdDl/video-server/...
 ```
 
 ### Binaries
-Windows - [link]()
+Linux - [link](https://github.com/LdDl/video-server/releases/download/v0.1.0/linux-video_server.tar.xz)
 
-Linux - [link]()
+Windows - [link](https://github.com/LdDl/video-server/releases/download/v0.1.0/windows-video_server.zip)
 
 ### From source
 ```bash
