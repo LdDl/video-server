@@ -3,7 +3,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/LdDl/video-server)](https://goreportcard.com/report/github.com/LdDl/video-server)
 [![GitHub tag](https://img.shields.io/github/tag/LdDl/video-server.svg)](https://github.com/LdDl/video-server/releases)
 
-# video_server
+# Golang-based video-server for re-streaming RTSP to HLS/MSE
 
 ## Table of Contents
 
