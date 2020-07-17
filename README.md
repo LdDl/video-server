@@ -17,6 +17,7 @@
     - [Client](#test-client-server)
 - [Dependencies](#dependencies)
 - [License](#license)
+- [Developers](#developers)
 
 
 ## About
@@ -98,3 +99,7 @@ errors wrapping - [https://github.com/pkg/errors](https://github.com/pkg/errors)
 
 ## License
 You can check it [here](LICENSE.md)
+
+## Developers
+Roman - https://github.com/webver
+Dimitrii Lopanov - https://github.com/LdDl
