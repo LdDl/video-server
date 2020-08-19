@@ -93,7 +93,7 @@ func (element *AppConfiguration) startHls(streamID uuid.UUID, ch chan av.Packet,
 				if !start {
 					continue
 				}
-				if (pck.Idx == videoStreamIdx && pck.Time > lastPacketTime) || pck.Idx > 0 {
+				if (pck.Idx == videoStreamIdx && pck.Time > lastPacketTime) || pck.Idx != videoStreamIdx {
 					if err = tsMuxer.WritePacket(pck); err != nil {
 						return errors.Wrap(err, fmt.Sprintf("Can't write packet for TS muxer for stream %s (2)", streamID))
 					}
