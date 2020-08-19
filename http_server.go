@@ -23,20 +23,20 @@ func StartHTTPServer(cfg *AppConfiguration) {
 	config.AllowAllOrigins = true
 	router.Use(cors.New(config))
 
-	router.GET("/list", func(c *gin.Context) {
+	router.GET("/list", func(ctx *gin.Context) {
 		_, all := cfg.list()
-		c.JSON(200, all)
+		ctx.JSON(200, all)
 	})
-	router.GET("/status", func(c *gin.Context) {
-		c.JSON(200, cfg)
+	router.GET("/status", func(ctx *gin.Context) {
+		ctx.JSON(200, cfg)
 	})
-	router.GET("/ws/:suuid", func(c *gin.Context) {
-		wshandler(c.Writer, c.Request, cfg)
+	router.GET("/ws/:suuid", func(ctx *gin.Context) {
+		wshandler(ctx.Writer, ctx.Request, cfg)
 	})
-	router.GET("/hls/:file", func(c *gin.Context) {
-		file := c.Param("file")
-		c.Header("Cache-Control", "no-cache")
-		c.FileFromFS(file, http.Dir("./hls"))
+	router.GET("/hls/:file", func(ctx *gin.Context) {
+		file := ctx.Param("file")
+		ctx.Header("Cache-Control", "no-cache")
+		ctx.FileFromFS(file, http.Dir("./hls"))
 	})
 
 	s := &http.Server{
