@@ -126,7 +126,7 @@ func (element *AppConfiguration) startHls(streamID uuid.UUID, ch chan av.Packet,
 		}
 		playlistFile.Write(playlist.Encode().Bytes())
 		playlistFile.Close()
-		log.Printf("m3u8 file has been re-created: %s\n", playlistFileName)
+		// log.Printf("m3u8 file has been re-created: %s\n", playlistFileName)
 
 		// Cleanup segments
 		if err := element.removeOutdatedSegments(streamID, playlist); err != nil {
@@ -173,6 +173,7 @@ func (element *AppConfiguration) removeOutdatedSegments(streamID uuid.UUID, play
 	// Find possible segment files in current directory
 	segmentFiles, err := filepath.Glob(filepath.Join(element.HlsDirectory, fmt.Sprintf("%s*.ts", streamID)))
 	if err != nil {
+		log.Printf("Can't find glob for '%s': %s\n", streamID, err.Error())
 		return err
 	}
 	for _, segmentFile := range segmentFiles {

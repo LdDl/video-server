@@ -67,21 +67,23 @@ func wshandler(w http.ResponseWriter, r *http.Request, cfg *AppConfiguration) {
 	defer func() {
 		err = conn.Close()
 		if err != nil {
-			log.Printf("WS connection has been closed %s: %s\n", conn.RemoteAddr().String(), err.Error())
+			// log.Printf("WS connection has been closed %s: %s\n", conn.RemoteAddr().String(), err.Error())
 		}
-		log.Printf("WS connection has been terminated %s\n", conn.RemoteAddr().String())
+		// log.Printf("WS connection has been terminated %s\n", conn.RemoteAddr().String())
 	}()
 
 	streamIDSTR := r.FormValue("suuid")
 	streamID, err := uuid.Parse(streamIDSTR)
 	if err != nil {
+		log.Printf("Can't parse UUID: '%s' due the error: %s\n", streamIDSTR, err.Error())
 		return
 	}
-	log.Println("Request", streamID)
+	// log.Println("Request", streamID)
 	if cfg.ext(streamID) {
 		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		cuuid, ch, err := cfg.clientAdd(streamID)
 		if err != nil {
+			log.Printf("Can't add client for '%s' due the error: %s\n", streamID, err.Error())
 			return
 		}
 		defer cfg.clientDelete(streamID, cuuid)
@@ -109,6 +111,7 @@ func wshandler(w http.ResponseWriter, r *http.Request, cfg *AppConfiguration) {
 			_, _, err := conn.ReadMessage()
 			if err != nil {
 				q <- true
+				log.Printf("Read message error: %s\n", err.Error())
 				return
 			}
 		}(quitCh)
@@ -128,6 +131,7 @@ func wshandler(w http.ResponseWriter, r *http.Request, cfg *AppConfiguration) {
 					conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 					err := conn.WriteMessage(websocket.BinaryMessage, buf)
 					if err != nil {
+						log.Printf("Can't write messsage due the error: %s\n", err.Error())
 						return
 					}
 				}

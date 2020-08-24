@@ -43,7 +43,7 @@ func StartStreams(cfg *AppConfiguration) {
 				}
 				session.Close()
 				cfg.updateStatus(name, false)
-				log.Printf("Stream must be re=establishment for '%s' by connecting to %s in next 5 seconds\n", name, url)
+				log.Printf("Stream must be re-establishment for '%s' by connecting to %s in next 5 seconds\n", name, url)
 				time.Sleep(5 * time.Second)
 			}
 		}(k, v.URL)
