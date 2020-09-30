@@ -4,8 +4,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/deepch/vdk/format/rtsp"
 	"github.com/google/uuid"
+	"github.com/morozka/vdk/format/rtsp"
 )
 
 // StartStreams Start video streams
