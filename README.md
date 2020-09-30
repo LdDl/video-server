@@ -82,6 +82,7 @@ GIN web-framework - [https://github.com/gin-gonic/gin](https://github.com/gin-go
 
 Media library - [github.com/morozka/vdk](https://github.com/morozka/vdk). License is [MIT](https://github.com/morozka/vdk/blob/master/LICENSE)
 
+
 UUID generation and parsing - [https://github.com/google/uuid](https://github.com/google/uuid). License is [BSD 3-Clause](https://github.com/google/uuid/blob/master/LICENSE)
 
 Websockets - [https://github.com/gorilla/websocket](https://github.com/gorilla/websocket). License is [BSD 2-Clause](https://github.com/gorilla/websocket/blob/master/LICENSE)
@@ -99,3 +100,5 @@ Roman - https://github.com/webver
 Pavel - https://github.com/Pavel7824
 
 Dimitrii Lopanov - https://github.com/LdDl
+
+Morozka - https://github.com/morozka

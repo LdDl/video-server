@@ -5,12 +5,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/morozka/vdk/format/mp4f"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/morozka/vdk/format/mp4f"
 )
 
 // StartHTTPServer Initialize http server and run it
