@@ -10,7 +10,10 @@ import (
 
 // StartStreams Start video streams
 func StartStreams(cfg *AppConfiguration) {
-	for k, v := range cfg.Streams.Streams {
+	for _, k := range cfg.Streams.getKeys() {
+		cfg.Streams.Lock()
+		url := cfg.Streams.Streams[k].URL
+		cfg.Streams.Unlock()
 		go func(name uuid.UUID, url string) {
 			for {
 				log.Printf("Stream must be establishment for '%s' by connecting to %s\n", name, url)
@@ -46,6 +49,6 @@ func StartStreams(cfg *AppConfiguration) {
 				log.Printf("Stream must be re-establishment for '%s' by connecting to %s in next 5 seconds\n", name, url)
 				time.Sleep(5 * time.Second)
 			}
-		}(k, v.URL)
+		}(k, url)
 	}
 }
