@@ -6,8 +6,8 @@ import (
 	"log"
 	"sync"
 
-	"github.com/deepch/vdk/av"
 	"github.com/google/uuid"
+	"github.com/morozka/vdk/av"
 )
 
 // AppConfiguration Configuration parameters for application
