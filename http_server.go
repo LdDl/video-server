@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/deepch/vdk/format/mp4f"
+	"github.com/morozka/vdk/format/mp4f"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"

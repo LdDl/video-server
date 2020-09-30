@@ -6,20 +6,55 @@ import (
 	"log"
 	"sync"
 
-	"github.com/deepch/vdk/av"
 	"github.com/google/uuid"
+	"github.com/morozka/vdk/av"
 )
+
+// StreamsMap map of *StreamConfiguration with mutex
+type StreamsMap struct {
+	sync.Mutex
+	Streams map[uuid.UUID]*StreamConfiguration
+}
+
+//GetStream - returns stream from the map by the uuid
+func (sm *StreamsMap) GetStream(uuid uuid.UUID) (*StreamConfiguration, bool) {
+	sm.Lock()
+	stream, ok := sm.Streams[uuid]
+	sm.Unlock()
+	return stream, ok
+}
+
+//SetStream - sets the scfg to map by uuid
+func (sm *StreamsMap) SetStream(uuid uuid.UUID, scfg *StreamConfiguration) {
+	sm.Lock()
+	sm.Streams[uuid] = scfg
+	sm.Unlock()
+}
+
+//DeleteStream - removes stream by its uuid
+func (sm *StreamsMap) DeleteStream(uuid uuid.UUID) {
+	sm.Lock()
+	delete(sm.Streams, uuid)
+	sm.Unlock()
+}
+
+//GetKeys - returns snap of all keys
+func (sm *StreamsMap) GetKeys() []uuid.UUID {
+	sm.Lock()
+	defer sm.Unlock()
+	return []uuid.UUID{}
+}
 
 // AppConfiguration Configuration parameters for application
 type AppConfiguration struct {
-	mutex   sync.Mutex
-	Server  ServerConfiguration                `json:"server"`
-	Streams map[uuid.UUID]*StreamConfiguration `json:"streams"`
-
-	HlsMsPerSegment int64  `json:"hlsMsPerSegment"`
-	HlsDirectory    string `json:"hlsDirectory"`
-	HlsWindowSize   uint   `json:"hlsWindowSize"`
-	HlsCapacity     uint   `json:"hlsWindowCapacity"`
+	mutex  sync.Mutex
+	Server ServerConfiguration `json:"server"`
+	//Streams map[uuid.UUID]*StreamConfiguration `json:"streams"`
+	Streams         StreamsMap `json:"streams"`
+	HlsMsPerSegment int64      `json:"hlsMsPerSegment"`
+	HlsDirectory    string     `json:"hlsDirectory"`
+	HlsWindowSize   uint       `json:"hlsWindowSize"`
+	HlsCapacity     uint       `json:"hlsWindowCapacity"`
 }
 
 // ServerConfiguration Configuration parameters for server
@@ -92,7 +127,7 @@ func NewAppConfiguration(fname string) (*AppConfiguration, error) {
 		jsonConf.HlsWindowSize = jsonConf.HlsCapacity
 	}
 
-	tmp.Streams = make(map[uuid.UUID]*StreamConfiguration)
+	tmp.Streams = StreamsMap{Streams: make(map[uuid.UUID]*StreamConfiguration)}
 	tmp.Server = jsonConf.Server
 	tmp.HlsMsPerSegment = jsonConf.HlsMsPerSegment
 	tmp.HlsDirectory = jsonConf.HlsDirectory
@@ -104,18 +139,19 @@ func NewAppConfiguration(fname string) (*AppConfiguration, error) {
 			log.Printf("Not valid UUID: %s\n", jsonConf.Streams[i].GUID)
 			continue
 		}
-		tmp.Streams[validUUID] = &StreamConfiguration{
+		tmp.Streams.SetStream(validUUID, &StreamConfiguration{
 			URL:       jsonConf.Streams[i].URL,
 			Clients:   make(map[uuid.UUID]viewer),
 			HlsChanel: make(chan av.Packet, 100),
-		}
+		})
 	}
 	return &tmp, nil
 }
 
 func (element *AppConfiguration) cast(id uuid.UUID, pck av.Packet) {
-	element.Streams[id].HlsChanel <- pck
-	for _, v := range element.Streams[id].Clients {
+	curStream, _ := element.Streams.GetStream(id)
+	curStream.HlsChanel <- pck
+	for _, v := range curStream.Clients {
 		if len(v.c) < cap(v.c) {
 			v.c <- pck
 		}
@@ -123,28 +159,29 @@ func (element *AppConfiguration) cast(id uuid.UUID, pck av.Packet) {
 }
 
 func (element *AppConfiguration) ext(streamID uuid.UUID) bool {
-	_, ok := element.Streams[streamID]
+	_, ok := element.Streams.GetStream(streamID)
 	return ok
 }
 
 func (element *AppConfiguration) codecAdd(streamID uuid.UUID, codecs []av.CodecData) {
-	defer element.mutex.Unlock()
-	element.mutex.Lock()
-	t := element.Streams[streamID]
+	defer element.Streams.Unlock()
+	element.Streams.Lock()
+	t, _ := element.Streams.GetStream(streamID)
 	t.Codecs = codecs
-	element.Streams[streamID] = t
+	element.Streams.SetStream(streamID, t)
 }
 
 func (element *AppConfiguration) codecGet(streamID uuid.UUID) []av.CodecData {
-	return element.Streams[streamID].Codecs
+	curStream, _ := element.Streams.GetStream(streamID)
+	return curStream.Codecs
 }
 
 func (element *AppConfiguration) updateStatus(streamID uuid.UUID, status bool) {
 	defer element.mutex.Unlock()
 	element.mutex.Lock()
-	t := element.Streams[streamID]
+	t, _ := element.Streams.GetStream(streamID)
 	t.Status = status
-	element.Streams[streamID] = t
+	element.Streams.SetStream(streamID, t)
 }
 
 func (element *AppConfiguration) clientAdd(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
@@ -155,26 +192,27 @@ func (element *AppConfiguration) clientAdd(streamID uuid.UUID) (uuid.UUID, chan 
 		return uuid.UUID{}, nil, err
 	}
 	ch := make(chan av.Packet, 100)
-	element.Streams[streamID].Clients[clientID] = viewer{c: ch}
+	curStream, _ := element.Streams.GetStream(streamID)
+	curStream.Clients[clientID] = viewer{c: ch}
 	return clientID, ch, nil
 }
 
 func (element *AppConfiguration) clientDelete(streamID, clientID uuid.UUID) {
-	defer element.mutex.Unlock()
-	element.mutex.Lock()
-	delete(element.Streams[streamID].Clients, clientID)
+	defer element.Streams.Unlock()
+	element.Streams.Lock()
+	delete(element.Streams.Streams[streamID].Clients, clientID)
 }
 
 func (element *AppConfiguration) startHlsCast(streamID uuid.UUID, stopCast chan bool) {
-	defer element.mutex.Unlock()
-	element.mutex.Lock()
-	go element.startHls(streamID, element.Streams[streamID].HlsChanel, stopCast)
+	defer element.Streams.Unlock()
+	element.Streams.Lock()
+	go element.startHls(streamID, element.Streams.Streams[streamID].HlsChanel, stopCast)
 }
 
 func (element *AppConfiguration) list() (uuid.UUID, []uuid.UUID) {
 	res := []uuid.UUID{}
 	first := uuid.UUID{}
-	for k := range element.Streams {
+	for k := range element.Streams.Streams {
 		if first.String() == "" {
 			first = k
 		}

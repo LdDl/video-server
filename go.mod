@@ -3,7 +3,7 @@ module github.com/LdDl/video-server
 go 1.14
 
 require (
-	github.com/deepch/vdk v0.0.0-20200811012133-292592fcb5e6
+	github.com/morozka/vdk v0.0.0
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.6.3

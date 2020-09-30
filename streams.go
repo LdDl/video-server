@@ -4,13 +4,13 @@ import (
 	"log"
 	"time"
 
-	"github.com/deepch/vdk/format/rtsp"
 	"github.com/google/uuid"
+	"github.com/morozka/vdk/format/rtsp"
 )
 
 // StartStreams Start video streams
 func StartStreams(cfg *AppConfiguration) {
-	for k, v := range cfg.Streams {
+	for k, v := range cfg.Streams.Streams {
 		go func(name uuid.UUID, url string) {
 			for {
 				log.Printf("Stream must be establishment for '%s' by connecting to %s\n", name, url)

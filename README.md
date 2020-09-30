@@ -80,7 +80,7 @@ Paste link to the browser and check if video loaded successfully.
 ## Dependencies
 GIN web-framework - [https://github.com/gin-gonic/gin](https://github.com/gin-gonic/gin). License is [MIT](https://github.com/gin-gonic/gin/blob/master/LICENSE)
 
-Media library - [github.com/deepch/vdk](https://github.com/deepch/vdk). License is [MIT](https://github.com/deepch/vdk/blob/master/LICENSE)
+Media library - [github.com/morozka/vdk](https://github.com/morozka/vdk). License is [MIT](https://github.com/morozka/vdk/blob/master/LICENSE)
 
 UUID generation and parsing - [https://github.com/google/uuid](https://github.com/google/uuid). License is [BSD 3-Clause](https://github.com/google/uuid/blob/master/LICENSE)
 
