@@ -44,15 +44,15 @@ func (app *Application) StartHTTPServer() {
 // ListWrapper Returns list of streams
 func ListWrapper(app *Application) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
-		ctx.JSON(200, app)
+		_, all := app.list()
+		ctx.JSON(200, all)
 	}
 }
 
 // StatusWrapper Returns statuses for list of streams
 func StatusWrapper(app *Application) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
-		_, all := app.list()
-		ctx.JSON(200, all)
+		ctx.JSON(200, app)
 	}
 }
 
