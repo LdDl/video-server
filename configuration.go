@@ -16,7 +16,7 @@ type StreamsMap struct {
 	Streams map[uuid.UUID]*StreamConfiguration
 }
 
-func (sm StreamsMap) getKeys() []uuid.UUID {
+func (sm *StreamsMap) getKeys() []uuid.UUID {
 	sm.Lock()
 	defer sm.Unlock()
 	keys := make([]uuid.UUID, 0, len(sm.Streams))
