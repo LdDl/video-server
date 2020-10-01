@@ -10,5 +10,6 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/websocket v1.4.2
 	github.com/grafov/m3u8 v0.11.1
+	github.com/morozka/vdk v0.0.0
 	github.com/pkg/errors v0.9.1
 )
