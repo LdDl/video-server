@@ -65,10 +65,10 @@ const (
 type ConfigurationArgs struct {
 	Server          ServerConfiguration `json:"server"`
 	Streams         []StreamArg         `json:"streams"`
-	HlsMsPerSegment int64               `json:"hlsMsPerSegment"`
-	HlsDirectory    string              `json:"hlsDirectory"`
-	HlsWindowSize   uint                `json:"hlsWindowSize"`
-	HlsCapacity     uint                `json:"hlsWindowCapacity"`
+	HlsMsPerSegment int64               `json:"hls_ms_per_segment"`
+	HlsDirectory    string              `json:"hls_directory"`
+	HlsWindowSize   uint                `json:"hls_window_size"`
+	HlsCapacity     uint                `json:"hls_window_capacity"`
 	StreamTypes     []string            `json:"stream_types"`
 }
 

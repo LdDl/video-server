@@ -1,6 +1,7 @@
 package videoserver
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -40,7 +41,7 @@ func StartHTTPServer(cfg *AppConfiguration) {
 	})
 
 	s := &http.Server{
-		Addr:         cfg.Server.HTTPPort,
+		Addr:         fmt.Sprintf(":%s", cfg.Server.HTTPPort),
 		Handler:      router,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
