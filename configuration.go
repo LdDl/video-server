@@ -28,12 +28,12 @@ func (sm *StreamsMap) getKeys() []uuid.UUID {
 
 // AppConfiguration Configuration parameters for application
 type AppConfiguration struct {
-	Server          ServerConfiguration `json:"server"`
-	Streams         StreamsMap          `json:"streams"`
-	HlsMsPerSegment int64               `json:"hlsMsPerSegment"`
-	HlsDirectory    string              `json:"hlsDirectory"`
-	HlsWindowSize   uint                `json:"hlsWindowSize"`
-	HlsCapacity     uint                `json:"hlsWindowCapacity"`
+	Server          ServerConfiguration
+	Streams         StreamsMap
+	HlsMsPerSegment int64
+	HlsDirectory    string
+	HlsWindowSize   uint
+	HlsCapacity     uint
 }
 
 // ServerConfiguration Configuration parameters for server
@@ -69,6 +69,7 @@ type ConfigurationArgs struct {
 	HlsDirectory    string              `json:"hlsDirectory"`
 	HlsWindowSize   uint                `json:"hlsWindowSize"`
 	HlsCapacity     uint                `json:"hlsWindowCapacity"`
+	StreamTypes     []string            `json:"stream_types"`
 }
 
 // StreamArg Infromation about stream's source
@@ -79,17 +80,15 @@ type StreamArg struct {
 
 // NewAppConfiguration Prepare configuration for application
 func NewAppConfiguration(fname string) (*AppConfiguration, error) {
-	var tmp AppConfiguration
 	data, err := ioutil.ReadFile(fname)
 	if err != nil {
 		return nil, err
 	}
-	var jsonConf ConfigurationArgs
+	jsonConf := ConfigurationArgs{}
 	err = json.Unmarshal(data, &jsonConf)
 	if err != nil {
 		return nil, err
 	}
-
 	if jsonConf.HlsDirectory == "" {
 		jsonConf.HlsDirectory = defaultHlsDir
 	}
@@ -105,13 +104,15 @@ func NewAppConfiguration(fname string) (*AppConfiguration, error) {
 	if jsonConf.HlsWindowSize > jsonConf.HlsCapacity {
 		jsonConf.HlsWindowSize = jsonConf.HlsCapacity
 	}
+	tmp := AppConfiguration{
+		Server:          jsonConf.Server,
+		Streams:         StreamsMap{Streams: make(map[uuid.UUID]*StreamConfiguration)},
+		HlsMsPerSegment: jsonConf.HlsMsPerSegment,
+		HlsDirectory:    jsonConf.HlsDirectory,
+		HlsWindowSize:   jsonConf.HlsWindowSize,
+		HlsCapacity:     jsonConf.HlsCapacity,
+	}
 
-	tmp.Streams = StreamsMap{Streams: make(map[uuid.UUID]*StreamConfiguration)}
-	tmp.Server = jsonConf.Server
-	tmp.HlsMsPerSegment = jsonConf.HlsMsPerSegment
-	tmp.HlsDirectory = jsonConf.HlsDirectory
-	tmp.HlsWindowSize = jsonConf.HlsWindowSize
-	tmp.HlsCapacity = jsonConf.HlsCapacity
 	for i := range jsonConf.Streams {
 		validUUID, err := uuid.Parse(jsonConf.Streams[i].GUID)
 		if err != nil {

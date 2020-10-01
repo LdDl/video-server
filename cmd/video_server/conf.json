@@ -9,7 +9,8 @@
     "streams": [
         {
             "guid": "c2680f08-07cc-4dee-9231-685893e2661f",
-            "url": "rtsp://170.93.143.139/rtplive/470011e600ef003a004ee33696235daa"
+            "url": "rtsp://170.93.143.139/rtplive/470011e600ef003a004ee33696235daa",
+            "stream_types": ["hls", "mse"]
         }
     ]
 }
