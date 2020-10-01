@@ -9,11 +9,11 @@ import (
 )
 
 // StartStreams Start video streams
-func (cfg *Application) StartStreams() {
-	for _, k := range cfg.Streams.getKeys() {
-		cfg.Streams.Lock()
-		url := cfg.Streams.Streams[k].URL
-		cfg.Streams.Unlock()
+func (app *Application) StartStreams() {
+	for _, k := range app.Streams.getKeys() {
+		app.Streams.Lock()
+		url := app.Streams.Streams[k].URL
+		app.Streams.Unlock()
 		go func(name uuid.UUID, url string) {
 			for {
 				log.Printf("Stream must be establishment for '%s' by connecting to %s\n", name, url)
@@ -31,10 +31,10 @@ func (cfg *Application) StartStreams() {
 					time.Sleep(60 * time.Second)
 					continue
 				}
-				cfg.codecAdd(name, codec)
-				cfg.updateStatus(name, true)
+				app.codecAdd(name, codec)
+				app.updateStatus(name, true)
 				stopHlsCast := make(chan bool, 1)
-				cfg.startHlsCast(name, stopHlsCast)
+				app.startHlsCast(name, stopHlsCast)
 				for {
 					pkt, err := session.ReadPacket()
 					if err != nil {
@@ -42,10 +42,10 @@ func (cfg *Application) StartStreams() {
 						stopHlsCast <- true
 						break
 					}
-					cfg.cast(name, pkt)
+					app.cast(name, pkt)
 				}
 				session.Close()
-				cfg.updateStatus(name, false)
+				app.updateStatus(name, false)
 				log.Printf("Stream must be re-establishment for '%s' by connecting to %s in next 5 seconds\n", name, url)
 				time.Sleep(5 * time.Second)
 			}

@@ -59,7 +59,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func wshandler(w http.ResponseWriter, r *http.Request, cfg *Application) {
+func wshandler(w http.ResponseWriter, r *http.Request, app *Application) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Failed to make websocket upgrade: %s\n", err.Error())
@@ -80,15 +80,15 @@ func wshandler(w http.ResponseWriter, r *http.Request, cfg *Application) {
 		return
 	}
 	// log.Println("Request", streamID)
-	if cfg.ext(streamID) {
+	if app.ext(streamID) {
 		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
-		cuuid, ch, err := cfg.clientAdd(streamID)
+		cuuid, ch, err := app.clientAdd(streamID)
 		if err != nil {
 			log.Printf("Can't add client for '%s' due the error: %s\n", streamID, err.Error())
 			return
 		}
-		defer cfg.clientDelete(streamID, cuuid)
-		codecs := cfg.codecGet(streamID)
+		defer app.clientDelete(streamID, cuuid)
+		codecs := app.codecGet(streamID)
 		if codecs == nil {
 			log.Printf("No codec information for stream %s\n", streamID)
 			return

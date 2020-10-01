@@ -81,10 +81,10 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 	return &tmp, nil
 }
 
-func (element *Application) cast(id uuid.UUID, pck av.Packet) {
-	element.Streams.Lock()
-	defer element.Streams.Unlock()
-	curStream, _ := element.Streams.Streams[id]
+func (app *Application) cast(id uuid.UUID, pck av.Packet) {
+	app.Streams.Lock()
+	defer app.Streams.Unlock()
+	curStream, _ := app.Streams.Streams[id]
 	curStream.hlsChanel <- pck
 	for _, v := range curStream.Clients {
 		if len(v.c) < cap(v.c) {
@@ -93,65 +93,65 @@ func (element *Application) cast(id uuid.UUID, pck av.Packet) {
 	}
 }
 
-func (element *Application) ext(streamID uuid.UUID) bool {
-	element.Streams.Lock()
-	defer element.Streams.Unlock()
-	_, ok := element.Streams.Streams[streamID]
+func (app *Application) ext(streamID uuid.UUID) bool {
+	app.Streams.Lock()
+	defer app.Streams.Unlock()
+	_, ok := app.Streams.Streams[streamID]
 	return ok
 }
 
-func (element *Application) codecAdd(streamID uuid.UUID, codecs []av.CodecData) {
-	element.Streams.Lock()
-	defer element.Streams.Unlock()
-	element.Streams.Streams[streamID].Codecs = codecs
+func (app *Application) codecAdd(streamID uuid.UUID, codecs []av.CodecData) {
+	app.Streams.Lock()
+	defer app.Streams.Unlock()
+	app.Streams.Streams[streamID].Codecs = codecs
 }
 
-func (element *Application) codecGet(streamID uuid.UUID) []av.CodecData {
-	element.Streams.Lock()
-	defer element.Streams.Unlock()
-	curStream, _ := element.Streams.Streams[streamID]
+func (app *Application) codecGet(streamID uuid.UUID) []av.CodecData {
+	app.Streams.Lock()
+	defer app.Streams.Unlock()
+	curStream, _ := app.Streams.Streams[streamID]
 	return curStream.Codecs
 }
 
-func (element *Application) updateStatus(streamID uuid.UUID, status bool) {
-	element.Streams.Lock()
-	defer element.Streams.Unlock()
-	t, _ := element.Streams.Streams[streamID]
+func (app *Application) updateStatus(streamID uuid.UUID, status bool) {
+	app.Streams.Lock()
+	defer app.Streams.Unlock()
+	t, _ := app.Streams.Streams[streamID]
 	t.Status = status
-	element.Streams.Streams[streamID] = t
+	app.Streams.Streams[streamID] = t
 }
 
-func (element *Application) clientAdd(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
-	element.Streams.Lock()
-	defer element.Streams.Unlock()
+func (app *Application) clientAdd(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
+	app.Streams.Lock()
+	defer app.Streams.Unlock()
 	clientID, err := uuid.NewUUID()
 	if err != nil {
 		return uuid.UUID{}, nil, err
 	}
 	ch := make(chan av.Packet, 100)
-	curStream, _ := element.Streams.Streams[streamID]
+	curStream, _ := app.Streams.Streams[streamID]
 	curStream.Clients[clientID] = viewer{c: ch}
 	return clientID, ch, nil
 }
 
-func (element *Application) clientDelete(streamID, clientID uuid.UUID) {
-	defer element.Streams.Unlock()
-	element.Streams.Lock()
-	delete(element.Streams.Streams[streamID].Clients, clientID)
+func (app *Application) clientDelete(streamID, clientID uuid.UUID) {
+	defer app.Streams.Unlock()
+	app.Streams.Lock()
+	delete(app.Streams.Streams[streamID].Clients, clientID)
 }
 
-func (element *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) {
-	defer element.Streams.Unlock()
-	element.Streams.Lock()
-	go element.startHls(streamID, element.Streams.Streams[streamID].hlsChanel, stopCast)
+func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) {
+	defer app.Streams.Unlock()
+	app.Streams.Lock()
+	go app.startHls(streamID, app.Streams.Streams[streamID].hlsChanel, stopCast)
 }
 
-func (element *Application) list() (uuid.UUID, []uuid.UUID) {
-	defer element.Streams.Unlock()
-	element.Streams.Lock()
+func (app *Application) list() (uuid.UUID, []uuid.UUID) {
+	defer app.Streams.Unlock()
+	app.Streams.Lock()
 	res := []uuid.UUID{}
 	first := uuid.UUID{}
-	for k := range element.Streams.Streams {
+	for k := range app.Streams.Streams {
 		if first.String() == "" {
 			first = k
 		}

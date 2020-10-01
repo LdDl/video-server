@@ -14,17 +14,17 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (element *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
+func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
 
-	err := ensureDir(element.HlsDirectory)
+	err := ensureDir(app.HlsDirectory)
 	if err != nil {
 		return errors.Wrap(err, "Can't create directory for HLS temporary files")
 	}
 
 	// Create playlist for HLS streams
-	playlistFileName := filepath.Join(element.HlsDirectory, fmt.Sprintf("%s.m3u8", streamID))
+	playlistFileName := filepath.Join(app.HlsDirectory, fmt.Sprintf("%s.m3u8", streamID))
 	log.Printf("Need to start HLS: %s\n", playlistFileName)
-	playlist, err := m3u8.NewMediaPlaylist(element.HlsWindowSize, element.HlsCapacity)
+	playlist, err := m3u8.NewMediaPlaylist(app.HlsWindowSize, app.HlsCapacity)
 	if err != nil {
 		return errors.Wrap(err, "Can't create new mediaplayer list")
 	}
@@ -37,7 +37,7 @@ func (element *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stop
 	for isConnected {
 		// Create new segment file
 		segmentName := fmt.Sprintf("%s%04d.ts", streamID, segmentNumber)
-		segmentPath := filepath.Join(element.HlsDirectory, segmentName)
+		segmentPath := filepath.Join(app.HlsDirectory, segmentName)
 		outFile, err := os.Create(segmentPath)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("Can't create TS-segment for stream %s", streamID))
@@ -45,13 +45,13 @@ func (element *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stop
 		tsMuxer := ts.NewMuxer(outFile)
 
 		// Write header
-		if err := tsMuxer.WriteHeader(element.codecGet(streamID)); err != nil {
+		if err := tsMuxer.WriteHeader(app.codecGet(streamID)); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("Can't write header for TS muxer for stream %s", streamID))
 		}
 
 		// Write packets
 		videoStreamIdx := int8(0)
-		for idx, codec := range element.codecGet(streamID) {
+		for idx, codec := range app.codecGet(streamID) {
 			if codec.Type().IsVideo() == true {
 				videoStreamIdx = int8(idx)
 				break
@@ -85,7 +85,7 @@ func (element *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stop
 			case pck := <-ch:
 				if pck.Idx == videoStreamIdx && pck.IsKeyFrame {
 					start = true
-					if segmentLength.Milliseconds() >= element.HlsMsPerSegment {
+					if segmentLength.Milliseconds() >= app.HlsMsPerSegment {
 						lastKeyFrame = pck
 						break segmentLoop
 					}
@@ -129,7 +129,7 @@ func (element *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stop
 		// log.Printf("m3u8 file has been re-created: %s\n", playlistFileName)
 
 		// Cleanup segments
-		if err := element.removeOutdatedSegments(streamID, playlist); err != nil {
+		if err := app.removeOutdatedSegments(streamID, playlist); err != nil {
 			log.Printf("Can't call removeOutdatedSegments on stream %s: %s\n", streamID, err.Error())
 		}
 
@@ -152,17 +152,17 @@ func (element *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stop
 		time.Sleep(delay)
 		for _, file := range filesToRemove {
 			if file != "" {
-				if err := os.Remove(filepath.Join(element.HlsDirectory, file)); err != nil {
+				if err := os.Remove(filepath.Join(app.HlsDirectory, file)); err != nil {
 					log.Printf("Can't call defered file remove: %s\n", err.Error())
 				}
 			}
 		}
-	}(time.Duration(element.HlsMsPerSegment*int64(playlist.Count()))*time.Millisecond, filesToRemove)
+	}(time.Duration(app.HlsMsPerSegment*int64(playlist.Count()))*time.Millisecond, filesToRemove)
 
 	return nil
 }
 
-func (element *Application) removeOutdatedSegments(streamID uuid.UUID, playlist *m3u8.MediaPlaylist) error {
+func (app *Application) removeOutdatedSegments(streamID uuid.UUID, playlist *m3u8.MediaPlaylist) error {
 	// Write all playlist segment URIs into map
 	currentSegments := make(map[string]struct{}, len(playlist.Segments))
 	for _, segment := range playlist.Segments {
@@ -171,7 +171,7 @@ func (element *Application) removeOutdatedSegments(streamID uuid.UUID, playlist 
 		}
 	}
 	// Find possible segment files in current directory
-	segmentFiles, err := filepath.Glob(filepath.Join(element.HlsDirectory, fmt.Sprintf("%s*.ts", streamID)))
+	segmentFiles, err := filepath.Glob(filepath.Join(app.HlsDirectory, fmt.Sprintf("%s*.ts", streamID)))
 	if err != nil {
 		log.Printf("Can't find glob for '%s': %s\n", streamID, err.Error())
 		return err
