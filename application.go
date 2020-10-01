@@ -42,11 +42,12 @@ func (sm *StreamsMap) getKeys() []uuid.UUID {
 
 // StreamConfiguration Configuration parameters for stream
 type StreamConfiguration struct {
-	URL       string `json:"url"`
-	Status    bool   `json:"status"`
-	Codecs    []av.CodecData
-	Clients   map[uuid.UUID]viewer
-	hlsChanel chan av.Packet
+	URL                  string   `json:"url"`
+	Status               bool     `json:"status"`
+	SupportedStreamTypes []string `json:"supported_stream_types"`
+	Codecs               []av.CodecData
+	Clients              map[uuid.UUID]viewer
+	hlsChanel            chan av.Packet
 }
 
 type viewer struct {
@@ -73,9 +74,10 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 			continue
 		}
 		tmp.Streams.Streams[validUUID] = &StreamConfiguration{
-			URL:       cfg.Streams[i].URL,
-			Clients:   make(map[uuid.UUID]viewer),
-			hlsChanel: make(chan av.Packet, 100),
+			URL:                  cfg.Streams[i].URL,
+			Clients:              make(map[uuid.UUID]viewer),
+			hlsChanel:            make(chan av.Packet, 100),
+			SupportedStreamTypes: cfg.Streams[i].StreamTypes,
 		}
 	}
 	return &tmp, nil
