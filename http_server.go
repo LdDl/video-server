@@ -41,14 +41,14 @@ func StartHTTPServer(cfg *AppConfiguration) {
 	})
 
 	s := &http.Server{
-		Addr:         fmt.Sprintf(":%s", cfg.Server.HTTPPort),
+		Addr:         fmt.Sprintf("%s:%d", cfg.Server.HTTPAddr, cfg.Server.HTTPPort),
 		Handler:      router,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 	err := s.ListenAndServe()
 	if err != nil {
-		log.Printf("Can't run HTTP-server on port: %s\n", cfg.Server.HTTPPort)
+		log.Printf("Can't run HTTP-server on port: %d\n", cfg.Server.HTTPPort)
 		return
 	}
 }

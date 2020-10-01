@@ -38,7 +38,8 @@ type AppConfiguration struct {
 
 // ServerConfiguration Configuration parameters for server
 type ServerConfiguration struct {
-	HTTPPort string `json:"http_port"`
+	HTTPAddr string `json:"http_addr"`
+	HTTPPort int    `json:"http_port"`
 }
 
 // StreamConfiguration Configuration parameters for stream

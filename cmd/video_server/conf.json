@@ -1,6 +1,7 @@
 {
     "server": {
-        "http_port": "8090"
+        "http_addr": "localhost",
+        "http_port": 8090
     },
     "hls_ms_per_segment": 10000,
     "hls_directory": "./hls",
