@@ -28,18 +28,12 @@ func (sm *StreamsMap) getKeys() []uuid.UUID {
 
 // AppConfiguration Configuration parameters for application
 type AppConfiguration struct {
-	Server          ServerConfiguration
-	Streams         StreamsMap
-	HlsMsPerSegment int64
-	HlsDirectory    string
-	HlsWindowSize   uint
-	HlsCapacity     uint
-}
-
-// ServerConfiguration Configuration parameters for server
-type ServerConfiguration struct {
-	HTTPAddr string `json:"http_addr"`
-	HTTPPort int    `json:"http_port"`
+	Server          ServerConfiguration `json:"server"`
+	Streams         StreamsMap          `json:"streams"`
+	HlsMsPerSegment int64               `json:"hls_ms_per_segment"`
+	HlsDirectory    string              `json:"hls_directory"`
+	HlsWindowSize   uint                `json:"hls_window_size"`
+	HlsCapacity     uint                `json:"hls_window_capacity"`
 }
 
 // StreamConfiguration Configuration parameters for stream
@@ -61,23 +55,6 @@ const (
 	defaultHlsCapacity     = 10
 	defaultHlsWindowSize   = 5
 )
-
-// ConfigurationArgs Configuration parameters for application from JSON-file
-type ConfigurationArgs struct {
-	Server          ServerConfiguration `json:"server"`
-	Streams         []StreamArg         `json:"streams"`
-	HlsMsPerSegment int64               `json:"hls_ms_per_segment"`
-	HlsDirectory    string              `json:"hls_directory"`
-	HlsWindowSize   uint                `json:"hls_window_size"`
-	HlsCapacity     uint                `json:"hls_window_capacity"`
-	StreamTypes     []string            `json:"stream_types"`
-}
-
-// StreamArg Infromation about stream's source
-type StreamArg struct {
-	GUID string `json:"guid"`
-	URL  string `json:"url"`
-}
 
 // NewAppConfiguration Prepare configuration for application
 func NewAppConfiguration(fname string) (*AppConfiguration, error) {
