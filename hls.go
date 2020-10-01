@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (element *AppConfiguration) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
+func (element *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
 
 	err := ensureDir(element.HlsDirectory)
 	if err != nil {
@@ -162,7 +162,7 @@ func (element *AppConfiguration) startHls(streamID uuid.UUID, ch chan av.Packet,
 	return nil
 }
 
-func (element *AppConfiguration) removeOutdatedSegments(streamID uuid.UUID, playlist *m3u8.MediaPlaylist) error {
+func (element *Application) removeOutdatedSegments(streamID uuid.UUID, playlist *m3u8.MediaPlaylist) error {
 	// Write all playlist segment URIs into map
 	currentSegments := make(map[string]struct{}, len(playlist.Segments))
 	for _, segment := range playlist.Segments {

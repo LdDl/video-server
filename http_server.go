@@ -15,7 +15,7 @@ import (
 )
 
 // StartHTTPServer Initialize http server and run it
-func StartHTTPServer(cfg *AppConfiguration) {
+func (cfg *Application) StartHTTPServer() {
 	router := gin.New()
 
 	gin.SetMode(gin.ReleaseMode)
@@ -59,7 +59,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func wshandler(w http.ResponseWriter, r *http.Request, cfg *AppConfiguration) {
+func wshandler(w http.ResponseWriter, r *http.Request, cfg *Application) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Failed to make websocket upgrade: %s\n", err.Error())

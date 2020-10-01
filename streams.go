@@ -9,7 +9,7 @@ import (
 )
 
 // StartStreams Start video streams
-func StartStreams(cfg *AppConfiguration) {
+func (cfg *Application) StartStreams() {
 	for _, k := range cfg.Streams.getKeys() {
 		cfg.Streams.Lock()
 		url := cfg.Streams.Streams[k].URL
