@@ -81,16 +81,20 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 	return &tmp, nil
 }
 
-func (app *Application) cast(id uuid.UUID, pck av.Packet) {
+func (app *Application) cast(streamID uuid.UUID, pck av.Packet) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
-	curStream, _ := app.Streams.Streams[id]
+	curStream, ok := app.Streams.Streams[streamID]
+	if !ok {
+		return ErrStreamNotFound
+	}
 	curStream.hlsChanel <- pck
 	for _, v := range curStream.Clients {
 		if len(v.c) < cap(v.c) {
 			v.c <- pck
 		}
 	}
+	return nil
 }
 
 func (app *Application) ext(streamID uuid.UUID) bool {
@@ -106,19 +110,26 @@ func (app *Application) codecAdd(streamID uuid.UUID, codecs []av.CodecData) {
 	app.Streams.Streams[streamID].Codecs = codecs
 }
 
-func (app *Application) codecGet(streamID uuid.UUID) []av.CodecData {
+func (app *Application) codecGet(streamID uuid.UUID) ([]av.CodecData, error) {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
-	curStream, _ := app.Streams.Streams[streamID]
-	return curStream.Codecs
+	curStream, ok := app.Streams.Streams[streamID]
+	if !ok {
+		return nil, ErrStreamNotFound
+	}
+	return curStream.Codecs, nil
 }
 
-func (app *Application) updateStatus(streamID uuid.UUID, status bool) {
+func (app *Application) updateStatus(streamID uuid.UUID, status bool) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
-	t, _ := app.Streams.Streams[streamID]
+	t, ok := app.Streams.Streams[streamID]
+	if !ok {
+		return ErrStreamNotFound
+	}
 	t.Status = status
 	app.Streams.Streams[streamID] = t
+	return nil
 }
 
 func (app *Application) clientAdd(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
@@ -129,7 +140,10 @@ func (app *Application) clientAdd(streamID uuid.UUID) (uuid.UUID, chan av.Packet
 		return uuid.UUID{}, nil, err
 	}
 	ch := make(chan av.Packet, 100)
-	curStream, _ := app.Streams.Streams[streamID]
+	curStream, ok := app.Streams.Streams[streamID]
+	if !ok {
+		return uuid.UUID{}, nil, ErrStreamNotFound
+	}
 	curStream.Clients[clientID] = viewer{c: ch}
 	return clientID, ch, nil
 }

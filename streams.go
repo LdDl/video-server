@@ -32,20 +32,35 @@ func (app *Application) StartStreams() {
 					continue
 				}
 				app.codecAdd(name, codec)
-				app.updateStatus(name, true)
+				err = app.updateStatus(name, true)
+				if err != nil {
+					log.Printf("Can't update status 'true' for %s (%s): %s\n", name, url, err.Error())
+					time.Sleep(60 * time.Second)
+					continue
+				}
 				stopHlsCast := make(chan bool, 1)
 				app.startHlsCast(name, stopHlsCast)
 				for {
 					pkt, err := session.ReadPacket()
 					if err != nil {
-						log.Printf("Can't reade session's packet %s (%s): %s\n", name, url, err.Error())
+						log.Printf("Can't read session's packet %s (%s): %s\n", name, url, err.Error())
 						stopHlsCast <- true
 						break
 					}
-					app.cast(name, pkt)
+					err = app.cast(name, pkt)
+					if err != nil {
+						log.Printf("Can't cast packet %s (%s): %s\n", name, url, err.Error())
+						stopHlsCast <- true
+						break
+					}
 				}
 				session.Close()
-				app.updateStatus(name, false)
+				err = app.updateStatus(name, false)
+				if err != nil {
+					log.Printf("Can't update status 'false' for %s (%s): %s\n", name, url, err.Error())
+					time.Sleep(60 * time.Second)
+					continue
+				}
 				log.Printf("Stream must be re-establishment for '%s' by connecting to %s in next 5 seconds\n", name, url)
 				time.Sleep(5 * time.Second)
 			}

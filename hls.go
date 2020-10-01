@@ -45,13 +45,17 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 		tsMuxer := ts.NewMuxer(outFile)
 
 		// Write header
-		if err := tsMuxer.WriteHeader(app.codecGet(streamID)); err != nil {
+		codecData, err := app.codecGet(streamID)
+		if err != nil {
+			return errors.Wrap(err, streamID.String())
+		}
+		if err := tsMuxer.WriteHeader(codecData); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("Can't write header for TS muxer for stream %s", streamID))
 		}
 
 		// Write packets
 		videoStreamIdx := int8(0)
-		for idx, codec := range app.codecGet(streamID) {
+		for idx, codec := range codecData {
 			if codec.Type().IsVideo() == true {
 				videoStreamIdx = int8(idx)
 				break

@@ -88,14 +88,18 @@ func wshandler(w http.ResponseWriter, r *http.Request, app *Application) {
 			return
 		}
 		defer app.clientDelete(streamID, cuuid)
-		codecs := app.codecGet(streamID)
-		if codecs == nil {
+		codecData, err := app.codecGet(streamID)
+		if err != nil {
+			log.Printf("Can't add client '%s' due the error: %s\n", streamID, err.Error())
+			return
+		}
+		if codecData == nil {
 			log.Printf("No codec information for stream %s\n", streamID)
 			return
 		}
 		muxer := mp4f.NewMuxer(nil)
-		muxer.WriteHeader(codecs)
-		meta, init := muxer.GetInit(codecs)
+		muxer.WriteHeader(codecData)
+		meta, init := muxer.GetInit(codecData)
 		err = conn.WriteMessage(websocket.BinaryMessage, append([]byte{9}, meta...))
 		if err != nil {
 			log.Printf("Can't write header to %s: %s\n", conn.RemoteAddr().String(), err.Error())
