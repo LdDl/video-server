@@ -1,15 +1,17 @@
 {
     "server": {
-        "http_port": ":8090"
+        "http_addr": "localhost",
+        "http_port": 8090
     },
-    "hlsMsPerSegment": 10000,
-    "hlsDirectory": "./hls",
-    "hlsWindowSize": 5,
-    "hlsWindowCapacity" : 10,
+    "hls_ms_per_segment": 10000,
+    "hls_directory": "./hls",
+    "hls_window_size": 5,
+    "hls_window_capacity" : 10,
     "streams": [
         {
             "guid": "c2680f08-07cc-4dee-9231-685893e2661f",
-            "url": "rtsp://170.93.143.139/rtplive/470011e600ef003a004ee33696235daa"
+            "url": "rtsp://170.93.143.139/rtplive/470011e600ef003a004ee33696235daa",
+            "stream_types": ["hls", "mse"]
         }
     ]
 }

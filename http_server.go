@@ -1,10 +1,10 @@
 package videoserver
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"time"
-
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
@@ -15,7 +15,7 @@ import (
 )
 
 // StartHTTPServer Initialize http server and run it
-func StartHTTPServer(cfg *AppConfiguration) {
+func (app *Application) StartHTTPServer() {
 	router := gin.New()
 
 	gin.SetMode(gin.ReleaseMode)
@@ -23,33 +23,52 @@ func StartHTTPServer(cfg *AppConfiguration) {
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
 	router.Use(cors.New(config))
-
-	router.GET("/list", func(ctx *gin.Context) {
-		_, all := cfg.list()
-		ctx.JSON(200, all)
-	})
-	router.GET("/status", func(ctx *gin.Context) {
-		ctx.JSON(200, cfg)
-	})
-	router.GET("/ws/:suuid", func(ctx *gin.Context) {
-		wshandler(ctx.Writer, ctx.Request, cfg)
-	})
-	router.GET("/hls/:file", func(ctx *gin.Context) {
-		file := ctx.Param("file")
-		ctx.Header("Cache-Control", "no-cache")
-		ctx.FileFromFS(file, http.Dir("./hls"))
-	})
+	router.GET("/list", ListWrapper(app))
+	router.GET("/status", StatusWrapper(app))
+	router.GET("/ws/:suuid", WebSocketWrapper(app))
+	router.GET("/hls/:file", HLSWrapper(app))
 
 	s := &http.Server{
-		Addr:         cfg.Server.HTTPPort,
+		Addr:         fmt.Sprintf("%s:%d", app.Server.HTTPAddr, app.Server.HTTPPort),
 		Handler:      router,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 	err := s.ListenAndServe()
 	if err != nil {
-		log.Printf("Can't run HTTP-server on port: %s\n", cfg.Server.HTTPPort)
+		log.Printf("Can't run HTTP-server on port: %d\n", app.Server.HTTPPort)
 		return
+	}
+}
+
+// ListWrapper Returns list of streams
+func ListWrapper(app *Application) func(ctx *gin.Context) {
+	return func(ctx *gin.Context) {
+		ctx.JSON(200, app)
+	}
+}
+
+// StatusWrapper Returns statuses for list of streams
+func StatusWrapper(app *Application) func(ctx *gin.Context) {
+	return func(ctx *gin.Context) {
+		_, all := app.list()
+		ctx.JSON(200, all)
+	}
+}
+
+// WebSocketWrapper Returns WS handler
+func WebSocketWrapper(app *Application) func(ctx *gin.Context) {
+	return func(ctx *gin.Context) {
+		wshandler(ctx.Writer, ctx.Request, app)
+	}
+}
+
+// HLSWrapper Returns HLS handler (static files)
+func HLSWrapper(app *Application) func(ctx *gin.Context) {
+	return func(ctx *gin.Context) {
+		file := ctx.Param("file")
+		ctx.Header("Cache-Control", "no-cache")
+		ctx.FileFromFS(file, http.Dir(app.HlsDirectory))
 	}
 }
 
@@ -59,7 +78,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func wshandler(w http.ResponseWriter, r *http.Request, cfg *AppConfiguration) {
+func wshandler(w http.ResponseWriter, r *http.Request, app *Application) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Failed to make websocket upgrade: %s\n", err.Error())
@@ -80,22 +99,26 @@ func wshandler(w http.ResponseWriter, r *http.Request, cfg *AppConfiguration) {
 		return
 	}
 	// log.Println("Request", streamID)
-	if cfg.ext(streamID) {
+	if app.ext(streamID) {
 		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
-		cuuid, ch, err := cfg.clientAdd(streamID)
+		cuuid, ch, err := app.clientAdd(streamID)
 		if err != nil {
 			log.Printf("Can't add client for '%s' due the error: %s\n", streamID, err.Error())
 			return
 		}
-		defer cfg.clientDelete(streamID, cuuid)
-		codecs := cfg.codecGet(streamID)
-		if codecs == nil {
+		defer app.clientDelete(streamID, cuuid)
+		codecData, err := app.codecGet(streamID)
+		if err != nil {
+			log.Printf("Can't add client '%s' due the error: %s\n", streamID, err.Error())
+			return
+		}
+		if codecData == nil {
 			log.Printf("No codec information for stream %s\n", streamID)
 			return
 		}
 		muxer := mp4f.NewMuxer(nil)
-		muxer.WriteHeader(codecs)
-		meta, init := muxer.GetInit(codecs)
+		muxer.WriteHeader(codecData)
+		meta, init := muxer.GetInit(codecData)
 		err = conn.WriteMessage(websocket.BinaryMessage, append([]byte{9}, meta...))
 		if err != nil {
 			log.Printf("Can't write header to %s: %s\n", conn.RemoteAddr().String(), err.Error())

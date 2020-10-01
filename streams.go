@@ -9,11 +9,11 @@ import (
 )
 
 // StartStreams Start video streams
-func StartStreams(cfg *AppConfiguration) {
-	for _, k := range cfg.Streams.getKeys() {
-		cfg.Streams.Lock()
-		url := cfg.Streams.Streams[k].URL
-		cfg.Streams.Unlock()
+func (app *Application) StartStreams() {
+	for _, k := range app.Streams.getKeys() {
+		app.Streams.Lock()
+		url := app.Streams.Streams[k].URL
+		app.Streams.Unlock()
 		go func(name uuid.UUID, url string) {
 			for {
 				log.Printf("Stream must be establishment for '%s' by connecting to %s\n", name, url)
@@ -31,21 +31,36 @@ func StartStreams(cfg *AppConfiguration) {
 					time.Sleep(60 * time.Second)
 					continue
 				}
-				cfg.codecAdd(name, codec)
-				cfg.updateStatus(name, true)
+				app.codecAdd(name, codec)
+				err = app.updateStatus(name, true)
+				if err != nil {
+					log.Printf("Can't update status 'true' for %s (%s): %s\n", name, url, err.Error())
+					time.Sleep(60 * time.Second)
+					continue
+				}
 				stopHlsCast := make(chan bool, 1)
-				cfg.startHlsCast(name, stopHlsCast)
+				app.startHlsCast(name, stopHlsCast)
 				for {
 					pkt, err := session.ReadPacket()
 					if err != nil {
-						log.Printf("Can't reade session's packet %s (%s): %s\n", name, url, err.Error())
+						log.Printf("Can't read session's packet %s (%s): %s\n", name, url, err.Error())
 						stopHlsCast <- true
 						break
 					}
-					cfg.cast(name, pkt)
+					err = app.cast(name, pkt)
+					if err != nil {
+						log.Printf("Can't cast packet %s (%s): %s\n", name, url, err.Error())
+						stopHlsCast <- true
+						break
+					}
 				}
 				session.Close()
-				cfg.updateStatus(name, false)
+				err = app.updateStatus(name, false)
+				if err != nil {
+					log.Printf("Can't update status 'false' for %s (%s): %s\n", name, url, err.Error())
+					time.Sleep(60 * time.Second)
+					continue
+				}
 				log.Printf("Stream must be re-establishment for '%s' by connecting to %s in next 5 seconds\n", name, url)
 				time.Sleep(5 * time.Second)
 			}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -34,13 +35,19 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	cfg, err := videoserver.NewAppConfiguration(*conf)
+	settings, err := videoserver.NewConfiguration(*conf)
 	if err != nil {
-		log.Fatalln(err)
+		fmt.Printf("Can't prepare setting due the error: %s", err.Error())
+		return
+	}
+	app, err := videoserver.NewApplication(settings)
+	if err != nil {
+		fmt.Printf("Can't prepare application due the error: %s", err.Error())
+		return
 	}
 
-	go videoserver.StartHTTPServer(cfg)
-	go videoserver.StartStreams(cfg)
+	go app.StartHTTPServer()
+	go app.StartStreams()
 
 	sigOUT := make(chan os.Signal, 1)
 	exit := make(chan bool, 1)

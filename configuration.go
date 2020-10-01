@@ -3,56 +3,9 @@ package videoserver
 import (
 	"encoding/json"
 	"io/ioutil"
-	"log"
-	"sync"
 
-	"github.com/google/uuid"
-	"github.com/morozka/vdk/av"
+	"github.com/pkg/errors"
 )
-
-// StreamsMap map of *StreamConfiguration with mutex
-type StreamsMap struct {
-	sync.Mutex
-	Streams map[uuid.UUID]*StreamConfiguration
-}
-
-func (sm StreamsMap) getKeys() []uuid.UUID {
-	sm.Lock()
-	defer sm.Unlock()
-	keys := make([]uuid.UUID, 0, len(sm.Streams))
-	for k := range sm.Streams {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
-// AppConfiguration Configuration parameters for application
-type AppConfiguration struct {
-	Server          ServerConfiguration `json:"server"`
-	Streams         StreamsMap          `json:"streams"`
-	HlsMsPerSegment int64               `json:"hlsMsPerSegment"`
-	HlsDirectory    string              `json:"hlsDirectory"`
-	HlsWindowSize   uint                `json:"hlsWindowSize"`
-	HlsCapacity     uint                `json:"hlsWindowCapacity"`
-}
-
-// ServerConfiguration Configuration parameters for server
-type ServerConfiguration struct {
-	HTTPPort string `json:"http_port"`
-}
-
-// StreamConfiguration Configuration parameters for stream
-type StreamConfiguration struct {
-	URL       string `json:"url"`
-	Status    bool   `json:"status"`
-	Codecs    []av.CodecData
-	Clients   map[uuid.UUID]viewer
-	HlsChanel chan av.Packet `json:"-"`
-}
-
-type viewer struct {
-	c chan av.Packet
-}
 
 const (
 	defaultHlsDir          = "./hls"
@@ -61,147 +14,54 @@ const (
 	defaultHlsWindowSize   = 5
 )
 
-// ConfigurationArgs Configuration parameters for application from JSON-file
+// ConfigurationArgs Configuration parameters for application as JSON-file
 type ConfigurationArgs struct {
 	Server          ServerConfiguration `json:"server"`
 	Streams         []StreamArg         `json:"streams"`
-	HlsMsPerSegment int64               `json:"hlsMsPerSegment"`
-	HlsDirectory    string              `json:"hlsDirectory"`
-	HlsWindowSize   uint                `json:"hlsWindowSize"`
-	HlsCapacity     uint                `json:"hlsWindowCapacity"`
+	HlsMsPerSegment int64               `json:"hls_ms_per_segment"`
+	HlsDirectory    string              `json:"hls_directory"`
+	HlsWindowSize   uint                `json:"hls_window_size"`
+	HlsCapacity     uint                `json:"hls_window_capacity"`
 }
 
 // StreamArg Infromation about stream's source
 type StreamArg struct {
-	GUID string `json:"guid"`
-	URL  string `json:"url"`
+	GUID        string   `json:"guid"`
+	URL         string   `json:"url"`
+	StreamTypes []string `json:"stream_types"`
 }
 
-// NewAppConfiguration Prepare configuration for application
-func NewAppConfiguration(fname string) (*AppConfiguration, error) {
-	var tmp AppConfiguration
+// ServerConfiguration Configuration parameters for server
+type ServerConfiguration struct {
+	HTTPAddr string `json:"http_addr"`
+	HTTPPort int    `json:"http_port"`
+}
+
+// NewConfiguration Constructor for ConfigurationArgs
+func NewConfiguration(fname string) (*ConfigurationArgs, error) {
 	data, err := ioutil.ReadFile(fname)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Can't read file")
 	}
-	var jsonConf ConfigurationArgs
-	err = json.Unmarshal(data, &jsonConf)
+	conf := ConfigurationArgs{}
+	err = json.Unmarshal(data, &conf)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Can't unmarshal file's content")
 	}
-
-	if jsonConf.HlsDirectory == "" {
-		jsonConf.HlsDirectory = defaultHlsDir
+	if conf.HlsDirectory == "" {
+		conf.HlsDirectory = defaultHlsDir
 	}
-	if jsonConf.HlsMsPerSegment == 0 {
-		jsonConf.HlsMsPerSegment = defaultHlsMsPerSegment
+	if conf.HlsMsPerSegment == 0 {
+		conf.HlsMsPerSegment = defaultHlsMsPerSegment
 	}
-	if jsonConf.HlsCapacity == 0 {
-		jsonConf.HlsCapacity = defaultHlsCapacity
+	if conf.HlsCapacity == 0 {
+		conf.HlsCapacity = defaultHlsCapacity
 	}
-	if jsonConf.HlsWindowSize == 0 {
-		jsonConf.HlsWindowSize = defaultHlsWindowSize
+	if conf.HlsWindowSize == 0 {
+		conf.HlsWindowSize = defaultHlsWindowSize
 	}
-	if jsonConf.HlsWindowSize > jsonConf.HlsCapacity {
-		jsonConf.HlsWindowSize = jsonConf.HlsCapacity
+	if conf.HlsWindowSize > conf.HlsCapacity {
+		conf.HlsWindowSize = conf.HlsCapacity
 	}
-
-	tmp.Streams = StreamsMap{Streams: make(map[uuid.UUID]*StreamConfiguration)}
-	tmp.Server = jsonConf.Server
-	tmp.HlsMsPerSegment = jsonConf.HlsMsPerSegment
-	tmp.HlsDirectory = jsonConf.HlsDirectory
-	tmp.HlsWindowSize = jsonConf.HlsWindowSize
-	tmp.HlsCapacity = jsonConf.HlsCapacity
-	for i := range jsonConf.Streams {
-		validUUID, err := uuid.Parse(jsonConf.Streams[i].GUID)
-		if err != nil {
-			log.Printf("Not valid UUID: %s\n", jsonConf.Streams[i].GUID)
-			continue
-		}
-		tmp.Streams.Streams[validUUID] = &StreamConfiguration{
-			URL:       jsonConf.Streams[i].URL,
-			Clients:   make(map[uuid.UUID]viewer),
-			HlsChanel: make(chan av.Packet, 100),
-		}
-	}
-	return &tmp, nil
-}
-
-func (element *AppConfiguration) cast(id uuid.UUID, pck av.Packet) {
-	element.Streams.Lock()
-	defer element.Streams.Unlock()
-	curStream, _ := element.Streams.Streams[id]
-	curStream.HlsChanel <- pck
-	for _, v := range curStream.Clients {
-		if len(v.c) < cap(v.c) {
-			v.c <- pck
-		}
-	}
-}
-
-func (element *AppConfiguration) ext(streamID uuid.UUID) bool {
-	element.Streams.Lock()
-	defer element.Streams.Unlock()
-	_, ok := element.Streams.Streams[streamID]
-	return ok
-}
-
-func (element *AppConfiguration) codecAdd(streamID uuid.UUID, codecs []av.CodecData) {
-	element.Streams.Lock()
-	defer element.Streams.Unlock()
-	element.Streams.Streams[streamID].Codecs = codecs
-}
-
-func (element *AppConfiguration) codecGet(streamID uuid.UUID) []av.CodecData {
-	element.Streams.Lock()
-	defer element.Streams.Unlock()
-	curStream, _ := element.Streams.Streams[streamID]
-	return curStream.Codecs
-}
-
-func (element *AppConfiguration) updateStatus(streamID uuid.UUID, status bool) {
-	element.Streams.Lock()
-	defer element.Streams.Unlock()
-	t, _ := element.Streams.Streams[streamID]
-	t.Status = status
-	element.Streams.Streams[streamID] = t
-}
-
-func (element *AppConfiguration) clientAdd(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
-	element.Streams.Lock()
-	defer element.Streams.Unlock()
-	clientID, err := uuid.NewUUID()
-	if err != nil {
-		return uuid.UUID{}, nil, err
-	}
-	ch := make(chan av.Packet, 100)
-	curStream, _ := element.Streams.Streams[streamID]
-	curStream.Clients[clientID] = viewer{c: ch}
-	return clientID, ch, nil
-}
-
-func (element *AppConfiguration) clientDelete(streamID, clientID uuid.UUID) {
-	defer element.Streams.Unlock()
-	element.Streams.Lock()
-	delete(element.Streams.Streams[streamID].Clients, clientID)
-}
-
-func (element *AppConfiguration) startHlsCast(streamID uuid.UUID, stopCast chan bool) {
-	defer element.Streams.Unlock()
-	element.Streams.Lock()
-	go element.startHls(streamID, element.Streams.Streams[streamID].HlsChanel, stopCast)
-}
-
-func (element *AppConfiguration) list() (uuid.UUID, []uuid.UUID) {
-	defer element.Streams.Unlock()
-	element.Streams.Lock()
-	res := []uuid.UUID{}
-	first := uuid.UUID{}
-	for k := range element.Streams.Streams {
-		if first.String() == "" {
-			first = k
-		}
-		res = append(res, k)
-	}
-	return first, res
+	return &conf, nil
 }
