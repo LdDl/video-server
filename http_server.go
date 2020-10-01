@@ -15,7 +15,7 @@ import (
 )
 
 // StartHTTPServer Initialize http server and run it
-func (cfg *Application) StartHTTPServer() {
+func (app *Application) StartHTTPServer() {
 	router := gin.New()
 
 	gin.SetMode(gin.ReleaseMode)
@@ -23,33 +23,52 @@ func (cfg *Application) StartHTTPServer() {
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
 	router.Use(cors.New(config))
-
-	router.GET("/list", func(ctx *gin.Context) {
-		_, all := cfg.list()
-		ctx.JSON(200, all)
-	})
-	router.GET("/status", func(ctx *gin.Context) {
-		ctx.JSON(200, cfg)
-	})
-	router.GET("/ws/:suuid", func(ctx *gin.Context) {
-		wshandler(ctx.Writer, ctx.Request, cfg)
-	})
-	router.GET("/hls/:file", func(ctx *gin.Context) {
-		file := ctx.Param("file")
-		ctx.Header("Cache-Control", "no-cache")
-		ctx.FileFromFS(file, http.Dir("./hls"))
-	})
+	router.GET("/list", ListWrapper(app))
+	router.GET("/status", StatusWrapper(app))
+	router.GET("/ws/:suuid", WebSocketWrapper(app))
+	router.GET("/hls/:file", HLSWrapper(app))
 
 	s := &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", cfg.Server.HTTPAddr, cfg.Server.HTTPPort),
+		Addr:         fmt.Sprintf("%s:%d", app.Server.HTTPAddr, app.Server.HTTPPort),
 		Handler:      router,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 	err := s.ListenAndServe()
 	if err != nil {
-		log.Printf("Can't run HTTP-server on port: %d\n", cfg.Server.HTTPPort)
+		log.Printf("Can't run HTTP-server on port: %d\n", app.Server.HTTPPort)
 		return
+	}
+}
+
+// ListWrapper Returns list of streams
+func ListWrapper(app *Application) func(ctx *gin.Context) {
+	return func(ctx *gin.Context) {
+		ctx.JSON(200, app)
+	}
+}
+
+// StatusWrapper Returns statuses for list of streams
+func StatusWrapper(app *Application) func(ctx *gin.Context) {
+	return func(ctx *gin.Context) {
+		_, all := app.list()
+		ctx.JSON(200, all)
+	}
+}
+
+// WebSocketWrapper Returns WS handler
+func WebSocketWrapper(app *Application) func(ctx *gin.Context) {
+	return func(ctx *gin.Context) {
+		wshandler(ctx.Writer, ctx.Request, app)
+	}
+}
+
+// HLSWrapper Returns HLS handler (static files)
+func HLSWrapper(app *Application) func(ctx *gin.Context) {
+	return func(ctx *gin.Context) {
+		file := ctx.Param("file")
+		ctx.Header("Cache-Control", "no-cache")
+		ctx.FileFromFS(file, http.Dir(app.HlsDirectory))
 	}
 }
 
