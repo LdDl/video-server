@@ -4,6 +4,8 @@ import (
 	"log"
 	"sync"
 
+	"github.com/gin-contrib/cors"
+
 	"github.com/google/uuid"
 	"github.com/morozka/vdk/av"
 )
@@ -16,6 +18,7 @@ type Application struct {
 	HlsDirectory    string      `json:"hls_directory"`
 	HlsWindowSize   uint        `json:"hls_window_size"`
 	HlsCapacity     uint        `json:"hls_window_capacity"`
+	CorsConfig      cors.Config
 }
 
 // ServerInfo Information about server
@@ -66,6 +69,7 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 		HlsWindowSize:   cfg.HlsWindowSize,
 		HlsCapacity:     cfg.HlsCapacity,
 	}
+	tmp.setCors(cfg)
 	for i := range cfg.Streams {
 		validUUID, err := uuid.Parse(cfg.Streams[i].GUID)
 		if err != nil {
@@ -80,7 +84,13 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 	}
 	return &tmp, nil
 }
-
+func (app *Application) setCors(cfg *ConfigurationArgs) {
+	app.CorsConfig = cors.DefaultConfig()
+	switch cfg.CorsConfig {
+	case "AllowAllOrigins":
+		app.CorsConfig.AllowAllOrigins = true
+	}
+}
 func (app *Application) cast(streamID uuid.UUID, pck av.Packet) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
