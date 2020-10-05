@@ -45,11 +45,12 @@ func (sm *StreamsMap) getKeys() []uuid.UUID {
 
 // StreamConfiguration Configuration parameters for stream
 type StreamConfiguration struct {
-	URL       string `json:"url"`
-	Status    bool   `json:"status"`
-	Codecs    []av.CodecData
-	Clients   map[uuid.UUID]viewer
-	hlsChanel chan av.Packet
+	URL                  string   `json:"url"`
+	Status               bool     `json:"status"`
+	SupportedStreamTypes []string `json:"supported_stream_types"`
+	Codecs               []av.CodecData
+	Clients              map[uuid.UUID]viewer
+	hlsChanel            chan av.Packet
 }
 
 type viewer struct {
@@ -77,9 +78,10 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 			continue
 		}
 		tmp.Streams.Streams[validUUID] = &StreamConfiguration{
-			URL:       cfg.Streams[i].URL,
-			Clients:   make(map[uuid.UUID]viewer),
-			hlsChanel: make(chan av.Packet, 100),
+			URL:                  cfg.Streams[i].URL,
+			Clients:              make(map[uuid.UUID]viewer),
+			hlsChanel:            make(chan av.Packet, 100),
+			SupportedStreamTypes: cfg.Streams[i].StreamTypes,
 		}
 	}
 	return &tmp, nil
@@ -112,11 +114,21 @@ func (app *Application) cast(streamID uuid.UUID, pck av.Packet) error {
 	return nil
 }
 
-func (app *Application) ext(streamID uuid.UUID) bool {
+func (app *Application) exists(streamID uuid.UUID) bool {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	_, ok := app.Streams.Streams[streamID]
 	return ok
+
+}
+
+func (app *Application) existsWithType(streamID uuid.UUID, streamType string) bool {
+	app.Streams.Lock()
+	defer app.Streams.Unlock()
+	stream, ok := app.Streams.Streams[streamID]
+	supportedTypes := stream.SupportedStreamTypes
+	typeEnabled := typeExists(streamType, supportedTypes)
+	return ok && typeEnabled
 }
 
 func (app *Application) codecAdd(streamID uuid.UUID, codecs []av.CodecData) {

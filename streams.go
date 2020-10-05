@@ -13,8 +13,12 @@ func (app *Application) StartStreams() {
 	for _, k := range app.Streams.getKeys() {
 		app.Streams.Lock()
 		url := app.Streams.Streams[k].URL
+		supportedTypes := app.Streams.Streams[k].SupportedStreamTypes
 		app.Streams.Unlock()
-		go func(name uuid.UUID, url string) {
+
+		hlsEnabled := typeExists("hls", supportedTypes)
+
+		go func(name uuid.UUID, hlsEnabled bool, url string) {
 			for {
 				log.Printf("Stream must be establishment for '%s' by connecting to %s\n", name, url)
 				rtsp.DebugRtsp = false
@@ -38,22 +42,39 @@ func (app *Application) StartStreams() {
 					time.Sleep(60 * time.Second)
 					continue
 				}
-				stopHlsCast := make(chan bool, 1)
-				app.startHlsCast(name, stopHlsCast)
-				for {
-					pkt, err := session.ReadPacket()
-					if err != nil {
-						log.Printf("Can't read session's packet %s (%s): %s\n", name, url, err.Error())
-						stopHlsCast <- true
-						break
+
+				if hlsEnabled {
+					stopHlsCast := make(chan bool, 1)
+					app.startHlsCast(name, stopHlsCast)
+					for {
+						pkt, err := session.ReadPacket()
+						if err != nil {
+							log.Printf("Can't read session's packet %s (%s): %s\n", name, url, err.Error())
+							stopHlsCast <- true
+							break
+						}
+						err = app.cast(name, pkt)
+						if err != nil {
+							log.Printf("Can't cast packet %s (%s): %s\n", name, url, err.Error())
+							stopHlsCast <- true
+							break
+						}
 					}
-					err = app.cast(name, pkt)
-					if err != nil {
-						log.Printf("Can't cast packet %s (%s): %s\n", name, url, err.Error())
-						stopHlsCast <- true
-						break
+				} else {
+					for {
+						pkt, err := session.ReadPacket()
+						if err != nil {
+							log.Printf("Can't read session's packet %s (%s): %s\n", name, url, err.Error())
+							break
+						}
+						err = app.cast(name, pkt)
+						if err != nil {
+							log.Printf("Can't cast packet %s (%s): %s\n", name, url, err.Error())
+							break
+						}
 					}
 				}
+
 				session.Close()
 				err = app.updateStatus(name, false)
 				if err != nil {
@@ -64,6 +85,15 @@ func (app *Application) StartStreams() {
 				log.Printf("Stream must be re-establishment for '%s' by connecting to %s in next 5 seconds\n", name, url)
 				time.Sleep(5 * time.Second)
 			}
-		}(k, url)
+		}(k, hlsEnabled, url)
 	}
+}
+
+func typeExists(typeName string, typesNames []string) bool {
+	for i := range typesNames {
+		if typesNames[i] == typeName {
+			return true
+		}
+	}
+	return false
 }
