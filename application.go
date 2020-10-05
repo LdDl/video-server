@@ -86,10 +86,15 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 }
 func (app *Application) setCors(cfg *ConfigurationArgs) {
 	app.CorsConfig = cors.DefaultConfig()
-	switch cfg.CorsConfig {
-	case "AllowAllOrigins":
-		app.CorsConfig.AllowAllOrigins = true
+	app.CorsConfig.AllowOrigins = cfg.CorsConfig.AllowOrigins
+	if len(cfg.CorsConfig.AllowMethods) != 0 {
+		app.CorsConfig.AllowMethods = cfg.CorsConfig.AllowMethods
 	}
+	if len(cfg.CorsConfig.AllowHeaders) != 0 {
+		app.CorsConfig.AllowHeaders = cfg.CorsConfig.AllowHeaders
+	}
+	app.CorsConfig.ExposeHeaders = cfg.CorsConfig.ExposeHeaders
+	app.CorsConfig.AllowCredentials = cfg.CorsConfig.AllowCredentials
 }
 func (app *Application) cast(streamID uuid.UUID, pck av.Packet) error {
 	app.Streams.Lock()
