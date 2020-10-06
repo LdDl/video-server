@@ -18,16 +18,13 @@ func (app *Application) StartHTTPServer() {
 
 	gin.SetMode(gin.ReleaseMode)
 	pprof.Register(router)
-	config := cors.DefaultConfig()
-	config.AllowAllOrigins = true
 
 	wsUpgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			return true
 		},
 	}
-
-	router.Use(cors.New(config))
+	router.Use(cors.New(app.CorsConfig))
 	router.GET("/list", ListWrapper(app))
 	router.GET("/status", StatusWrapper(app))
 	router.GET("/ws/:suuid", WebSocketWrapper(app, &wsUpgrader))

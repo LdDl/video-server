@@ -13,5 +13,12 @@
             "url": "rtsp://170.93.143.139/rtplive/470011e600ef003a004ee33696235daa",
             "stream_types": ["hls", "mse"]
         }
-    ]
+    ],
+    "cors_config": {
+        "allow_origins":["*"],
+        "allow_methods":["GET", "PUT", "POST", "DELETE"],
+        "allow_headers":["Origin", "Authorization", "Content-Type", "Content-Length", "Accept", "Accept-Encoding", "X-HttpRequest"],
+        "expose_headers":["Content-Length"],
+        "allow_credentials":true
+    }
 }

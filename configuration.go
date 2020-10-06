@@ -22,6 +22,16 @@ type ConfigurationArgs struct {
 	HlsDirectory    string              `json:"hls_directory"`
 	HlsWindowSize   uint                `json:"hls_window_size"`
 	HlsCapacity     uint                `json:"hls_window_capacity"`
+	CorsConfig      CorsConfiguration   `json:"cors_config"`
+}
+
+//CorsConfiguration Configuration of CORS requests
+type CorsConfiguration struct {
+	AllowOrigins     []string `json:"allow_origins"`
+	AllowMethods     []string `json:"allow_methods"`
+	AllowHeaders     []string `json:"allow_headers"`
+	ExposeHeaders    []string `json:"expose_headers"`
+	AllowCredentials bool     `json:"allow_credentials"`
 }
 
 // StreamArg Infromation about stream's source
