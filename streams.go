@@ -67,7 +67,7 @@ func (app *Application) StartStreams() {
 							log.Printf("Can't read session's packet %s (%s): %s\n", name, url, err.Error())
 							break
 						}
-						err = app.cast(name, pkt)
+						err = app.castMSE(name, pkt)
 						if err != nil {
 							log.Printf("Can't cast packet %s (%s): %s\n", name, url, err.Error())
 							break

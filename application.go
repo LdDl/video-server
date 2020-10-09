@@ -113,7 +113,20 @@ func (app *Application) cast(streamID uuid.UUID, pck av.Packet) error {
 	}
 	return nil
 }
-
+func (app *Application) castMSE(streamID uuid.UUID, pck av.Packet) error {
+	app.Streams.Lock()
+	defer app.Streams.Unlock()
+	curStream, ok := app.Streams.Streams[streamID]
+	if !ok {
+		return ErrStreamNotFound
+	}
+	for _, v := range curStream.Clients {
+		if len(v.c) < cap(v.c) {
+			v.c <- pck
+		}
+	}
+	return nil
+}
 func (app *Application) exists(streamID uuid.UUID) bool {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
