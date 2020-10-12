@@ -18,7 +18,7 @@ type Application struct {
 	HlsDirectory    string      `json:"hls_directory"`
 	HlsWindowSize   uint        `json:"hls_window_size"`
 	HlsCapacity     uint        `json:"hls_window_capacity"`
-	CorsConfig      cors.Config
+	CorsConfig      *cors.Config
 }
 
 // ServerInfo Information about server
@@ -70,7 +70,9 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 		HlsWindowSize:   cfg.HlsWindowSize,
 		HlsCapacity:     cfg.HlsCapacity,
 	}
-	tmp.setCors(cfg)
+	if cfg.CorsConfig.UseCORS {
+		tmp.setCors(&cfg.CorsConfig)
+	}
 	for i := range cfg.Streams {
 		validUUID, err := uuid.Parse(cfg.Streams[i].GUID)
 		if err != nil {
@@ -86,18 +88,20 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 	}
 	return &tmp, nil
 }
-func (app *Application) setCors(cfg *ConfigurationArgs) {
-	app.CorsConfig = cors.DefaultConfig()
-	app.CorsConfig.AllowOrigins = cfg.CorsConfig.AllowOrigins
-	if len(cfg.CorsConfig.AllowMethods) != 0 {
-		app.CorsConfig.AllowMethods = cfg.CorsConfig.AllowMethods
+func (app *Application) setCors(cfg *CorsConfiguration) {
+	newCors := cors.DefaultConfig()
+	app.CorsConfig = &newCors
+	app.CorsConfig.AllowOrigins = cfg.AllowOrigins
+	if len(cfg.AllowMethods) != 0 {
+		app.CorsConfig.AllowMethods = cfg.AllowMethods
 	}
-	if len(cfg.CorsConfig.AllowHeaders) != 0 {
-		app.CorsConfig.AllowHeaders = cfg.CorsConfig.AllowHeaders
+	if len(cfg.AllowHeaders) != 0 {
+		app.CorsConfig.AllowHeaders = cfg.AllowHeaders
 	}
-	app.CorsConfig.ExposeHeaders = cfg.CorsConfig.ExposeHeaders
-	app.CorsConfig.AllowCredentials = cfg.CorsConfig.AllowCredentials
+	app.CorsConfig.ExposeHeaders = cfg.ExposeHeaders
+	app.CorsConfig.AllowCredentials = cfg.AllowCredentials
 }
+
 func (app *Application) cast(streamID uuid.UUID, pck av.Packet) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()

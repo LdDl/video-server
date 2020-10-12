@@ -24,7 +24,9 @@ func (app *Application) StartHTTPServer() {
 			return true
 		},
 	}
-	router.Use(cors.New(app.CorsConfig))
+	if app.CorsConfig != nil {
+		router.Use(cors.New(*app.CorsConfig))
+	}
 	router.GET("/list", ListWrapper(app))
 	router.GET("/status", StatusWrapper(app))
 	router.GET("/ws/:suuid", WebSocketWrapper(app, &wsUpgrader))
