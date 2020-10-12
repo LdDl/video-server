@@ -24,9 +24,9 @@ Simple WS/HTTP server for re-streaming video (RTSP) to client in MSE/HLS format.
 
 ## Instalation
 ### Binaries
-Linux - [link](https://github.com/LdDl/video-server/releases/download/v0.2.1/linux-video_server.zip)
+Linux - [link](https://github.com/LdDl/video-server/releases/download/v0.3.1/linux-video_server.zip)
 
-Windows - [link](https://github.com/LdDl/video-server/releases/download/v0.2.1/windows-video_server.zip)
+Windows - [link](https://github.com/LdDl/video-server/releases/download/v0.3.1/windows-video_server.zip)
 
 ### From source
 ```bash
