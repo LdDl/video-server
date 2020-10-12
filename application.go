@@ -12,13 +12,13 @@ import (
 
 // Application Configuration parameters for application
 type Application struct {
-	Server          *ServerInfo `json:"server"`
-	Streams         StreamsMap  `json:"streams"`
-	HlsMsPerSegment int64       `json:"hls_ms_per_segment"`
-	HlsDirectory    string      `json:"hls_directory"`
-	HlsWindowSize   uint        `json:"hls_window_size"`
-	HlsCapacity     uint        `json:"hls_window_capacity"`
-	CorsConfig      *cors.Config
+	Server          *ServerInfo  `json:"server"`
+	Streams         StreamsMap   `json:"streams"`
+	HlsMsPerSegment int64        `json:"hls_ms_per_segment"`
+	HlsDirectory    string       `json:"hls_directory"`
+	HlsWindowSize   uint         `json:"hls_window_size"`
+	HlsCapacity     uint         `json:"hls_window_capacity"`
+	CorsConfig      *cors.Config `json:"-"`
 }
 
 // ServerInfo Information about server
