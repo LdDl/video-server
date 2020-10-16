@@ -1,6 +1,7 @@
 package videoserver
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -13,9 +14,11 @@ import (
 func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Request, app *Application) {
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
+		conn.WriteControl(8, []byte(fmt.Sprintf("Failed to make websocket upgrade: %s\n", err.Error())), time.Now().Add(10*time.Second))
 		log.Printf("Failed to make websocket upgrade: %s\n", err.Error())
 		return
 	}
+
 	defer func() {
 		err = conn.Close()
 		if err != nil {
@@ -27,6 +30,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 	streamIDSTR := r.FormValue("suuid")
 	streamID, err := uuid.Parse(streamIDSTR)
 	if err != nil {
+		conn.WriteControl(8, []byte(fmt.Sprintf("Can't parse UUID: '%s' due the error: %s\n", streamIDSTR, err.Error())), time.Now().Add(10*time.Second))
 		log.Printf("Can't parse UUID: '%s' due the error: %s\n", streamIDSTR, err.Error())
 		return
 	}
@@ -35,16 +39,19 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		cuuid, ch, err := app.clientAdd(streamID)
 		if err != nil {
+			conn.WriteControl(8, []byte(fmt.Sprintf("Can't add client for '%s' due the error: %s\n", streamID, err.Error())), time.Now().Add(10*time.Second))
 			log.Printf("Can't add client for '%s' due the error: %s\n", streamID, err.Error())
 			return
 		}
 		defer app.clientDelete(streamID, cuuid)
 		codecData, err := app.codecGet(streamID)
 		if err != nil {
+			conn.WriteControl(8, []byte(fmt.Sprintf("Can't add client '%s' due the error: %s\n", streamID, err.Error())), time.Now().Add(10*time.Second))
 			log.Printf("Can't add client '%s' due the error: %s\n", streamID, err.Error())
 			return
 		}
 		if codecData == nil {
+			conn.WriteControl(8, []byte(fmt.Sprintf("No codec information for stream %s\n", streamID)), time.Now().Add(10*time.Second))
 			log.Printf("No codec information for stream %s\n", streamID)
 			return
 		}
@@ -53,11 +60,13 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		meta, init := muxer.GetInit(codecData)
 		err = conn.WriteMessage(websocket.BinaryMessage, append([]byte{9}, meta...))
 		if err != nil {
+			conn.WriteControl(8, []byte(fmt.Sprintf("Can't write header to %s: %s\n", conn.RemoteAddr().String(), err.Error())), time.Now().Add(10*time.Second))
 			log.Printf("Can't write header to %s: %s\n", conn.RemoteAddr().String(), err.Error())
 			return
 		}
 		err = conn.WriteMessage(websocket.BinaryMessage, init)
 		if err != nil {
+			conn.WriteControl(8, []byte(fmt.Sprintf("Can't write message to %s: %s\n", conn.RemoteAddr().String(), err.Error())), time.Now().Add(10*time.Second))
 			log.Printf("Can't write message to %s: %s\n", conn.RemoteAddr().String(), err.Error())
 			return
 		}
@@ -67,6 +76,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 			_, _, err := conn.ReadMessage()
 			if err != nil {
 				q <- true
+				conn.WriteControl(8, []byte(fmt.Sprintf("Read message error: %s\n", err.Error())), time.Now().Add(10*time.Second))
 				log.Printf("Read message error: %s\n", err.Error())
 				return
 			}
@@ -87,6 +97,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 					conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 					err := conn.WriteMessage(websocket.BinaryMessage, buf)
 					if err != nil {
+						conn.WriteControl(8, []byte(fmt.Sprintf("Can't write messsage due the error: %s\n", err.Error())), time.Now().Add(10*time.Second))
 						log.Printf("Can't write messsage due the error: %s\n", err.Error())
 						return
 					}
