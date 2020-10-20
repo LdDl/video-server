@@ -1,6 +1,7 @@
 package videoserver
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -8,8 +9,20 @@ import (
 	"github.com/morozka/vdk/format/rtsp"
 )
 
+func (app *Application) errorHandler(errchan chan hlsError) {
+	for err := range errchan {
+		app.hlsError.Lock()
+		app.hlsError.code = err.code
+		app.hlsError.err = err.err
+		app.hlsError.Unlock()
+	}
+}
+
 // StartStreams Start video streams
 func (app *Application) StartStreams() {
+	app.hlsError.code = 200
+	echan := make(chan hlsError)
+	go app.errorHandler(echan)
 	for _, k := range app.Streams.getKeys() {
 		app.Streams.Lock()
 		url := app.Streams.Streams[k].URL
@@ -49,12 +62,14 @@ func (app *Application) StartStreams() {
 					for {
 						pkt, err := session.ReadPacket()
 						if err != nil {
+							echan <- hlsError{code: 540, err: fmt.Errorf("Can't read session's packet %s (%s): %s\n", name, url, err.Error())}
 							log.Printf("Can't read session's packet %s (%s): %s\n", name, url, err.Error())
 							stopHlsCast <- true
 							break
 						}
 						err = app.cast(name, pkt)
 						if err != nil {
+							echan <- hlsError{code: 541, err: fmt.Errorf("Can't cast packet %s (%s): %s\n", name, url, err.Error())}
 							log.Printf("Can't cast packet %s (%s): %s\n", name, url, err.Error())
 							stopHlsCast <- true
 							break

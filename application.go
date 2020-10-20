@@ -1,6 +1,7 @@
 package videoserver
 
 import (
+	"fmt"
 	"log"
 	"sync"
 
@@ -19,6 +20,17 @@ type Application struct {
 	HlsWindowSize   uint         `json:"hls_window_size"`
 	HlsCapacity     uint         `json:"hls_window_capacity"`
 	CorsConfig      *cors.Config `json:"-"`
+	hlsError        hlsError     `json:"-"`
+}
+
+type hlsError struct {
+	sync.Mutex
+	code int
+	err  error
+}
+
+func (hlserr hlsError) Error() string {
+	return fmt.Sprint(hlserr.err)
 }
 
 // ServerInfo Information about server

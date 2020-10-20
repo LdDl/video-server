@@ -70,6 +70,14 @@ func WebSocketWrapper(app *Application, wsUpgrader *websocket.Upgrader) func(ctx
 // HLSWrapper Returns HLS handler (static files)
 func HLSWrapper(app *Application) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
+		app.hlsError.Lock()
+		if app.hlsError.code != 200 {
+			ctx.JSON(app.hlsError.code, app.hlsError.err.Error())
+			app.hlsError.code = 200
+			app.hlsError.Unlock()
+			return
+		}
+		app.hlsError.Unlock()
 		file := ctx.Param("file")
 		ctx.Header("Cache-Control", "no-cache")
 		ctx.FileFromFS(file, http.Dir(app.HlsDirectory))
