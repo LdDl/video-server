@@ -1,7 +1,6 @@
 package videoserver
 
 import (
-	"fmt"
 	"log"
 	"sync"
 
@@ -20,17 +19,6 @@ type Application struct {
 	HlsWindowSize   uint         `json:"hls_window_size"`
 	HlsCapacity     uint         `json:"hls_window_capacity"`
 	CorsConfig      *cors.Config `json:"-"`
-	hlsError        hlsError     `json:"-"`
-}
-
-type hlsError struct {
-	sync.Mutex
-	code int
-	err  error
-}
-
-func (hlserr hlsError) Error() string {
-	return fmt.Sprint(hlserr.err)
 }
 
 // ServerInfo Information about server
@@ -63,6 +51,30 @@ type StreamConfiguration struct {
 	Codecs               []av.CodecData
 	Clients              map[uuid.UUID]viewer
 	hlsChanel            chan av.Packet
+	hlsError             hlsError `json:"-"`
+}
+type hlsError struct {
+	sync.Mutex
+	code int
+	err  error
+}
+
+func (he *hlsError) setError(code int, err error) {
+	he.Lock()
+	he.code = code
+	he.err = err
+	defer he.Unlock()
+}
+func (he *hlsError) getError() (code int, err error) {
+	he.Lock()
+	defer he.Unlock()
+	if he.code == 0 {
+		he.code = 200
+	}
+	return he.code, he.err
+}
+func (hlserr hlsError) Error() string {
+	return hlserr.err.Error()
 }
 
 type viewer struct {

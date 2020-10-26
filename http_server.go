@@ -9,6 +9,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -70,15 +71,16 @@ func WebSocketWrapper(app *Application, wsUpgrader *websocket.Upgrader) func(ctx
 // HLSWrapper Returns HLS handler (static files)
 func HLSWrapper(app *Application) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
-		app.hlsError.Lock()
-		if app.hlsError.code != 200 {
-			ctx.JSON(app.hlsError.code, app.hlsError.err.Error())
-			app.hlsError.code = 200
-			app.hlsError.Unlock()
-			return
-		}
-		app.hlsError.Unlock()
 		file := ctx.Param("file")
+		k, err := uuid.Parse(file[:36])
+		if err == nil {
+			code, err := app.Streams.Streams[k].hlsError.getError()
+			app.Streams.Streams[k].hlsError.setError(200, nil)
+			if code != 200 {
+				ctx.JSON(code, err.Error())
+				return
+			}
+		}
 		ctx.Header("Cache-Control", "no-cache")
 		ctx.FileFromFS(file, http.Dir(app.HlsDirectory))
 	}
