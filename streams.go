@@ -27,7 +27,7 @@ func (app *Application) StartStreams() {
 				rtsp.DebugRtsp = false
 				session, err := rtsp.Dial(url)
 				if err != nil {
-					hlsErr.setError(520, fmt.Errorf("rtsp.Dial error for %s (%s): %s", name, url, err.Error()))
+					hlsErr.setError(502, fmt.Errorf("rtsp.Dial error for %s (%s): %s", name, url, err.Error()))
 					log.Printf("rtsp.Dial error for %s (%s): %s\n", name, url, err.Error())
 					time.Sleep(60 * time.Second)
 					continue
@@ -43,7 +43,6 @@ func (app *Application) StartStreams() {
 				app.codecAdd(name, codec)
 				err = app.updateStatus(name, true)
 				if err != nil {
-					hlsErr.setError(520, fmt.Errorf("Can't update status 'true' for %s (%s): %s", name, url, err.Error()))
 					log.Printf("Can't update status 'true' for %s (%s): %s\n", name, url, err.Error())
 					time.Sleep(60 * time.Second)
 					continue
@@ -55,14 +54,14 @@ func (app *Application) StartStreams() {
 					for {
 						pkt, err := session.ReadPacket()
 						if err != nil {
-							hlsErr.setError(520, fmt.Errorf("Can't read session's packet %s (%s): %s", name, url, err.Error()))
+							hlsErr.setError(500, fmt.Errorf("Can't read session's packet %s (%s): %s", name, url, err.Error()))
 							log.Printf("Can't read session's packet %s (%s): %s\n", name, url, err.Error())
 							stopHlsCast <- true
 							break
 						}
 						err = app.cast(name, pkt)
 						if err != nil {
-							hlsErr.setError(520, fmt.Errorf("Can't cast packet %s (%s): %s", name, url, err.Error()))
+							hlsErr.setError(500, fmt.Errorf("Can't cast packet %s (%s): %s", name, url, err.Error()))
 							log.Printf("Can't cast packet %s (%s): %s\n", name, url, err.Error())
 							stopHlsCast <- true
 							break
