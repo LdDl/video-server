@@ -14,7 +14,7 @@ import (
 func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Request, app *Application) {
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
-		closeWSwithError(conn, 1010, fmt.Sprintf("Failed to make websocket upgrade: %s\n", err.Error()))
+		closeWSwithError(conn, 1011, fmt.Sprintf("Failed to make websocket upgrade: %s\n", err.Error()))
 		log.Printf("Failed to make websocket upgrade: %s\n", err.Error())
 		return
 	}
@@ -30,7 +30,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 	streamIDSTR := r.FormValue("suuid")
 	streamID, err := uuid.Parse(streamIDSTR)
 	if err != nil {
-		closeWSwithError(conn, 1010, fmt.Sprintf("Can't parse UUID: '%s' due the error: %s\n", streamIDSTR, err.Error()))
+		closeWSwithError(conn, 1011, fmt.Sprintf("Can't parse UUID: '%s' due the error: %s\n", streamIDSTR, err.Error()))
 		log.Printf("Can't parse UUID: '%s' due the error: %s\n", streamIDSTR, err.Error())
 		return
 	}
@@ -39,19 +39,19 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		cuuid, ch, err := app.clientAdd(streamID)
 		if err != nil {
-			closeWSwithError(conn, 1010, fmt.Sprintf("  Can't add client for '%s' due the error: %s\n", streamID, err.Error()))
+			closeWSwithError(conn, 1011, fmt.Sprintf("  Can't add client for '%s' due the error: %s\n", streamID, err.Error()))
 			log.Printf("Can't add client for '%s' due the error: %s\n", streamID, err.Error())
 			return
 		}
 		defer app.clientDelete(streamID, cuuid)
 		codecData, err := app.codecGet(streamID)
 		if err != nil {
-			closeWSwithError(conn, 1010, fmt.Sprintf("Can't add client '%s' due the error: %s\n", streamID, err.Error()))
+			closeWSwithError(conn, 1011, fmt.Sprintf("Can't add client '%s' due the error: %s\n", streamID, err.Error()))
 			log.Printf("Can't add client '%s' due the error: %s\n", streamID, err.Error())
 			return
 		}
 		if codecData == nil {
-			closeWSwithError(conn, 1010, fmt.Sprintf("No codec information for stream %s\n", streamID))
+			closeWSwithError(conn, 1011, fmt.Sprintf("No codec information for stream %s\n", streamID))
 			log.Printf("No codec information for stream %s\n", streamID)
 			return
 		}
@@ -60,13 +60,13 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		meta, init := muxer.GetInit(codecData)
 		err = conn.WriteMessage(websocket.BinaryMessage, append([]byte{9}, meta...))
 		if err != nil {
-			closeWSwithError(conn, 1010, fmt.Sprintf("Can't write header to %s: %s\n", conn.RemoteAddr().String(), err.Error()))
+			closeWSwithError(conn, 1011, fmt.Sprintf("Can't write header to %s: %s\n", conn.RemoteAddr().String(), err.Error()))
 			log.Printf("Can't write header to %s: %s\n", conn.RemoteAddr().String(), err.Error())
 			return
 		}
 		err = conn.WriteMessage(websocket.BinaryMessage, init)
 		if err != nil {
-			closeWSwithError(conn, 1010, fmt.Sprintf("Can't write message to %s: %s\n", conn.RemoteAddr().String(), err.Error()))
+			closeWSwithError(conn, 1011, fmt.Sprintf("Can't write message to %s: %s\n", conn.RemoteAddr().String(), err.Error()))
 			log.Printf("Can't write message to %s: %s\n", conn.RemoteAddr().String(), err.Error())
 			return
 		}
@@ -76,7 +76,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 			_, _, err := conn.ReadMessage()
 			if err != nil {
 				q <- true
-				closeWSwithError(conn, 1010, fmt.Sprintf("Read message error: %s\n", err.Error()))
+				closeWSwithError(conn, 1011, fmt.Sprintf("Read message error: %s\n", err.Error()))
 				log.Printf("Read message error: %s\n", err.Error())
 				return
 			}
@@ -97,7 +97,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 					conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 					err := conn.WriteMessage(websocket.BinaryMessage, buf)
 					if err != nil {
-						closeWSwithError(conn, 1010, fmt.Sprintf("Can't write messsage due the error: %s\n", err.Error()))
+						closeWSwithError(conn, 1011, fmt.Sprintf("Can't write messsage due the error: %s\n", err.Error()))
 						log.Printf("Can't write messsage due the error: %s\n", err.Error())
 						return
 					}

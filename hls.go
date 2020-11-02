@@ -56,7 +56,7 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 		// Write packets
 		videoStreamIdx := int8(0)
 		for idx, codec := range codecData {
-			if codec.Type().IsVideo() == true {
+			if codec.Type().IsVideo() {
 				videoStreamIdx = int8(idx)
 				break
 			}
@@ -68,7 +68,7 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 		start := false
 
 		// Write lastKeyFrame if exist
-		if lastKeyFrame.IsKeyFrame == true {
+		if lastKeyFrame.IsKeyFrame {
 			start = true
 			if err = tsMuxer.WritePacket(lastKeyFrame); err != nil {
 				return errors.Wrap(err, fmt.Sprintf("Can't write packet for TS muxer for stream %s (1)", streamID))

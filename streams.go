@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/LdDl/video-server/internal/hlserror"
 	"github.com/google/uuid"
 	"github.com/morozka/vdk/format/rtsp"
 )
@@ -16,18 +17,17 @@ func (app *Application) StartStreams() {
 		app.Streams.Lock()
 		url := app.Streams.Streams[k].URL
 		supportedTypes := app.Streams.Streams[k].SupportedStreamTypes
-		hlsErr := &app.Streams.Streams[k].hlsError
 		app.Streams.Unlock()
 
 		hlsEnabled := typeExists("hls", supportedTypes)
 
-		go func(name uuid.UUID, hlsEnabled bool, url string, hlsErr *hlsError) {
+		go func(name uuid.UUID, hlsEnabled bool, url string) {
 			for {
 				log.Printf("Stream must be establishment for '%s' by connecting to %s", name, url)
 				rtsp.DebugRtsp = false
 				session, err := rtsp.Dial(url)
 				if err != nil {
-					hlsErr.setError(502, fmt.Errorf("rtsp.Dial error for %s (%s): %s", name, url, err.Error()))
+					hlserror.SetError(name, 502, fmt.Errorf("rtsp.Dial error for %s (%s): %s", name, url, err.Error()))
 					log.Printf("rtsp.Dial error for %s (%s): %s\n", name, url, err.Error())
 					time.Sleep(60 * time.Second)
 					continue
@@ -35,7 +35,7 @@ func (app *Application) StartStreams() {
 				session.RtpKeepAliveTimeout = time.Duration(10 * time.Second)
 				codec, err := session.Streams()
 				if err != nil {
-					hlsErr.setError(520, fmt.Errorf("Can't get sessions for %s (%s): %s", name, url, err.Error()))
+					hlserror.SetError(name, 520, fmt.Errorf("Can't get sessions for %s (%s): %s", name, url, err.Error()))
 					log.Printf("Can't get sessions for %s (%s): %s\n", name, url, err.Error())
 					time.Sleep(60 * time.Second)
 					continue
@@ -54,14 +54,14 @@ func (app *Application) StartStreams() {
 					for {
 						pkt, err := session.ReadPacket()
 						if err != nil {
-							hlsErr.setError(500, fmt.Errorf("Can't read session's packet %s (%s): %s", name, url, err.Error()))
+							hlserror.SetError(name, 500, fmt.Errorf("Can't read session's packet %s (%s): %s", name, url, err.Error()))
 							log.Printf("Can't read session's packet %s (%s): %s\n", name, url, err.Error())
 							stopHlsCast <- true
 							break
 						}
 						err = app.cast(name, pkt)
 						if err != nil {
-							hlsErr.setError(500, fmt.Errorf("Can't cast packet %s (%s): %s", name, url, err.Error()))
+							hlserror.SetError(name, 500, fmt.Errorf("Can't cast packet %s (%s): %s", name, url, err.Error()))
 							log.Printf("Can't cast packet %s (%s): %s\n", name, url, err.Error())
 							stopHlsCast <- true
 							break
@@ -92,7 +92,7 @@ func (app *Application) StartStreams() {
 				log.Printf("Stream must be re-establishment for '%s' by connecting to %s in next 5 seconds\n", name, url)
 				time.Sleep(5 * time.Second)
 			}
-		}(k, hlsEnabled, url, hlsErr)
+		}(k, hlsEnabled, url)
 	}
 }
 
