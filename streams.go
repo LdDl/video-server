@@ -1,15 +1,18 @@
 package videoserver
 
 import (
+	"fmt"
 	"log"
 	"time"
 
+	"github.com/LdDl/video-server/internal/hlserror"
 	"github.com/google/uuid"
 	"github.com/morozka/vdk/format/rtsp"
 )
 
 // StartStreams Start video streams
 func (app *Application) StartStreams() {
+
 	for _, k := range app.Streams.getKeys() {
 		app.Streams.Lock()
 		url := app.Streams.Streams[k].URL
@@ -20,10 +23,11 @@ func (app *Application) StartStreams() {
 
 		go func(name uuid.UUID, hlsEnabled bool, url string) {
 			for {
-				log.Printf("Stream must be establishment for '%s' by connecting to %s\n", name, url)
+				log.Printf("Stream must be establishment for '%s' by connecting to %s", name, url)
 				rtsp.DebugRtsp = false
 				session, err := rtsp.Dial(url)
 				if err != nil {
+					hlserror.SetError(name, 502, fmt.Errorf("rtsp.Dial error for %s (%s): %s", name, url, err.Error()))
 					log.Printf("rtsp.Dial error for %s (%s): %s\n", name, url, err.Error())
 					time.Sleep(60 * time.Second)
 					continue
@@ -31,6 +35,7 @@ func (app *Application) StartStreams() {
 				session.RtpKeepAliveTimeout = time.Duration(10 * time.Second)
 				codec, err := session.Streams()
 				if err != nil {
+					hlserror.SetError(name, 520, fmt.Errorf("Can't get sessions for %s (%s): %s", name, url, err.Error()))
 					log.Printf("Can't get sessions for %s (%s): %s\n", name, url, err.Error())
 					time.Sleep(60 * time.Second)
 					continue
@@ -49,12 +54,14 @@ func (app *Application) StartStreams() {
 					for {
 						pkt, err := session.ReadPacket()
 						if err != nil {
+							hlserror.SetError(name, 500, fmt.Errorf("Can't read session's packet %s (%s): %s", name, url, err.Error()))
 							log.Printf("Can't read session's packet %s (%s): %s\n", name, url, err.Error())
 							stopHlsCast <- true
 							break
 						}
 						err = app.cast(name, pkt)
 						if err != nil {
+							hlserror.SetError(name, 500, fmt.Errorf("Can't cast packet %s (%s): %s", name, url, err.Error()))
 							log.Printf("Can't cast packet %s (%s): %s\n", name, url, err.Error())
 							stopHlsCast <- true
 							break

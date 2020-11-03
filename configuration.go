@@ -25,7 +25,7 @@ type ConfigurationArgs struct {
 	CorsConfig      CorsConfiguration   `json:"cors_config"`
 }
 
-//CorsConfiguration Configuration of CORS requests
+// CorsConfiguration Configuration of CORS requests
 type CorsConfiguration struct {
 	UseCORS          bool     `json:"use_cors"`
 	AllowOrigins     []string `json:"allow_origins"`

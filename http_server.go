@@ -4,13 +4,19 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"time"
+
+	"github.com/LdDl/video-server/internal/hlserror"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
+
+var uuidRegExp = regexp.MustCompile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}")
 
 // StartHTTPServer Initialize http server and run it
 func (app *Application) StartHTTPServer() {
@@ -71,6 +77,15 @@ func WebSocketWrapper(app *Application, wsUpgrader *websocket.Upgrader) func(ctx
 func HLSWrapper(app *Application) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		file := ctx.Param("file")
+		k, err := uuid.Parse(uuidRegExp.FindString(file))
+		if err == nil {
+			code, err := hlserror.GetError(k)
+			hlserror.SetError(k, 200, nil)
+			if code != 200 {
+				ctx.JSON(code, err.Error())
+				return
+			}
+		}
 		ctx.Header("Cache-Control", "no-cache")
 		ctx.FileFromFS(file, http.Dir(app.HlsDirectory))
 	}
