@@ -143,6 +143,9 @@ func (app *Application) existsWithType(streamID uuid.UUID, streamType string) bo
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	stream, ok := app.Streams.Streams[streamID]
+	if !ok {
+		return false
+	}
 	supportedTypes := stream.SupportedStreamTypes
 	typeEnabled := typeExists(streamType, supportedTypes)
 	return ok && typeEnabled
