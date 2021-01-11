@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/grafov/m3u8"
-	"github.com/morozka/vdk/av"
-	"github.com/morozka/vdk/format/ts"
+	"github.com/LdDl/vdk/av"
+	"github.com/LdDl/vdk/format/ts"
 	"github.com/pkg/errors"
 )
 
