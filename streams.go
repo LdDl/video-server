@@ -7,7 +7,7 @@ import (
 
 	"github.com/LdDl/video-server/internal/hlserror"
 	"github.com/google/uuid"
-	"github.com/morozka/vdk/format/rtsp"
+	"github.com/LdDl/vdk/format/rtsp"
 )
 
 // StartStreams Start video streams

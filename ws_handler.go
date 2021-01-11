@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/morozka/vdk/format/mp4f"
+	"github.com/LdDl/vdk/format/mp4f"
 )
 
 func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Request, app *Application) {

@@ -7,7 +7,7 @@ import (
 	"github.com/gin-contrib/cors"
 
 	"github.com/google/uuid"
-	"github.com/morozka/vdk/av"
+	"github.com/LdDl/vdk/av"
 )
 
 // Application Configuration parameters for application
