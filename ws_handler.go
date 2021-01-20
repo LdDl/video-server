@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/LdDl/vdk/format/mp4f"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/LdDl/vdk/format/mp4f"
 )
 
 func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Request, app *Application) {
@@ -72,19 +72,35 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		}
 		var start bool
 		quitCh := make(chan bool)
-		go func(q chan bool) {
-			_, _, err := conn.ReadMessage()
-			if err != nil {
-				q <- true
-				closeWSwithError(conn, 1011, fmt.Sprintf("Read message error: %s\n", err.Error()))
-				log.Printf("Read message error: %s\n", err.Error())
-				return
+		rxPingCh := make(chan bool)
+		go func(q, p chan bool) {
+			for { //rx loop
+				msgType, data, err := conn.ReadMessage()
+				if err != nil {
+					q <- true
+					closeWSwithError(conn, 1011, fmt.Sprintf("Read message error: %s\n", err.Error()))
+					log.Printf("Read message error: %s\n", err.Error())
+					return
+				}
+				if msgType == websocket.TextMessage && len(data) > 0 && string(data) == "ping" {
+					select {
+					case p <- true:
+						// message sent
+					default:
+						// message dropped
+					}
+				}
 			}
-		}(quitCh)
+		}(quitCh, rxPingCh)
 		for {
 			select {
 			case <-quitCh:
 				return
+			case <-rxPingCh:
+				err := conn.WriteMessage(websocket.TextMessage, []byte("pong"))
+				if err != nil {
+					return
+				}
 			case pck := <-ch:
 				if pck.IsKeyFrame {
 					start = true
