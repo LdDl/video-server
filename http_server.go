@@ -138,11 +138,8 @@ func DisableCamera(app *Application) func(ctx *gin.Context) {
 
 		if exist := app.exists(postData.GUID); exist {
 			app.Streams.Lock()
-			defer app.Streams.Unlock()
-			if err := app.updateStatus(postData.GUID, false); err != nil {
-				ctx.JSON(400, gin.H{"Error": err})
-				return
-			}
+			delete(app.Streams.Streams, postData.GUID)
+			app.Streams.Unlock()
 		}
 		ctx.JSON(200, app)
 	}
