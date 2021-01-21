@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/LdDl/vdk/av"
 	"github.com/LdDl/video-server/internal/hlserror"
 
 	"github.com/gin-contrib/cors"
@@ -37,6 +38,9 @@ func (app *Application) StartHTTPServer() {
 	router.GET("/status", StatusWrapper(app))
 	router.GET("/ws/:suuid", WebSocketWrapper(app, &wsUpgrader))
 	router.GET("/hls/:file", HLSWrapper(app))
+
+	router.POST("/enable_camera", EnableCamera(app))
+	router.POST("/disable_camera", DisableCamera(app))
 
 	s := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", app.Server.HTTPAddr, app.Server.HTTPPort),
@@ -88,5 +92,58 @@ func HLSWrapper(app *Application) func(ctx *gin.Context) {
 		}
 		ctx.Header("Cache-Control", "no-cache")
 		ctx.FileFromFS(file, http.Dir(app.HlsDirectory))
+	}
+}
+
+// EnablePostData ...
+type EnablePostData struct {
+	GUID        uuid.UUID `json:"guid"`
+	URL         string    `json:"url"`
+	StreamTypes []string  `json:"stream_types"`
+}
+
+// EnableCamera add new stream if does not exist
+func EnableCamera(app *Application) func(ctx *gin.Context) {
+	return func(ctx *gin.Context) {
+		var postData EnablePostData
+		if err := ctx.ShouldBindJSON(&postData); err != nil {
+			ctx.JSON(http.StatusBadRequest, err)
+			return
+		}
+
+		if exist := app.exists(postData.GUID); !exist {
+			//add new
+			app.Streams.Lock()
+			app.Streams.Streams[postData.GUID] = &StreamConfiguration{
+				URL:                  postData.URL,
+				Clients:              make(map[uuid.UUID]viewer),
+				hlsChanel:            make(chan av.Packet, 100),
+				SupportedStreamTypes: postData.StreamTypes,
+			}
+			app.Streams.Unlock()
+			app.StartStream(postData.GUID)
+		}
+		ctx.JSON(200, app)
+	}
+}
+
+// DisableCamera switch working camera
+func DisableCamera(app *Application) func(ctx *gin.Context) {
+	return func(ctx *gin.Context) {
+		var postData EnablePostData
+		if err := ctx.ShouldBindJSON(&postData); err != nil {
+			ctx.JSON(http.StatusBadRequest, err)
+			return
+		}
+
+		if exist := app.exists(postData.GUID); exist {
+			app.Streams.Lock()
+			defer app.Streams.Unlock()
+			if err := app.updateStatus(postData.GUID, false); err != nil {
+				ctx.JSON(400, gin.H{"Error": err})
+				return
+			}
+		}
+		ctx.JSON(200, app)
 	}
 }
