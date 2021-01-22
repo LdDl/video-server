@@ -1,7 +1,11 @@
 {
-    "server": {
+    "video_server": {
         "http_addr": "localhost",
         "http_port": 8090
+    },
+    "server": {
+        "http_addr": "localhost",
+        "http_port": 8091
     },
     "hls_ms_per_segment": 10000,
     "hls_directory": "./hls",

@@ -6,12 +6,13 @@ import (
 
 	"github.com/gin-contrib/cors"
 
-	"github.com/google/uuid"
 	"github.com/LdDl/vdk/av"
+	"github.com/google/uuid"
 )
 
 // Application Configuration parameters for application
 type Application struct {
+	VideoServer     *ServerInfo  `json:"video_server"`
 	Server          *ServerInfo  `json:"server"`
 	Streams         StreamsMap   `json:"streams"`
 	HlsMsPerSegment int64        `json:"hls_ms_per_segment"`
