@@ -61,6 +61,10 @@ type viewer struct {
 // NewApplication Prepare configuration for application
 func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 	tmp := Application{
+		VideoServer: &ServerInfo{
+			HTTPAddr: cfg.VideoServer.HTTPAddr,
+			HTTPPort: cfg.VideoServer.HTTPPort,
+		},
 		Server: &ServerInfo{
 			HTTPAddr: cfg.Server.HTTPAddr,
 			HTTPPort: cfg.Server.HTTPPort,
