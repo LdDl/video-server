@@ -46,9 +46,12 @@ func main() {
 		return
 	}
 
-	go app.StartHTTPServer()
-	go app.StartHTTPVideoServer()
+	// Start "Video" server
+	go app.StartVideoServer()
+	// Run streams
 	go app.StartStreams()
+	// Start API server
+	go app.StartAPIServer()
 
 	sigOUT := make(chan os.Signal, 1)
 	exit := make(chan bool, 1)
