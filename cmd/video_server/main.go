@@ -47,6 +47,7 @@ func main() {
 	}
 
 	go app.StartHTTPServer()
+	go app.StartHTTPVideoServer()
 	go app.StartStreams()
 
 	sigOUT := make(chan os.Signal, 1)

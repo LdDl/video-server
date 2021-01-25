@@ -19,8 +19,8 @@ import (
 
 var uuidRegExp = regexp.MustCompile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}")
 
-// StartHTTPServer Initialize http server and run it
-func (app *Application) StartHTTPServer() {
+// StartHTTPVideoServer Initialize http video server and run it (ws and hls)
+func (app *Application) StartHTTPVideoServer() {
 	router := gin.New()
 
 	gin.SetMode(gin.ReleaseMode)
@@ -34,10 +34,33 @@ func (app *Application) StartHTTPServer() {
 	if app.CorsConfig != nil {
 		router.Use(cors.New(*app.CorsConfig))
 	}
-	router.GET("/list", ListWrapper(app))
-	router.GET("/status", StatusWrapper(app))
 	router.GET("/ws/:suuid", WebSocketWrapper(app, &wsUpgrader))
 	router.GET("/hls/:file", HLSWrapper(app))
+	s := &http.Server{
+		Addr:         fmt.Sprintf("%s:%d", app.VideoServer.HTTPAddr, app.VideoServer.HTTPPort),
+		Handler:      router,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+	}
+	err := s.ListenAndServe()
+	if err != nil {
+		log.Printf("Can't run HTTP-server on port: %d\n", app.Server.HTTPPort)
+		return
+	}
+}
+
+// StartHTTPServer Initialize http server and run it
+func (app *Application) StartHTTPServer() {
+	router := gin.New()
+
+	gin.SetMode(gin.ReleaseMode)
+	pprof.Register(router)
+
+	if app.CorsConfig != nil {
+		router.Use(cors.New(*app.CorsConfig))
+	}
+	router.GET("/list", ListWrapper(app))
+	router.GET("/status", StatusWrapper(app))
 
 	router.POST("/enable_camera", EnableCamera(app))
 	router.POST("/disable_camera", DisableCamera(app))

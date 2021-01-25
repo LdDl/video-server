@@ -6,12 +6,13 @@ import (
 
 	"github.com/gin-contrib/cors"
 
-	"github.com/google/uuid"
 	"github.com/LdDl/vdk/av"
+	"github.com/google/uuid"
 )
 
 // Application Configuration parameters for application
 type Application struct {
+	VideoServer     *ServerInfo  `json:"video_server"`
 	Server          *ServerInfo  `json:"server"`
 	Streams         StreamsMap   `json:"streams"`
 	HlsMsPerSegment int64        `json:"hls_ms_per_segment"`
@@ -60,6 +61,10 @@ type viewer struct {
 // NewApplication Prepare configuration for application
 func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 	tmp := Application{
+		VideoServer: &ServerInfo{
+			HTTPAddr: cfg.VideoServer.HTTPAddr,
+			HTTPPort: cfg.VideoServer.HTTPPort,
+		},
 		Server: &ServerInfo{
 			HTTPAddr: cfg.Server.HTTPAddr,
 			HTTPPort: cfg.Server.HTTPPort,

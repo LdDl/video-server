@@ -16,6 +16,7 @@ const (
 
 // ConfigurationArgs Configuration parameters for application as JSON-file
 type ConfigurationArgs struct {
+	VideoServer     ServerConfiguration `json:"video_server"`
 	Server          ServerConfiguration `json:"server"`
 	Streams         []StreamArg         `json:"streams"`
 	HlsMsPerSegment int64               `json:"hls_ms_per_segment"`

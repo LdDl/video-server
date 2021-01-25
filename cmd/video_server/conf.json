@@ -1,7 +1,11 @@
 {
-    "server": {
+    "video_server": {
         "http_addr": "localhost",
         "http_port": 8090
+    },
+    "server": {
+        "http_addr": "localhost",
+        "http_port": 8091
     },
     "hls_ms_per_segment": 10000,
     "hls_directory": "./hls",
@@ -10,7 +14,7 @@
     "streams": [
         {
             "guid": "c2680f08-07cc-4dee-9231-685893e2661f",
-            "url": "rtsp://170.93.143.139/rtplive/470011e600ef003a004ee33696235daa",
+            "url": "rtsp://212.12.20.198:55407/h264",
             "stream_types": ["mse", "hls"]
         }
     ],
