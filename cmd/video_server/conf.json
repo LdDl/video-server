@@ -17,10 +17,10 @@
     ],
     "cors_config": {
         "use_cors": true,
-        "allow_origins":["*"],
-        "allow_methods":["GET", "PUT", "POST", "DELETE"],
-        "allow_headers":["Origin", "Authorization", "Content-Type", "Content-Length", "Accept", "Accept-Encoding", "X-HttpRequest"],
-        "expose_headers":["Content-Length"],
+        "allow_origins": ["*"],
+        "allow_methods": ["GET", "PUT", "POST", "DELETE"],
+        "allow_headers": ["Origin", "Authorization", "Content-Type", "Content-Length", "Accept", "Accept-Encoding", "X-HttpRequest"],
+        "expose_headers": ["Content-Length"],
         "allow_credentials":true
     }
 }

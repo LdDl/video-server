@@ -12,7 +12,6 @@ import (
 
 // Application Configuration parameters for application
 type Application struct {
-	VideoServer     *ServerInfo  `json:"video_server"`
 	Server          *ServerInfo  `json:"server"`
 	Streams         StreamsMap   `json:"streams"`
 	HlsMsPerSegment int64        `json:"hls_ms_per_segment"`
@@ -24,8 +23,9 @@ type Application struct {
 
 // ServerInfo Information about server
 type ServerInfo struct {
-	HTTPAddr string `json:"http_addr"`
-	HTTPPort int    `json:"http_port"`
+	HTTPAddr      string `json:"http_addr"`
+	VideoHTTPPort int    `json:"http_port"`
+	APIHTTPPort   int    `json:"-"`
 }
 
 // StreamsMap Map wrapper for map[uuid.UUID]*StreamConfiguration with mutex for concurrent usage
@@ -61,13 +61,10 @@ type viewer struct {
 // NewApplication Prepare configuration for application
 func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 	tmp := Application{
-		VideoServer: &ServerInfo{
-			HTTPAddr: cfg.VideoServer.HTTPAddr,
-			HTTPPort: cfg.VideoServer.HTTPPort,
-		},
 		Server: &ServerInfo{
-			HTTPAddr: cfg.Server.HTTPAddr,
-			HTTPPort: cfg.Server.HTTPPort,
+			HTTPAddr:      cfg.Server.HTTPAddr,
+			VideoHTTPPort: cfg.Server.VideoHTTPPort,
+			APIHTTPPort:   cfg.Server.APIHTTPPort,
 		},
 		Streams:         StreamsMap{Streams: make(map[uuid.UUID]*StreamConfiguration)},
 		HlsMsPerSegment: cfg.HlsMsPerSegment,
