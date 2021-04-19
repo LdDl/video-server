@@ -19,8 +19,8 @@ import (
 
 var uuidRegExp = regexp.MustCompile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}")
 
-// StartHTTPServer Initialize http server and run it
-func (app *Application) StartHTTPServer() {
+// StartVideoServer Initialize "video" server and run it (MSE-websockets and HLS-static files)
+func (app *Application) StartVideoServer() {
 	router := gin.New()
 
 	gin.SetMode(gin.ReleaseMode)
@@ -34,23 +34,45 @@ func (app *Application) StartHTTPServer() {
 	if app.CorsConfig != nil {
 		router.Use(cors.New(*app.CorsConfig))
 	}
-	router.GET("/list", ListWrapper(app))
-	router.GET("/status", StatusWrapper(app))
 	router.GET("/ws/:suuid", WebSocketWrapper(app, &wsUpgrader))
 	router.GET("/hls/:file", HLSWrapper(app))
-
-	router.POST("/enable_camera", EnableCamera(app))
-	router.POST("/disable_camera", DisableCamera(app))
-
 	s := &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", app.Server.HTTPAddr, app.Server.HTTPPort),
+		Addr:         fmt.Sprintf("%s:%d", app.Server.HTTPAddr, app.Server.VideoHTTPPort),
 		Handler:      router,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 	err := s.ListenAndServe()
 	if err != nil {
-		log.Printf("Can't run HTTP-server on port: %d\n", app.Server.HTTPPort)
+		log.Printf("Can't run Video-server on port: %d\n", app.Server.VideoHTTPPort)
+		return
+	}
+}
+
+// StartAPIServer Start separated server with API functionality
+func (app *Application) StartAPIServer() {
+	router := gin.New()
+
+	gin.SetMode(gin.ReleaseMode)
+	pprof.Register(router)
+
+	if app.CorsConfig != nil {
+		router.Use(cors.New(*app.CorsConfig))
+	}
+	router.GET("/list", ListWrapper(app))
+	router.GET("/status", StatusWrapper(app))
+	router.POST("/enable_camera", EnableCamera(app))
+	router.POST("/disable_camera", DisableCamera(app))
+
+	s := &http.Server{
+		Addr:         fmt.Sprintf("%s:%d", app.Server.HTTPAddr, app.Server.APIHTTPPort),
+		Handler:      router,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+	}
+	err := s.ListenAndServe()
+	if err != nil {
+		log.Printf("Can't run API-server on port: %d\n", app.Server.APIHTTPPort)
 		return
 	}
 }

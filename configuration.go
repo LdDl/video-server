@@ -44,8 +44,9 @@ type StreamArg struct {
 
 // ServerConfiguration Configuration parameters for server
 type ServerConfiguration struct {
-	HTTPAddr string `json:"http_addr"`
-	HTTPPort int    `json:"http_port"`
+	HTTPAddr      string `json:"http_addr"`
+	VideoHTTPPort int    `json:"video_http_port"`
+	APIHTTPPort   int    `json:"api_http_port"`
 }
 
 // NewConfiguration Constructor for ConfigurationArgs
