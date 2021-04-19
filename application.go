@@ -6,8 +6,8 @@ import (
 
 	"github.com/gin-contrib/cors"
 
-	"github.com/google/uuid"
 	"github.com/LdDl/vdk/av"
+	"github.com/google/uuid"
 )
 
 // Application Configuration parameters for application
@@ -23,8 +23,9 @@ type Application struct {
 
 // ServerInfo Information about server
 type ServerInfo struct {
-	HTTPAddr string `json:"http_addr"`
-	HTTPPort int    `json:"http_port"`
+	HTTPAddr      string `json:"http_addr"`
+	VideoHTTPPort int    `json:"http_port"`
+	APIHTTPPort   int    `json:"-"`
 }
 
 // StreamsMap Map wrapper for map[uuid.UUID]*StreamConfiguration with mutex for concurrent usage
@@ -61,8 +62,9 @@ type viewer struct {
 func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 	tmp := Application{
 		Server: &ServerInfo{
-			HTTPAddr: cfg.Server.HTTPAddr,
-			HTTPPort: cfg.Server.HTTPPort,
+			HTTPAddr:      cfg.Server.HTTPAddr,
+			VideoHTTPPort: cfg.Server.VideoHTTPPort,
+			APIHTTPPort:   cfg.Server.APIHTTPPort,
 		},
 		Streams:         StreamsMap{Streams: make(map[uuid.UUID]*StreamConfiguration)},
 		HlsMsPerSegment: cfg.HlsMsPerSegment,
