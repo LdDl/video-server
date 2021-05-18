@@ -159,9 +159,7 @@ func DisableCamera(app *Application) func(ctx *gin.Context) {
 		}
 
 		if exist := app.exists(postData.GUID); exist {
-			app.Streams.Lock()
-			delete(app.Streams.Streams, postData.GUID)
-			app.Streams.Unlock()
+			app.CloseStream(postData.GUID)
 		}
 		ctx.JSON(200, app)
 	}

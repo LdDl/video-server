@@ -101,6 +101,13 @@ func (app *Application) StartStream(k uuid.UUID) {
 	}(k, hlsEnabled, url)
 }
 
+// CloseStream Stops stream (deleting from map)
+func (app *Application) CloseStream(k uuid.UUID) {
+	app.Streams.Lock()
+	delete(app.Streams.Streams, k)
+	app.Streams.Unlock()
+}
+
 func typeExists(typeName string, typesNames []string) bool {
 	for i := range typesNames {
 		if typesNames[i] == typeName {
