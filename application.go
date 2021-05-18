@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 
-	"github.com/LdDl/vdk/av"
+	"github.com/deepch/vdk/av"
 	"github.com/google/uuid"
 )
 

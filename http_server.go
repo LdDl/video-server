@@ -7,8 +7,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/LdDl/vdk/av"
 	"github.com/LdDl/video-server/internal/hlserror"
+	"github.com/deepch/vdk/av"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
