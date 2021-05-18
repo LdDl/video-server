@@ -101,7 +101,15 @@ func (app *Application) StartStream(k uuid.UUID) {
 	}(k, hlsEnabled, url)
 }
 
-// CloseStream Stops stream (deleting from map)
+// CloseStreams Stops all video stream
+func (app *Application) CloseStreams() {
+	keys := app.Streams.getKeys()
+	for _, streamID := range keys {
+		app.CloseStream(streamID)
+	}
+}
+
+// CloseStream Stops single video stream
 func (app *Application) CloseStream(k uuid.UUID) {
 	app.Streams.Lock()
 	delete(app.Streams.Streams, k)
