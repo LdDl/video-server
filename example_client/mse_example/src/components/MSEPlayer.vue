@@ -47,7 +47,8 @@
             initialize() {
                 if ('MediaSource' in window) {
                     this.ms = new MediaSource()
-                    this.ms.addEventListener('sourceopen', this.start, false);
+                    let start = this.start;
+                    this.ms.addEventListener('sourceopen', start, false);
                     this.$refs["livestream"].src = window.URL.createObjectURL(this.ms);
                     this.$refs["livestream"].onpause = () => {
                         console.log("The video has been paused");
@@ -55,9 +56,8 @@
                     };
                     this.$refs["livestream"].onplay = () => {
                         console.log("The video has been started");
-                        this.$nuxt.$bus.$emit("setCameraLoader", false)
                         if (this.isPlaying === false) {
-                            this.start();
+                            start();
                         }
                     };
 

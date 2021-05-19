@@ -1,5 +1,5 @@
 <template>
-        <video ref="livestream" class="videosize" controls></video>
+        <video ref="livestream" class="videosize" controls autoplay muted></video>
 </template>
 
 <script>
@@ -46,16 +46,15 @@
         methods: {
             initialize() {
                 this.hls = new Hls();
+                let start = this.start;
                 this.hlsLink = `${this.schema}://${this.server}:${this.port}/hls/${this.suuid}.m3u8`;
                 this.$refs["livestream"].onpause = () => {
                     console.log("The HLS video has been paused");
                     this.stop();
                 };
                 this.$refs["livestream"].onplay = () => {
-                    // console.log("The HLS video has been started");
-                    this.$nuxt.$bus.$emit("setCameraLoader", false)
                     if (this.isPlaying === false) {
-                        this.start();
+                        start();
                     }
                 };
                 var self_hls = this.hls;
