@@ -138,9 +138,15 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 		if err != nil {
 			log.Printf("Can't create playlist %s: %s\n", playlistFileName, err.Error())
 		}
-		playlistFile.Write(playlist.Encode().Bytes())
-		playlistFile.Close()
-		// log.Printf("m3u8 file has been re-created: %s\n", playlistFileName)
+
+		_, err = playlistFile.Write(playlist.Encode().Bytes())
+		if err != nil {
+			log.Printf("Can't write playlist %s: %s\n", playlistFileName, err.Error())
+		}
+		err = playlistFile.Close()
+		if err != nil {
+			log.Printf("Can't close playlist file %s: %s\n", playlistFileName, err.Error())
+		}
 
 		// Cleanup segments
 		if err := app.removeOutdatedSegments(streamID, playlist); err != nil {
