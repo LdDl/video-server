@@ -35,7 +35,7 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 	lastKeyFrame := av.Packet{}
 
 	for isConnected {
-		// Create new segment file
+		/* Create new segment file */
 		segmentName := fmt.Sprintf("%s%04d.ts", streamID, segmentNumber)
 		segmentPath := filepath.Join(app.HlsDirectory, segmentName)
 		outFile, err := os.Create(segmentPath)
@@ -44,7 +44,7 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 		}
 		tsMuxer := ts.NewMuxer(outFile)
 
-		// Write header
+		/* Write header */
 		codecData, err := app.codecGet(streamID)
 		if err != nil {
 			return errors.Wrap(err, streamID.String())
@@ -53,7 +53,7 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 			return errors.Wrap(err, fmt.Sprintf("Can't write header for TS muxer for stream %s", streamID))
 		}
 
-		// Write packets
+		/* Write packets */
 		videoStreamIdx := int8(0)
 		for idx, codec := range codecData {
 			if codec.Type().IsVideo() {
@@ -67,13 +67,13 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 		segmentCount := 0
 		start := false
 
-		// Write lastKeyFrame if exist
+		/* Write lastKeyFrame if exist */
 		if lastKeyFrame.IsKeyFrame {
 			start = true
 			if err = tsMuxer.WritePacket(lastKeyFrame); err != nil {
 				return errors.Wrap(err, fmt.Sprintf("Can't write packet for TS muxer for stream %s (1)", streamID))
 			}
-			// Evaluate segment's length
+			/* Evaluate segment's length */
 			packetLength = lastKeyFrame.Time - lastPacketTime
 			lastPacketTime = lastKeyFrame.Time
 			segmentLength += packetLength
@@ -83,9 +83,11 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 	segmentLoop:
 		for {
 			select {
-			case <-stopCast:
-				isConnected = false
-				break segmentLoop
+			case status := <-stopCast:
+				if !status {
+					isConnected = false
+					break segmentLoop
+				}
 			case pck := <-ch:
 				if pck.Idx == videoStreamIdx && pck.IsKeyFrame {
 					start = true
@@ -103,13 +105,21 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 					}
 					if pck.Idx == videoStreamIdx {
 						// Evaluate segment length
-						packetLength = pck.Time - lastPacketTime
+						if lastPacketTime != 0 {
+							packetLength = pck.Time - lastPacketTime
+						} else {
+							packetLength = pck.Duration
+						}
 						lastPacketTime = pck.Time
 						segmentLength += packetLength
 					}
 					segmentCount++
 				} else {
-					// fmt.Println("Current packet time < previous ")
+					/* Current packet time less then previous */
+					if lastPacketTime-pck.Time > time.Second*10 {
+						isConnected = false
+						break segmentLoop
+					}
 				}
 			}
 		}

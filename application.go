@@ -119,7 +119,7 @@ func (app *Application) cast(streamID uuid.UUID, pck av.Packet) error {
 	}
 	return nil
 }
-func (app *Application) castMSE(streamID uuid.UUID, pck av.Packet) error {
+func (app *Application) castMSEonly(streamID uuid.UUID, pck av.Packet) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	curStream, ok := app.Streams.Streams[streamID]

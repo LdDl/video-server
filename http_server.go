@@ -21,9 +21,9 @@ var uuidRegExp = regexp.MustCompile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]
 
 // StartVideoServer Initialize "video" server and run it (MSE-websockets and HLS-static files)
 func (app *Application) StartVideoServer() {
+	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 
-	gin.SetMode(gin.ReleaseMode)
 	pprof.Register(router)
 
 	wsUpgrader := websocket.Upgrader{
@@ -51,9 +51,9 @@ func (app *Application) StartVideoServer() {
 
 // StartAPIServer Start separated server with API functionality
 func (app *Application) StartAPIServer() {
+	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 
-	gin.SetMode(gin.ReleaseMode)
 	pprof.Register(router)
 
 	if app.CorsConfig != nil {

@@ -7,11 +7,13 @@ import (
 
 	"github.com/LdDl/video-server/internal/hlserror"
 	"github.com/deepch/vdk/format/rtsp"
+	"github.com/deepch/vdk/format/rtspv2"
 	"github.com/google/uuid"
 )
 
 // StartStreams Starts all video streams
 func (app *Application) StartStreams() {
+	rtsp.DebugRtsp = false
 	keys := app.Streams.getKeys()
 	for _, streamID := range keys {
 		app.StartStream(streamID)
@@ -27,75 +29,60 @@ func (app *Application) StartStream(k uuid.UUID) {
 
 	hlsEnabled := typeExists("hls", supportedTypes)
 
-	go func(name uuid.UUID, hlsEnabled bool, url string) {
+	go func(streamID uuid.UUID, hlsEnabled bool, url string) {
 		for {
-			log.Printf("Stream must be establishment for '%s' by connecting to %s", name, url)
-			rtsp.DebugRtsp = false
-			session, err := rtsp.Dial(url)
+			log.Printf("Stream must be establishment for '%s' by connecting to %s", streamID, url)
+			rtspClient, err := rtspv2.Dial(rtspv2.RTSPClientOptions{URL: url, DisableAudio: true, DialTimeout: 3 * time.Second, ReadWriteTimeout: 3 * time.Second, Debug: false})
 			if err != nil {
-				hlserror.SetError(name, 502, fmt.Errorf("rtsp.Dial error for %s (%s): %s", name, url, err.Error()))
-				log.Printf("rtsp.Dial error for %s (%s): %s\n", name, url, err.Error())
+				log.Printf("rtsp.Dial error for %s (%s): %s\n", streamID, url, err.Error())
 				time.Sleep(60 * time.Second)
 				continue
 			}
-			session.RtpKeepAliveTimeout = time.Duration(10 * time.Second)
-			codec, err := session.Streams()
-			if err != nil {
-				hlserror.SetError(name, 520, fmt.Errorf("Can't get sessions for %s (%s): %s", name, url, err.Error()))
-				log.Printf("Can't get sessions for %s (%s): %s\n", name, url, err.Error())
-				time.Sleep(60 * time.Second)
-				continue
+			// defer rtspClient.Close()
+			if rtspClient.CodecData != nil {
+				app.codecAdd(streamID, rtspClient.CodecData)
+				err = app.updateStatus(streamID, true)
+				if err != nil {
+					log.Printf("Can't update status 'true' for %s (%s): %s\n", streamID, url, err.Error())
+					time.Sleep(60 * time.Second)
+					continue
+				}
 			}
-			app.codecAdd(name, codec)
-			err = app.updateStatus(name, true)
-			if err != nil {
-				log.Printf("Can't update status 'true' for %s (%s): %s\n", name, url, err.Error())
-				time.Sleep(60 * time.Second)
-				continue
-			}
+
+			// isAudioOnly := false
+			// if len(rtspClient.CodecData) == 1 && rtspClient.CodecData[0].Type().IsAudio() {
+			// 	isAudioOnly = true
+			// }
 
 			if hlsEnabled {
 				stopHlsCast := make(chan bool, 1)
-				app.startHlsCast(name, stopHlsCast)
+				app.startHlsCast(streamID, stopHlsCast)
 				for {
-					pkt, err := session.ReadPacket()
+					err := app.ReadAVPacket(rtspClient, streamID, true)
 					if err != nil {
-						hlserror.SetError(name, 500, fmt.Errorf("Can't read session's packet %s (%s): %s", name, url, err.Error()))
-						log.Printf("Can't read session's packet %s (%s): %s\n", name, url, err.Error())
-						stopHlsCast <- true
-						break
-					}
-					err = app.cast(name, pkt)
-					if err != nil {
-						hlserror.SetError(name, 500, fmt.Errorf("Can't cast packet %s (%s): %s", name, url, err.Error()))
-						log.Printf("Can't cast packet %s (%s): %s\n", name, url, err.Error())
+						hlserror.SetError(streamID, 500, fmt.Errorf("Can't read session's packet %s (%s): %s", streamID, url, err.Error()))
+						log.Printf("Can't read session's packet %s (%s): %s\n", streamID, url, err.Error())
 						stopHlsCast <- true
 						break
 					}
 				}
 			} else {
 				for {
-					pkt, err := session.ReadPacket()
+					err := app.ReadAVPacket(rtspClient, streamID, false)
 					if err != nil {
-						log.Printf("Can't read session's packet %s (%s): %s\n", name, url, err.Error())
-						break
-					}
-					err = app.castMSE(name, pkt)
-					if err != nil {
-						log.Printf("Can't cast packet %s (%s): %s\n", name, url, err.Error())
+						log.Printf("Can't read session's packet %s (%s): %s\n", streamID, url, err.Error())
 						break
 					}
 				}
 			}
-
-			session.Close()
-			err = app.updateStatus(name, false)
+			rtspClient.Close()
+			err = app.updateStatus(streamID, false)
 			if err != nil {
-				log.Printf("Can't update status 'false' for %s (%s): %s\n", name, url, err.Error())
+				log.Printf("Can't update status 'false' for %s (%s): %s\n", streamID, url, err.Error())
 				time.Sleep(60 * time.Second)
 				continue
 			}
-			log.Printf("Stream must be re-establishment for '%s' by connecting to %s in next 5 seconds\n", name, url)
+			log.Printf("Stream must be re-establishment for '%s' by connecting to %s in next 5 seconds\n", streamID, url)
 			time.Sleep(5 * time.Second)
 		}
 	}(k, hlsEnabled, url)
@@ -123,4 +110,38 @@ func typeExists(typeName string, typesNames []string) bool {
 		}
 	}
 	return false
+}
+
+func (app *Application) ReadAVPacket(session *rtspv2.RTSPClient, streamID uuid.UUID, hlsEnabled bool) error {
+	for {
+		select {
+		case signals := <-session.Signals:
+			switch signals {
+			case rtspv2.SignalCodecUpdate:
+				app.codecAdd(streamID, session.CodecData)
+				err := app.updateStatus(streamID, true)
+				if err != nil {
+					log.Printf("[SignalCodecUpdate] Can't set status to value 'true' for stream = %s due the error %s\n", streamID, err.Error())
+				}
+			case rtspv2.SignalStreamRTPStop:
+				err := app.updateStatus(streamID, false)
+				if err != nil {
+					log.Printf("[SignalStreamRTPStop] Can't set status to value 'true' for stream = %s due the error %s\n", streamID, err.Error())
+				}
+				return err
+			}
+		case packetAV := <-session.OutgoingPacketQueue:
+			if !hlsEnabled {
+				err := app.castMSEonly(streamID, *packetAV)
+				if err != nil {
+					log.Printf("[OutgoingPacketQueue] Can't execute casting for stream = %s [MSE only] due the error: %s\n", streamID, err.Error())
+				}
+			} else {
+				err := app.cast(streamID, *packetAV)
+				if err != nil {
+					log.Printf("[OutgoingPacketQueue] Can't execute casting for stream = %s [both MSE and HLS] due the error: %s\n", streamID, err.Error())
+				}
+			}
+		}
+	}
 }
