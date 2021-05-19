@@ -37,7 +37,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 
 	if app.existsWithType(streamID, "mse") {
 		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
-		cuuid, ch, err := app.clientAdd(streamID)
+		cuuid, ch, _, err := app.clientAdd(streamID)
 		if err != nil {
 			closeWSwithError(conn, 1011, fmt.Sprintf("  Can't add client for '%s' due the error: %s\n", streamID, err.Error()))
 			log.Printf("Can't add client for '%s' due the error: %s\n", streamID, err.Error())

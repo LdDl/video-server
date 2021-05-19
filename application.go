@@ -181,20 +181,31 @@ func (app *Application) updateStatus(streamID uuid.UUID, status bool) error {
 	return nil
 }
 
-func (app *Application) clientAdd(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
+func (app *Application) getStatus(streamID uuid.UUID) (bool, error) {
+	app.Streams.Lock()
+	defer app.Streams.Unlock()
+	t, ok := app.Streams.Streams[streamID]
+	if !ok {
+		return false, ErrStreamNotFound
+	}
+	return t.Status, nil
+}
+
+func (app *Application) clientAdd(streamID uuid.UUID) (uuid.UUID, chan av.Packet, chan bool, error) {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	clientID, err := uuid.NewUUID()
 	if err != nil {
-		return uuid.UUID{}, nil, err
+		return uuid.UUID{}, nil, nil, err
 	}
 	ch := make(chan av.Packet, 100)
+	stopCast := make(chan bool, 1)
 	curStream, ok := app.Streams.Streams[streamID]
 	if !ok {
-		return uuid.UUID{}, nil, ErrStreamNotFound
+		return uuid.UUID{}, nil, nil, ErrStreamNotFound
 	}
 	curStream.Clients[clientID] = viewer{c: ch}
-	return clientID, ch, nil
+	return clientID, ch, stopCast, nil
 }
 
 func (app *Application) clientDelete(streamID, clientID uuid.UUID) {

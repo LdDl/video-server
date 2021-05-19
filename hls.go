@@ -138,7 +138,6 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 		if err != nil {
 			log.Printf("Can't create playlist %s: %s\n", playlistFileName, err.Error())
 		}
-
 		_, err = playlistFile.Write(playlist.Encode().Bytes())
 		if err != nil {
 			log.Printf("Can't write playlist %s: %s\n", playlistFileName, err.Error())

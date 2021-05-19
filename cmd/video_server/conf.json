@@ -12,7 +12,7 @@
     "streams": [
         {
             "guid": "c2680f08-07cc-4dee-9231-685893e2661f",
-            "url": "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov",
+            "url": "rtsp://admin:admin@212.12.24.194:55412",
             "stream_types": ["mse", "hls"]
         }
     ],

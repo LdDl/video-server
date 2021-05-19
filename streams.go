@@ -1,11 +1,9 @@
 package videoserver
 
 import (
-	"fmt"
 	"log"
 	"time"
 
-	"github.com/LdDl/video-server/internal/hlserror"
 	"github.com/deepch/vdk/format/rtsp"
 	"github.com/deepch/vdk/format/rtspv2"
 	"github.com/google/uuid"
@@ -29,6 +27,7 @@ func (app *Application) StartStream(k uuid.UUID) {
 
 	hlsEnabled := typeExists("hls", supportedTypes)
 
+	/* MSE part */
 	go func(streamID uuid.UUID, hlsEnabled bool, url string) {
 		for {
 			log.Printf("Stream must be establishment for '%s' by connecting to %s", streamID, url)
@@ -48,31 +47,11 @@ func (app *Application) StartStream(k uuid.UUID) {
 					continue
 				}
 			}
-
-			// isAudioOnly := false
-			// if len(rtspClient.CodecData) == 1 && rtspClient.CodecData[0].Type().IsAudio() {
-			// 	isAudioOnly = true
-			// }
-
-			if hlsEnabled {
-				stopHlsCast := make(chan bool, 1)
-				app.startHlsCast(streamID, stopHlsCast)
-				for {
-					err := app.ReadAVPacket(rtspClient, streamID, true)
-					if err != nil {
-						hlserror.SetError(streamID, 500, fmt.Errorf("Can't read session's packet %s (%s): %s", streamID, url, err.Error()))
-						log.Printf("Can't read session's packet %s (%s): %s\n", streamID, url, err.Error())
-						stopHlsCast <- true
-						break
-					}
-				}
-			} else {
-				for {
-					err := app.ReadAVPacket(rtspClient, streamID, false)
-					if err != nil {
-						log.Printf("Can't read session's packet %s (%s): %s\n", streamID, url, err.Error())
-						break
-					}
+			for {
+				err := app.ReadAVPacket(rtspClient, streamID, false)
+				if err != nil {
+					log.Printf("Can't read session's packet %s (%s): %s\n", streamID, url, err.Error())
+					break
 				}
 			}
 			rtspClient.Close()
@@ -86,6 +65,47 @@ func (app *Application) StartStream(k uuid.UUID) {
 			time.Sleep(5 * time.Second)
 		}
 	}(k, hlsEnabled, url)
+
+	/* HLS part (if needed) */
+	if hlsEnabled {
+		go func(streamID uuid.UUID) {
+			for {
+				cuuid, ch, stopCast, err := app.clientAdd(streamID)
+				if err != nil {
+					log.Printf("Can't add client for '%s' due the error: %s\n", streamID, err.Error())
+					return
+				}
+				status, err := app.getStatus(streamID)
+				if err != nil {
+					log.Printf("Can't get status data for '%s' due the error: %s", streamID, err.Error())
+				}
+				codecData, err := app.codecGet(streamID)
+				if err != nil {
+					log.Printf("Can't get codec data for '%s' due the error: %s", streamID, err.Error())
+				}
+				if status && codecData != nil {
+					log.Printf("start HLS: %s\n", streamID)
+					err = app.startHls(streamID, ch, stopCast)
+					if err != nil {
+						log.Printf("Hls writer for '%s' stopped: %s", streamID, err.Error())
+					} else {
+						log.Printf("Hls writer for '%s' stopped", streamID)
+					}
+				} else {
+					log.Printf("Status is false or codec data is nil for '%s'", streamID)
+				}
+
+				app.clientDelete(streamID, cuuid)
+
+				if !app.exists(streamID) {
+					log.Printf("Close hls worker loop for '%s'", streamID)
+					return
+				}
+
+				time.Sleep(5 * time.Second)
+			}
+		}(k)
+	}
 }
 
 // CloseStreams Stops all video stream
