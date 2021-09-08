@@ -55,7 +55,6 @@
                     };
                     this.$refs["livestream"].onplay = () => {
                         console.log("The video has been started");
-                        this.$nuxt.$bus.$emit("setCameraLoader", false)
                         if (this.isPlaying === false) {
                             this.start();
                         }
