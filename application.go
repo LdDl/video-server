@@ -2,7 +2,6 @@ package videoserver
 
 import (
 	"log"
-	"sync"
 
 	"github.com/gin-contrib/cors"
 
@@ -28,12 +27,6 @@ type ServerInfo struct {
 	APIHTTPPort   int    `json:"-"`
 }
 
-// StreamsMap Map wrapper for map[uuid.UUID]*StreamConfiguration with mutex for concurrent usage
-type StreamsMap struct {
-	sync.Mutex
-	Streams map[uuid.UUID]*StreamConfiguration
-}
-
 func (sm *StreamsMap) getKeys() []uuid.UUID {
 	sm.Lock()
 	defer sm.Unlock()
@@ -42,16 +35,6 @@ func (sm *StreamsMap) getKeys() []uuid.UUID {
 		keys = append(keys, k)
 	}
 	return keys
-}
-
-// StreamConfiguration Configuration parameters for stream
-type StreamConfiguration struct {
-	URL                  string   `json:"url"`
-	Status               bool     `json:"status"`
-	SupportedStreamTypes []string `json:"supported_stream_types"`
-	Codecs               []av.CodecData
-	Clients              map[uuid.UUID]viewer
-	hlsChanel            chan av.Packet
 }
 
 type viewer struct {
@@ -81,12 +64,7 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 			log.Printf("Not valid UUID: %s\n", cfg.Streams[i].GUID)
 			continue
 		}
-		tmp.Streams.Streams[validUUID] = &StreamConfiguration{
-			URL:                  cfg.Streams[i].URL,
-			Clients:              make(map[uuid.UUID]viewer),
-			hlsChanel:            make(chan av.Packet, 100),
-			SupportedStreamTypes: cfg.Streams[i].StreamTypes,
-		}
+		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(cfg.Streams[i].URL, cfg.Streams[i].StreamTypes)
 	}
 	return &tmp, nil
 }
