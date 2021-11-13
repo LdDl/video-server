@@ -11,3 +11,7 @@ type StreamsStorage struct {
 	sync.Mutex
 	Streams map[uuid.UUID]*StreamConfiguration
 }
+
+func NewStreamsStorageDefault() *StreamsStorage {
+	return &StreamsStorage{Streams: make(map[uuid.UUID]*StreamConfiguration)}
+}

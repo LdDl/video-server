@@ -11,13 +11,13 @@ import (
 
 // Application Configuration parameters for application
 type Application struct {
-	Server          *ServerInfo    `json:"server"`
-	Streams         StreamsStorage `json:"streams"`
-	HlsMsPerSegment int64          `json:"hls_ms_per_segment"`
-	HlsDirectory    string         `json:"hls_directory"`
-	HlsWindowSize   uint           `json:"hls_window_size"`
-	HlsCapacity     uint           `json:"hls_window_capacity"`
-	CorsConfig      *cors.Config   `json:"-"`
+	Server          *ServerInfo     `json:"server"`
+	Streams         *StreamsStorage `json:"streams"`
+	HlsMsPerSegment int64           `json:"hls_ms_per_segment"`
+	HlsDirectory    string          `json:"hls_directory"`
+	HlsWindowSize   uint            `json:"hls_window_size"`
+	HlsCapacity     uint            `json:"hls_window_capacity"`
+	CorsConfig      *cors.Config    `json:"-"`
 }
 
 // ServerInfo Information about server
@@ -49,7 +49,7 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 			VideoHTTPPort: cfg.Server.VideoHTTPPort,
 			APIHTTPPort:   cfg.Server.APIHTTPPort,
 		},
-		Streams:         StreamsStorage{Streams: make(map[uuid.UUID]*StreamConfiguration)},
+		Streams:         NewStreamsStorageDefault(),
 		HlsMsPerSegment: cfg.HlsMsPerSegment,
 		HlsDirectory:    cfg.HlsDirectory,
 		HlsWindowSize:   cfg.HlsWindowSize,
