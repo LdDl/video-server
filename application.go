@@ -11,13 +11,13 @@ import (
 
 // Application Configuration parameters for application
 type Application struct {
-	Server          *ServerInfo  `json:"server"`
-	Streams         StreamsMap   `json:"streams"`
-	HlsMsPerSegment int64        `json:"hls_ms_per_segment"`
-	HlsDirectory    string       `json:"hls_directory"`
-	HlsWindowSize   uint         `json:"hls_window_size"`
-	HlsCapacity     uint         `json:"hls_window_capacity"`
-	CorsConfig      *cors.Config `json:"-"`
+	Server          *ServerInfo    `json:"server"`
+	Streams         StreamsStorage `json:"streams"`
+	HlsMsPerSegment int64          `json:"hls_ms_per_segment"`
+	HlsDirectory    string         `json:"hls_directory"`
+	HlsWindowSize   uint           `json:"hls_window_size"`
+	HlsCapacity     uint           `json:"hls_window_capacity"`
+	CorsConfig      *cors.Config   `json:"-"`
 }
 
 // ServerInfo Information about server
@@ -27,7 +27,7 @@ type ServerInfo struct {
 	APIHTTPPort   int    `json:"-"`
 }
 
-func (sm *StreamsMap) getKeys() []uuid.UUID {
+func (sm *StreamsStorage) getKeys() []uuid.UUID {
 	sm.Lock()
 	defer sm.Unlock()
 	keys := make([]uuid.UUID, 0, len(sm.Streams))
@@ -49,7 +49,7 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 			VideoHTTPPort: cfg.Server.VideoHTTPPort,
 			APIHTTPPort:   cfg.Server.APIHTTPPort,
 		},
-		Streams:         StreamsMap{Streams: make(map[uuid.UUID]*StreamConfiguration)},
+		Streams:         StreamsStorage{Streams: make(map[uuid.UUID]*StreamConfiguration)},
 		HlsMsPerSegment: cfg.HlsMsPerSegment,
 		HlsDirectory:    cfg.HlsDirectory,
 		HlsWindowSize:   cfg.HlsWindowSize,
@@ -68,6 +68,7 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 	}
 	return &tmp, nil
 }
+
 func (app *Application) setCors(cfg *CorsConfiguration) {
 	newCors := cors.DefaultConfig()
 	app.CorsConfig = &newCors
