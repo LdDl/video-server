@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/LdDl/vdk/av"
 	"github.com/LdDl/video-server/internal/hlserror"
 
 	"github.com/gin-contrib/cors"
@@ -136,12 +135,7 @@ func EnableCamera(app *Application) func(ctx *gin.Context) {
 		if exist := app.exists(postData.GUID); !exist {
 			//add new
 			app.Streams.Lock()
-			app.Streams.Streams[postData.GUID] = &StreamConfiguration{
-				URL:                  postData.URL,
-				Clients:              make(map[uuid.UUID]viewer),
-				hlsChanel:            make(chan av.Packet, 100),
-				SupportedStreamTypes: postData.StreamTypes,
-			}
+			app.Streams.Streams[postData.GUID] = NewStreamConfiguration(postData.URL, postData.StreamTypes)
 			app.Streams.Unlock()
 			app.StartStream(postData.GUID)
 		}
