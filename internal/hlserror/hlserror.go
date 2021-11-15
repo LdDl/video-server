@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// @todo: redudant files
 var hem = hlserrorMap{status: make(map[uuid.UUID]hlserror)}
 
 type hlserrorMap struct {
