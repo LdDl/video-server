@@ -19,6 +19,7 @@ func (app *Application) StartStreams() {
 		supportedTypes := app.Streams.Streams[k].SupportedStreamTypes
 		app.Streams.Unlock()
 
+		// @todo isn't better to have 'enums'?
 		hlsEnabled := typeExists("hls", supportedTypes)
 
 		go func(streamID uuid.UUID, hlsEnabled bool, url string) {
