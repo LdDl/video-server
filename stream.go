@@ -9,7 +9,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (app *Application) startStream(streamID uuid.UUID, url string, hlsEnabled bool) error {
+// runStream runs RTSP grabbing process
+func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled bool) error {
 	session, err := rtspv2.Dial(rtspv2.RTSPClientOptions{
 		URL:              url,
 		DisableAudio:     true,

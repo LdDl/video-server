@@ -7,14 +7,15 @@ import (
 	"github.com/google/uuid"
 )
 
-// StartStreams Starts all video streams
+// StartStreams starts all video streams
 func (app *Application) StartStreams() {
-	for _, k := range app.Streams.getKeys() {
+	streamsIDs := app.Streams.getKeys()
+	for _, k := range streamsIDs {
 		app.StartStream(k)
 	}
 }
 
-// StartStream Starts single video stream
+// StartStream starts single video stream
 func (app *Application) StartStream(k uuid.UUID) {
 	app.Streams.Lock()
 	url := app.Streams.Streams[k].URL
@@ -25,10 +26,11 @@ func (app *Application) StartStream(k uuid.UUID) {
 	go app.startLoop(k, url, hlsEnabled)
 }
 
+// startLoop starts stream loop with dialing to certain RTSP
 func (app *Application) startLoop(streamID uuid.UUID, url string, hlsEnabled bool) {
 	for {
 		log.Printf("Stream must be establishment for '%s' by connecting to %s", streamID, url)
-		err := app.startStream(streamID, url, hlsEnabled)
+		err := app.runStream(streamID, url, hlsEnabled)
 		if err != nil {
 			log.Printf("Error occured for stream %s on URL '%s': %s", streamID, url, err.Error())
 		}
@@ -37,6 +39,7 @@ func (app *Application) startLoop(streamID uuid.UUID, url string, hlsEnabled boo
 	}
 }
 
+// typeExists checks if a type exists in a types list
 func typeExists(typeName string, typesNames []string) bool {
 	for i := range typesNames {
 		if typesNames[i] == typeName {

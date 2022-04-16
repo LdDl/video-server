@@ -5,7 +5,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// StreamConfiguration Configuration parameters for stream
+// StreamConfiguration is a configuration parameters for specific stream
 type StreamConfiguration struct {
 	URL                  string   `json:"url"`
 	Status               bool     `json:"status"`
@@ -15,6 +15,7 @@ type StreamConfiguration struct {
 	hlsChanel            chan av.Packet
 }
 
+// NewStreamConfiguration returns default configuration
 func NewStreamConfiguration(streamURL string, supportedTypes []string) *StreamConfiguration {
 	return &StreamConfiguration{
 		URL:                  streamURL,

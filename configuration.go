@@ -14,7 +14,7 @@ const (
 	defaultHlsWindowSize   = 5
 )
 
-// ConfigurationArgs Configuration parameters for application as JSON-file
+// ConfigurationArgs is a configuration parameters for application as JSON-file
 type ConfigurationArgs struct {
 	Server          ServerConfiguration `json:"server"`
 	Streams         []StreamArg         `json:"streams"`
@@ -25,7 +25,7 @@ type ConfigurationArgs struct {
 	CorsConfig      CorsConfiguration   `json:"cors_config"`
 }
 
-// CorsConfiguration Configuration of CORS requests
+// CorsConfiguration is a configuration of CORS requests
 type CorsConfiguration struct {
 	UseCORS          bool     `json:"use_cors"`
 	AllowOrigins     []string `json:"allow_origins"`
@@ -35,21 +35,21 @@ type CorsConfiguration struct {
 	AllowCredentials bool     `json:"allow_credentials"`
 }
 
-// StreamArg Infromation about stream's source
+// StreamArg is an information about stream's source
 type StreamArg struct {
 	GUID        string   `json:"guid"`
 	URL         string   `json:"url"`
 	StreamTypes []string `json:"stream_types"`
 }
 
-// ServerConfiguration Configuration parameters for server
+// ServerConfiguration is a configuration parameters for server
 type ServerConfiguration struct {
 	HTTPAddr      string `json:"http_addr"`
 	VideoHTTPPort int    `json:"video_http_port"`
 	APIHTTPPort   int    `json:"api_http_port"`
 }
 
-// NewConfiguration Constructor for ConfigurationArgs
+// NewConfiguration returns new application configuration
 func NewConfiguration(fname string) (*ConfigurationArgs, error) {
 	data, err := ioutil.ReadFile(fname)
 	if err != nil {

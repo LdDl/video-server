@@ -17,7 +17,7 @@ import (
 // @todo: eliminate this regexp and use the third party
 var uuidRegExp = regexp.MustCompile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}")
 
-// StartVideoServer Initialize "video" server and run it (MSE-websockets and HLS-static files)
+// StartVideoServer initializes "video" server and run it (MSE-websockets and HLS-static files)
 func (app *Application) StartVideoServer() {
 	router := gin.New()
 	// @todo I guess we should make proper configuration...
@@ -47,7 +47,7 @@ func (app *Application) StartVideoServer() {
 	}
 }
 
-// StartAPIServer Start separated server with API functionality
+// StartAPIServer starts server with API functionality
 func (app *Application) StartAPIServer() {
 	router := gin.New()
 
@@ -75,7 +75,7 @@ func (app *Application) StartAPIServer() {
 	}
 }
 
-// ListWrapper Returns list of streams
+// ListWrapper returns list of streams
 func ListWrapper(app *Application) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		_, all := app.list()
@@ -83,21 +83,21 @@ func ListWrapper(app *Application) func(ctx *gin.Context) {
 	}
 }
 
-// StatusWrapper Returns statuses for list of streams
+// StatusWrapper returns statuses for list of streams
 func StatusWrapper(app *Application) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		ctx.JSON(200, app)
 	}
 }
 
-// WebSocketWrapper Returns WS handler
+// WebSocketWrapper returns WS handler
 func WebSocketWrapper(app *Application, wsUpgrader *websocket.Upgrader) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		wshandler(wsUpgrader, ctx.Writer, ctx.Request, app)
 	}
 }
 
-// HLSWrapper Returns HLS handler (static files)
+// HLSWrapper returns HLS handler (static files)
 func HLSWrapper(app *Application) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		file := ctx.Param("file")
@@ -111,14 +111,14 @@ func HLSWrapper(app *Application) func(ctx *gin.Context) {
 	}
 }
 
-// EnablePostData ...
+// EnablePostData is a POST-body for API which enables to turn on/off specific streams
 type EnablePostData struct {
 	GUID        uuid.UUID `json:"guid"`
 	URL         string    `json:"url"`
 	StreamTypes []string  `json:"stream_types"`
 }
 
-// EnableCamera add new stream if does not exist
+// EnableCamera adds new stream if does not exist
 func EnableCamera(app *Application) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		var postData EnablePostData
@@ -136,7 +136,7 @@ func EnableCamera(app *Application) func(ctx *gin.Context) {
 	}
 }
 
-// DisableCamera switch working camera
+// DisableCamera turns off stream for specific stream ID
 func DisableCamera(app *Application) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		var postData EnablePostData

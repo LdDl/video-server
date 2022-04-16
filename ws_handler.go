@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// wshandler is a websocket handler for user connection
 func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Request, app *Application) {
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {

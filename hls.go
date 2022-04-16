@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// startHls starts routine to create m3u8 playlists
 func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
 
 	err := ensureDir(app.HlsDirectory)
@@ -166,6 +167,7 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 	return nil
 }
 
+// removeOutdatedSegments removes outdated *.ts
 func (app *Application) removeOutdatedSegments(streamID uuid.UUID, playlist *m3u8.MediaPlaylist) error {
 	// Write all playlist segment URIs into map
 	currentSegments := make(map[string]struct{}, len(playlist.Segments))
@@ -192,6 +194,7 @@ func (app *Application) removeOutdatedSegments(streamID uuid.UUID, playlist *m3u
 	return nil
 }
 
+// ensureDir alias to 'mkdir -p'
 func ensureDir(dirName string) error {
 	err := os.MkdirAll(dirName, 0777)
 	if err == nil || os.IsExist(err) {

@@ -27,16 +27,6 @@ type ServerInfo struct {
 	APIHTTPPort   int    `json:"-"`
 }
 
-func (sm *StreamsStorage) getKeys() []uuid.UUID {
-	sm.Lock()
-	defer sm.Unlock()
-	keys := make([]uuid.UUID, 0, len(sm.Streams))
-	for k := range sm.Streams {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
 // NewApplication Prepare configuration for application
 func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 	tmp := Application{
