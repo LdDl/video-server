@@ -9,18 +9,23 @@ import (
 	"github.com/google/uuid"
 )
 
-// Application Configuration parameters for application
+// Application is a configuration parameters for application
 type Application struct {
-	Server          *ServerInfo     `json:"server"`
-	Streams         *StreamsStorage `json:"streams"`
-	HlsMsPerSegment int64           `json:"hls_ms_per_segment"`
-	HlsDirectory    string          `json:"hls_directory"`
-	HlsWindowSize   uint            `json:"hls_window_size"`
-	HlsCapacity     uint            `json:"hls_window_capacity"`
-	CorsConfig      *cors.Config    `json:"-"`
+	Server     *ServerInfo     `json:"server"`
+	Streams    *StreamsStorage `json:"streams"`
+	HLS        HLSInfo         `json:"hls"`
+	CorsConfig *cors.Config    `json:"-"`
 }
 
-// ServerInfo Information about server
+// HLSInfo is an information about HLS parameters for server
+type HLSInfo struct {
+	MsPerSegment int64  `json:"hls_ms_per_segment"`
+	Directory    string `json:"-"`
+	WindowSize   uint   `json:"hls_window_size"`
+	Capacity     uint   `json:"hls_window_capacity"`
+}
+
+// ServerInfo is an information about server
 type ServerInfo struct {
 	HTTPAddr      string `json:"http_addr"`
 	VideoHTTPPort int    `json:"http_port"`
@@ -35,11 +40,13 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 			VideoHTTPPort: cfg.Server.VideoHTTPPort,
 			APIHTTPPort:   cfg.Server.APIHTTPPort,
 		},
-		Streams:         NewStreamsStorageDefault(),
-		HlsMsPerSegment: cfg.HlsMsPerSegment,
-		HlsDirectory:    cfg.HlsDirectory,
-		HlsWindowSize:   cfg.HlsWindowSize,
-		HlsCapacity:     cfg.HlsCapacity,
+		Streams: NewStreamsStorageDefault(),
+		HLS: HLSInfo{
+			MsPerSegment: cfg.HLSConfig.MsPerSegment,
+			Directory:    cfg.HLSConfig.Directory,
+			WindowSize:   cfg.HLSConfig.WindowSize,
+			Capacity:     cfg.HLSConfig.Capacity,
+		},
 	}
 	if cfg.CorsConfig.UseCORS {
 		tmp.setCors(&cfg.CorsConfig)

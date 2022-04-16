@@ -16,13 +16,18 @@ const (
 
 // ConfigurationArgs is a configuration parameters for application as JSON-file
 type ConfigurationArgs struct {
-	Server          ServerConfiguration `json:"server"`
-	Streams         []StreamArg         `json:"streams"`
-	HlsMsPerSegment int64               `json:"hls_ms_per_segment"`
-	HlsDirectory    string              `json:"hls_directory"`
-	HlsWindowSize   uint                `json:"hls_window_size"`
-	HlsCapacity     uint                `json:"hls_window_capacity"`
-	CorsConfig      CorsConfiguration   `json:"cors_config"`
+	Server     ServerConfiguration `json:"server"`
+	Streams    []StreamArg         `json:"streams"`
+	HLSConfig  HLSConfiguration    `json:"hls"`
+	CorsConfig CorsConfiguration   `json:"cors_config"`
+}
+
+// HLSConfiguration is a HLS configuration for every stream with provided "hls" type in 'stream_types' field
+type HLSConfiguration struct {
+	MsPerSegment int64  `json:"ms_per_segment"`
+	Directory    string `json:"directory"`
+	WindowSize   uint   `json:"window_size"`
+	Capacity     uint   `json:"window_capacity"`
 }
 
 // CorsConfiguration is a configuration of CORS requests
@@ -60,20 +65,20 @@ func NewConfiguration(fname string) (*ConfigurationArgs, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "Can't unmarshal file's content")
 	}
-	if conf.HlsDirectory == "" {
-		conf.HlsDirectory = defaultHlsDir
+	if conf.HLSConfig.Directory == "" {
+		conf.HLSConfig.Directory = defaultHlsDir
 	}
-	if conf.HlsMsPerSegment == 0 {
-		conf.HlsMsPerSegment = defaultHlsMsPerSegment
+	if conf.HLSConfig.MsPerSegment == 0 {
+		conf.HLSConfig.MsPerSegment = defaultHlsMsPerSegment
 	}
-	if conf.HlsCapacity == 0 {
-		conf.HlsCapacity = defaultHlsCapacity
+	if conf.HLSConfig.Capacity == 0 {
+		conf.HLSConfig.Capacity = defaultHlsCapacity
 	}
-	if conf.HlsWindowSize == 0 {
-		conf.HlsWindowSize = defaultHlsWindowSize
+	if conf.HLSConfig.WindowSize == 0 {
+		conf.HLSConfig.WindowSize = defaultHlsWindowSize
 	}
-	if conf.HlsWindowSize > conf.HlsCapacity {
-		conf.HlsWindowSize = conf.HlsCapacity
+	if conf.HLSConfig.WindowSize > conf.HLSConfig.Capacity {
+		conf.HLSConfig.WindowSize = conf.HLSConfig.Capacity
 	}
 	return &conf, nil
 }

@@ -107,7 +107,7 @@ func HLSWrapper(app *Application) func(ctx *gin.Context) {
 			return
 		}
 		ctx.Header("Cache-Control", "no-cache")
-		ctx.FileFromFS(file, http.Dir(app.HlsDirectory))
+		ctx.FileFromFS(file, http.Dir(app.HLS.Directory))
 	}
 }
 

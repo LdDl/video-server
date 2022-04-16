@@ -4,10 +4,12 @@
         "video_http_port": 8090,
         "api_http_port": 8091
     },
-    "hls_ms_per_segment": 10000,
-    "hls_directory": "./hls",
-    "hls_window_size": 5,
-    "hls_window_capacity" : 10,
+    "hls": {
+        "ms_per_segment": 10000,
+        "directory": "./hls",
+        "window_size": 5,
+        "window_capacity" : 10
+    },
     "streams": [
         {
             "guid": "c2680f08-07cc-4dee-9231-685893e2661f",

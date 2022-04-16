@@ -17,15 +17,15 @@ import (
 // startHls starts routine to create m3u8 playlists
 func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
 
-	err := ensureDir(app.HlsDirectory)
+	err := ensureDir(app.HLS.Directory)
 	if err != nil {
 		return errors.Wrap(err, "Can't create directory for HLS temporary files")
 	}
 
 	// Create playlist for HLS streams
-	playlistFileName := filepath.Join(app.HlsDirectory, fmt.Sprintf("%s.m3u8", streamID))
+	playlistFileName := filepath.Join(app.HLS.Directory, fmt.Sprintf("%s.m3u8", streamID))
 	log.Printf("Need to start HLS: %s\n", playlistFileName)
-	playlist, err := m3u8.NewMediaPlaylist(app.HlsWindowSize, app.HlsCapacity)
+	playlist, err := m3u8.NewMediaPlaylist(app.HLS.WindowSize, app.HLS.Capacity)
 	if err != nil {
 		return errors.Wrap(err, "Can't create new mediaplayer list")
 	}
@@ -38,7 +38,7 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 	for isConnected {
 		// Create new segment file
 		segmentName := fmt.Sprintf("%s%04d.ts", streamID, segmentNumber)
-		segmentPath := filepath.Join(app.HlsDirectory, segmentName)
+		segmentPath := filepath.Join(app.HLS.Directory, segmentName)
 		outFile, err := os.Create(segmentPath)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("Can't create TS-segment for stream %s", streamID))
@@ -91,7 +91,7 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 			case pck := <-ch:
 				if pck.Idx == videoStreamIdx && pck.IsKeyFrame {
 					start = true
-					if segmentLength.Milliseconds() >= app.HlsMsPerSegment {
+					if segmentLength.Milliseconds() >= app.HLS.MsPerSegment {
 						lastKeyFrame = pck
 						break segmentLoop
 					}
@@ -158,12 +158,12 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 		time.Sleep(delay)
 		for _, file := range filesToRemove {
 			if file != "" {
-				if err := os.Remove(filepath.Join(app.HlsDirectory, file)); err != nil {
+				if err := os.Remove(filepath.Join(app.HLS.Directory, file)); err != nil {
 					log.Printf("Can't call defered file remove: %s\n", err.Error())
 				}
 			}
 		}
-	}(time.Duration(app.HlsMsPerSegment*int64(playlist.Count()))*time.Millisecond, filesToRemove)
+	}(time.Duration(app.HLS.MsPerSegment*int64(playlist.Count()))*time.Millisecond, filesToRemove)
 
 	return nil
 }
@@ -178,7 +178,7 @@ func (app *Application) removeOutdatedSegments(streamID uuid.UUID, playlist *m3u
 		}
 	}
 	// Find possible segment files in current directory
-	segmentFiles, err := filepath.Glob(filepath.Join(app.HlsDirectory, fmt.Sprintf("%s*.ts", streamID)))
+	segmentFiles, err := filepath.Glob(filepath.Join(app.HLS.Directory, fmt.Sprintf("%s*.ts", streamID)))
 	if err != nil {
 		log.Printf("Can't find glob for '%s': %s\n", streamID, err.Error())
 		return err
