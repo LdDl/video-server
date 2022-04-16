@@ -126,9 +126,7 @@ func EnableCamera(app *Application) func(ctx *gin.Context) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"Error": err.Error()})
 			return
 		}
-
 		if exist := app.exists(postData.GUID); !exist {
-			//add new
 			app.Streams.Lock()
 			app.Streams.Streams[postData.GUID] = NewStreamConfiguration(postData.URL, postData.StreamTypes)
 			app.Streams.Unlock()

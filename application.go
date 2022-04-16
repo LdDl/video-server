@@ -83,27 +83,15 @@ func (app *Application) setCors(cfg *CorsConfiguration) {
 	app.CorsConfig.AllowCredentials = cfg.AllowCredentials
 }
 
-func (app *Application) cast(streamID uuid.UUID, pck av.Packet) error {
+func (app *Application) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled bool) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	curStream, ok := app.Streams.Streams[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
-	curStream.hlsChanel <- pck
-	for _, v := range curStream.Clients {
-		if len(v.c) < cap(v.c) {
-			v.c <- pck
-		}
-	}
-	return nil
-}
-func (app *Application) castMSE(streamID uuid.UUID, pck av.Packet) error {
-	app.Streams.Lock()
-	defer app.Streams.Unlock()
-	curStream, ok := app.Streams.Streams[streamID]
-	if !ok {
-		return ErrStreamNotFound
+	if hlsEnabled {
+		curStream.hlsChanel <- pck
 	}
 	for _, v := range curStream.Clients {
 		if len(v.c) < cap(v.c) {
@@ -117,7 +105,6 @@ func (app *Application) exists(streamID uuid.UUID) bool {
 	defer app.Streams.Unlock()
 	_, ok := app.Streams.Streams[streamID]
 	return ok
-
 }
 
 func (app *Application) existsWithType(streamID uuid.UUID, streamType string) bool {
@@ -148,7 +135,7 @@ func (app *Application) codecGet(streamID uuid.UUID) ([]av.CodecData, error) {
 	return curStream.Codecs, nil
 }
 
-func (app *Application) updateStatus(streamID uuid.UUID, status bool) error {
+func (app *Application) updateStreamStatus(streamID uuid.UUID, status bool) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	t, ok := app.Streams.Streams[streamID]
