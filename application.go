@@ -37,10 +37,6 @@ func (sm *StreamsStorage) getKeys() []uuid.UUID {
 	return keys
 }
 
-type viewer struct {
-	c chan av.Packet
-}
-
 // NewApplication Prepare configuration for application
 func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 	tmp := Application{
