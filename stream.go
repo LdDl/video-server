@@ -30,7 +30,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled boo
 	}
 	defer session.Close()
 	if session.CodecData != nil {
-		app.codecAdd(streamID, session.CodecData)
+		app.addCodec(streamID, session.CodecData)
 		err = app.updateStreamStatus(streamID, true)
 		if err != nil {
 			return errors.Wrapf(err, "Can't update status for stream %s", streamID)
@@ -55,7 +55,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled boo
 		case signals := <-session.Signals:
 			switch signals {
 			case rtspv2.SignalCodecUpdate:
-				app.codecAdd(streamID, session.CodecData)
+				app.addCodec(streamID, session.CodecData)
 				err = app.updateStreamStatus(streamID, true)
 				if err != nil {
 					return errors.Wrapf(err, "Can't update status for stream %s", streamID)

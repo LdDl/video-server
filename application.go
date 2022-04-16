@@ -112,13 +112,13 @@ func (app *Application) existsWithType(streamID uuid.UUID, streamType string) bo
 	return ok && typeEnabled
 }
 
-func (app *Application) codecAdd(streamID uuid.UUID, codecs []av.CodecData) {
+func (app *Application) addCodec(streamID uuid.UUID, codecs []av.CodecData) {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	app.Streams.Streams[streamID].Codecs = codecs
 }
 
-func (app *Application) codecGet(streamID uuid.UUID) ([]av.CodecData, error) {
+func (app *Application) getCodec(streamID uuid.UUID) ([]av.CodecData, error) {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	curStream, ok := app.Streams.Streams[streamID]

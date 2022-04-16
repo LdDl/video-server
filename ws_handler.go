@@ -42,7 +42,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 			return
 		}
 		defer app.clientDelete(streamID, cuuid)
-		codecData, err := app.codecGet(streamID)
+		codecData, err := app.getCodec(streamID)
 		if err != nil {
 			closeWSwithError(conn, 1011, fmt.Sprintf("Can't add client '%s' due the error: %s\n", streamID, err.Error()))
 			return
