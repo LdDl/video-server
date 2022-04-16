@@ -7,8 +7,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/LdDl/video-server/internal/hlserror"
-
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
@@ -103,14 +101,10 @@ func WebSocketWrapper(app *Application, wsUpgrader *websocket.Upgrader) func(ctx
 func HLSWrapper(app *Application) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		file := ctx.Param("file")
-		k, err := uuid.Parse(uuidRegExp.FindString(file))
-		if err == nil {
-			code, err := hlserror.GetError(k)
-			hlserror.SetError(k, 200, nil)
-			if code != 200 {
-				ctx.JSON(code, err.Error())
-				return
-			}
+		_, err := uuid.Parse(uuidRegExp.FindString(file))
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"Error": err.Error()})
+			return
 		}
 		ctx.Header("Cache-Control", "no-cache")
 		ctx.FileFromFS(file, http.Dir(app.HlsDirectory))
@@ -129,7 +123,7 @@ func EnableCamera(app *Application) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		var postData EnablePostData
 		if err := ctx.ShouldBindJSON(&postData); err != nil {
-			ctx.JSON(http.StatusBadRequest, err)
+			ctx.JSON(http.StatusBadRequest, gin.H{"Error": err.Error()})
 			return
 		}
 
@@ -149,7 +143,7 @@ func DisableCamera(app *Application) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		var postData EnablePostData
 		if err := ctx.ShouldBindJSON(&postData); err != nil {
-			ctx.JSON(http.StatusBadRequest, err)
+			ctx.JSON(http.StatusBadRequest, gin.H{"Error": err.Error()})
 			return
 		}
 

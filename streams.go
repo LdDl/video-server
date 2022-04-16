@@ -1,11 +1,9 @@
 package videoserver
 
 import (
-	"fmt"
 	"log"
 	"time"
 
-	"github.com/LdDl/video-server/internal/hlserror"
 	"github.com/deepch/vdk/format/rtsp"
 	"github.com/google/uuid"
 )
@@ -28,7 +26,6 @@ func (app *Application) StartStreams() {
 				rtsp.DebugRtsp = false
 				session, err := rtsp.Dial(url)
 				if err != nil {
-					hlserror.SetError(streamID, 502, fmt.Errorf("rtsp.Dial error for %s (%s): %s", streamID, url, err.Error()))
 					log.Printf("rtsp.Dial error for %s (%s): %s\n", streamID, url, err.Error())
 					time.Sleep(60 * time.Second)
 					continue
@@ -36,7 +33,6 @@ func (app *Application) StartStreams() {
 				session.RtpKeepAliveTimeout = time.Duration(10 * time.Second)
 				codec, err := session.Streams()
 				if err != nil {
-					hlserror.SetError(streamID, 520, fmt.Errorf("Can't get sessions for %s (%s): %s", streamID, url, err.Error()))
 					log.Printf("Can't get sessions for %s (%s): %s\n", streamID, url, err.Error())
 					time.Sleep(60 * time.Second)
 					continue
@@ -55,14 +51,12 @@ func (app *Application) StartStreams() {
 					for {
 						pkt, err := session.ReadPacket()
 						if err != nil {
-							hlserror.SetError(streamID, 500, fmt.Errorf("Can't read session's packet %s (%s): %s", streamID, url, err.Error()))
 							log.Printf("Can't read session's packet %s (%s): %s\n", streamID, url, err.Error())
 							stopHlsCast <- true
 							break
 						}
 						err = app.cast(streamID, pkt)
 						if err != nil {
-							hlserror.SetError(streamID, 500, fmt.Errorf("Can't cast packet %s (%s): %s", streamID, url, err.Error()))
 							log.Printf("Can't cast packet %s (%s): %s\n", streamID, url, err.Error())
 							stopHlsCast <- true
 							break
@@ -120,7 +114,6 @@ func (app *Application) StartStream(k uuid.UUID) {
 			rtsp.DebugRtsp = false
 			session, err := rtsp.Dial(url)
 			if err != nil {
-				hlserror.SetError(name, 502, fmt.Errorf("rtsp.Dial error for %s (%s): %s", name, url, err.Error()))
 				log.Printf("rtsp.Dial error for %s (%s): %s\n", name, url, err.Error())
 				time.Sleep(60 * time.Second)
 				continue
@@ -128,7 +121,6 @@ func (app *Application) StartStream(k uuid.UUID) {
 			session.RtpKeepAliveTimeout = time.Duration(10 * time.Second)
 			codec, err := session.Streams()
 			if err != nil {
-				hlserror.SetError(name, 520, fmt.Errorf("Can't get sessions for %s (%s): %s", name, url, err.Error()))
 				log.Printf("Can't get sessions for %s (%s): %s\n", name, url, err.Error())
 				time.Sleep(60 * time.Second)
 				continue
@@ -147,14 +139,12 @@ func (app *Application) StartStream(k uuid.UUID) {
 				for {
 					pkt, err := session.ReadPacket()
 					if err != nil {
-						hlserror.SetError(name, 500, fmt.Errorf("Can't read session's packet %s (%s): %s", name, url, err.Error()))
 						log.Printf("Can't read session's packet %s (%s): %s\n", name, url, err.Error())
 						stopHlsCast <- true
 						break
 					}
 					err = app.cast(name, pkt)
 					if err != nil {
-						hlserror.SetError(name, 500, fmt.Errorf("Can't cast packet %s (%s): %s", name, url, err.Error()))
 						log.Printf("Can't cast packet %s (%s): %s\n", name, url, err.Error())
 						stopHlsCast <- true
 						break
