@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/LdDl/vdk/format/rtsp"
 	"github.com/LdDl/video-server/internal/hlserror"
+	"github.com/deepch/vdk/format/rtsp"
 	"github.com/google/uuid"
 )
 

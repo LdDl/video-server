@@ -1,7 +1,7 @@
 package videoserver
 
 import (
-	"github.com/LdDl/vdk/av"
+	"github.com/deepch/vdk/av"
 	"github.com/google/uuid"
 )
 

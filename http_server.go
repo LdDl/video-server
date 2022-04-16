@@ -22,7 +22,7 @@ var uuidRegExp = regexp.MustCompile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]
 // StartVideoServer Initialize "video" server and run it (MSE-websockets and HLS-static files)
 func (app *Application) StartVideoServer() {
 	router := gin.New()
-// @todo I guess we should make proper configuration...
+	// @todo I guess we should make proper configuration...
 	gin.SetMode(gin.ReleaseMode)
 	pprof.Register(router)
 

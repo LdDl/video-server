@@ -7,16 +7,18 @@
 
 ## Table of Contents
 
-- [About](#about)
-- [Installation](#installation)
+- [Golang-based video-server for re-streaming RTSP to HLS/MSE](#golang-based-video-server-for-re-streaming-rtsp-to-hlsmse)
+  - [Table of Contents](#table-of-contents)
+  - [About](#about)
+  - [Instalation](#instalation)
     - [Binaries](#binaries)
     - [From source](#from-source)
-- [Usage](#usage)
-    - [Server](#start-server)
-    - [Client](#test-client-server)
-- [Dependencies](#dependencies)
-- [License](#license)
-- [Developers](#developers)
+  - [Usage](#usage)
+    - [Start server](#start-server)
+    - [Test Client-Server](#test-client-server)
+  - [Dependencies](#dependencies)
+  - [License](#license)
+  - [Developers](#developers)
 
 
 ## About
@@ -80,7 +82,7 @@ Paste link to the browser and check if video loaded successfully.
 ## Dependencies
 GIN web-framework - [https://github.com/gin-gonic/gin](https://github.com/gin-gonic/gin). License is [MIT](https://github.com/gin-gonic/gin/blob/master/LICENSE)
 
-Media library - [http://github.com/deepch/vdk](https://github.com/deepch/vdk). License is [MIT](https://github.com/deepch/vdk/blob/master/LICENSE). We are using fork actually - https://github.com/LdDl/vdk
+Media library - [http://github.com/deepch/vdk](https://github.com/deepch/vdk). License is [MIT](https://github.com/deepch/vdk/blob/master/LICENSE).
 
 UUID generation and parsing - [https://github.com/google/uuid](https://github.com/google/uuid). License is [BSD 3-Clause](https://github.com/google/uuid/blob/master/LICENSE)
 

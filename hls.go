@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/deepch/vdk/av"
+	"github.com/deepch/vdk/format/ts"
 	"github.com/google/uuid"
 	"github.com/grafov/m3u8"
-	"github.com/LdDl/vdk/av"
-	"github.com/LdDl/vdk/format/ts"
 	"github.com/pkg/errors"
 )
 
