@@ -24,6 +24,8 @@
 ## About
 Simple WS/HTTP server for re-streaming video (RTSP) to client in MSE/HLS format.
 
+It is highly inspired by https://github.com/deepch/RTSPtoWeb and hist other projects. So why am I trying to reinvent the wheel? Well, I'm just trying to fit my needs.
+
 ## Instalation
 ### Binaries
 Linux - [link](https://github.com/LdDl/video-server/releases/download/v0.3.2/linux-video_server.zip)
