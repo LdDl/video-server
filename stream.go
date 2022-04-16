@@ -9,13 +9,20 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	pingDuration        = 15 * time.Second
+	pingDurationRestart = pingDuration + 1*time.Second
+	dialTimeoutDuration = 3 * time.Second
+	readTimeoutDuration = 3 * time.Second
+)
+
 // runStream runs RTSP grabbing process
 func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled bool) error {
 	session, err := rtspv2.Dial(rtspv2.RTSPClientOptions{
 		URL:              url,
 		DisableAudio:     true,
-		DialTimeout:      3 * time.Second,
-		ReadWriteTimeout: 3 * time.Second,
+		DialTimeout:      dialTimeoutDuration,
+		ReadWriteTimeout: readTimeoutDuration,
 		Debug:            false,
 	})
 	if err != nil {
@@ -40,7 +47,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled boo
 		stopHlsCast = make(chan bool, 1)
 		app.startHlsCast(streamID, stopHlsCast)
 	}
-	pingStream := time.NewTimer(15 * time.Second)
+	pingStream := time.NewTimer(pingDuration)
 	for {
 		select {
 		case <-pingStream.C:
@@ -59,7 +66,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled boo
 			}
 		case packetAV := <-session.OutgoingPacketQueue:
 			if isAudioOnly || packetAV.IsKeyFrame {
-				pingStream.Reset(16 * time.Second)
+				pingStream.Reset(pingDurationRestart)
 			}
 			err = app.cast(streamID, *packetAV, hlsEnabled)
 			if err != nil {

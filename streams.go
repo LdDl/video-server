@@ -7,6 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	restartStreamDuration = 5 * time.Second
+)
+
 // StartStreams starts all video streams
 func (app *Application) StartStreams() {
 	streamsIDs := app.Streams.getKeys()
@@ -34,8 +38,8 @@ func (app *Application) startLoop(streamID uuid.UUID, url string, hlsEnabled boo
 		if err != nil {
 			log.Printf("Error occured for stream %s on URL '%s': %s", streamID, url, err.Error())
 		}
-		log.Printf("Stream must be re-establishment for '%s' by connecting to %s in next 5 seconds\n", streamID, url)
-		time.Sleep(5 * time.Second)
+		log.Printf("Stream must be re-establishment for '%s' by connecting to %s in %s\n", streamID, url, restartStreamDuration)
+		time.Sleep(restartStreamDuration)
 	}
 }
 
