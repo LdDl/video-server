@@ -32,7 +32,7 @@ func (app *Application) StartVideoServer() {
 	if app.CorsConfig != nil {
 		router.Use(cors.New(*app.CorsConfig))
 	}
-	router.GET("/ws/:suuid", WebSocketWrapper(app, &wsUpgrader))
+	router.GET("/ws/:stream_id", WebSocketWrapper(app, &wsUpgrader))
 	router.GET("/hls/:file", HLSWrapper(app))
 	s := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", app.Server.HTTPAddr, app.Server.VideoHTTPPort),

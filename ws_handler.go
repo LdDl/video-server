@@ -27,7 +27,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		// log.Printf("WS connection has been terminated %s\n", conn.RemoteAddr().String())
 	}()
 
-	streamIDSTR := r.FormValue("suuid")
+	streamIDSTR := r.FormValue("stream_id")
 	streamID, err := uuid.Parse(streamIDSTR)
 	if err != nil {
 		closeWSwithError(conn, 1011, fmt.Sprintf("Can't parse UUID: '%s' due the error: %s\n", streamIDSTR, err.Error()))
