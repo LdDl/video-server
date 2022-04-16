@@ -37,7 +37,6 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled boo
 	}
 	var stopHlsCast chan bool
 	if hlsEnabled {
-		fmt.Println("HLS enabled")
 		stopHlsCast = make(chan bool, 1)
 		app.startHlsCast(streamID, stopHlsCast)
 	}

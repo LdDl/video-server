@@ -81,6 +81,7 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 			segmentCount++
 		}
 
+		// @todo Oh, I don't like GOTOs, but it is what it is.
 	segmentLoop:
 		for {
 			select {
