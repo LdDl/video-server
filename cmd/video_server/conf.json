@@ -14,7 +14,8 @@
         {
             "guid": "c2680f08-07cc-4dee-9231-685893e2661f",
             "url": "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mp4",
-            "stream_types": ["mse", "hls"]
+            "stream_types": ["mse", "hls"],
+            "verbose": "v"
         }
     ],
     "cors_config": {

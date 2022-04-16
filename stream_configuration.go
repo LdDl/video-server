@@ -13,6 +13,8 @@ type StreamConfiguration struct {
 	Codecs               []av.CodecData
 	Clients              map[uuid.UUID]viewer
 	hlsChanel            chan av.Packet
+	verbose              bool
+	verboseDetailed      bool
 }
 
 // NewStreamConfiguration returns default configuration

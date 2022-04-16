@@ -2,6 +2,7 @@ package videoserver
 
 import (
 	"log"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 
@@ -51,13 +52,20 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 	if cfg.CorsConfig.UseCORS {
 		tmp.setCors(&cfg.CorsConfig)
 	}
-	for i := range cfg.Streams {
-		validUUID, err := uuid.Parse(cfg.Streams[i].GUID)
+	for _, streamCfg := range cfg.Streams {
+		validUUID, err := uuid.Parse(streamCfg.GUID)
 		if err != nil {
-			log.Printf("Not valid UUID: %s\n", cfg.Streams[i].GUID)
+			log.Printf("Not valid UUID: %s\n", streamCfg.GUID)
 			continue
 		}
-		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(cfg.Streams[i].URL, cfg.Streams[i].StreamTypes)
+		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(streamCfg.URL, streamCfg.StreamTypes)
+		verbose := strings.ToLower(streamCfg.Verbose)
+		if verbose == "v" {
+			tmp.Streams.Streams[validUUID].verbose = true
+		} else if verbose == "vvv" {
+			tmp.Streams.Streams[validUUID].verbose = true
+			tmp.Streams.Streams[validUUID].verboseDetailed = true
+		}
 	}
 	return &tmp, nil
 }

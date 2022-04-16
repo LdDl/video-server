@@ -45,6 +45,7 @@ type StreamArg struct {
 	GUID        string   `json:"guid"`
 	URL         string   `json:"url"`
 	StreamTypes []string `json:"stream_types"`
+	Verbose     string   `json:"verbose"`
 }
 
 // ServerConfiguration is a configuration parameters for server
