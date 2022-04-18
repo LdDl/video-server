@@ -2,43 +2,35 @@ package videoserver
 
 import (
 	"log"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 
-	"github.com/LdDl/vdk/av"
+	"github.com/deepch/vdk/av"
 	"github.com/google/uuid"
 )
 
-// Application Configuration parameters for application
+// Application is a configuration parameters for application
 type Application struct {
-	Server          *ServerInfo     `json:"server"`
-	Streams         *StreamsStorage `json:"streams"`
-	HlsMsPerSegment int64           `json:"hls_ms_per_segment"`
-	HlsDirectory    string          `json:"hls_directory"`
-	HlsWindowSize   uint            `json:"hls_window_size"`
-	HlsCapacity     uint            `json:"hls_window_capacity"`
-	CorsConfig      *cors.Config    `json:"-"`
+	Server     *ServerInfo     `json:"server"`
+	Streams    *StreamsStorage `json:"streams"`
+	HLS        HLSInfo         `json:"hls"`
+	CorsConfig *cors.Config    `json:"-"`
 }
 
-// ServerInfo Information about server
+// HLSInfo is an information about HLS parameters for server
+type HLSInfo struct {
+	MsPerSegment int64  `json:"hls_ms_per_segment"`
+	Directory    string `json:"-"`
+	WindowSize   uint   `json:"hls_window_size"`
+	Capacity     uint   `json:"hls_window_capacity"`
+}
+
+// ServerInfo is an information about server
 type ServerInfo struct {
 	HTTPAddr      string `json:"http_addr"`
 	VideoHTTPPort int    `json:"http_port"`
 	APIHTTPPort   int    `json:"-"`
-}
-
-func (sm *StreamsStorage) getKeys() []uuid.UUID {
-	sm.Lock()
-	defer sm.Unlock()
-	keys := make([]uuid.UUID, 0, len(sm.Streams))
-	for k := range sm.Streams {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
-type viewer struct {
-	c chan av.Packet
 }
 
 // NewApplication Prepare configuration for application
@@ -49,22 +41,31 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 			VideoHTTPPort: cfg.Server.VideoHTTPPort,
 			APIHTTPPort:   cfg.Server.APIHTTPPort,
 		},
-		Streams:         NewStreamsStorageDefault(),
-		HlsMsPerSegment: cfg.HlsMsPerSegment,
-		HlsDirectory:    cfg.HlsDirectory,
-		HlsWindowSize:   cfg.HlsWindowSize,
-		HlsCapacity:     cfg.HlsCapacity,
+		Streams: NewStreamsStorageDefault(),
+		HLS: HLSInfo{
+			MsPerSegment: cfg.HLSConfig.MsPerSegment,
+			Directory:    cfg.HLSConfig.Directory,
+			WindowSize:   cfg.HLSConfig.WindowSize,
+			Capacity:     cfg.HLSConfig.Capacity,
+		},
 	}
 	if cfg.CorsConfig.UseCORS {
 		tmp.setCors(&cfg.CorsConfig)
 	}
-	for i := range cfg.Streams {
-		validUUID, err := uuid.Parse(cfg.Streams[i].GUID)
+	for _, streamCfg := range cfg.Streams {
+		validUUID, err := uuid.Parse(streamCfg.GUID)
 		if err != nil {
-			log.Printf("Not valid UUID: %s\n", cfg.Streams[i].GUID)
+			log.Printf("Not valid UUID: %s\n", streamCfg.GUID)
 			continue
 		}
-		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(cfg.Streams[i].URL, cfg.Streams[i].StreamTypes)
+		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(streamCfg.URL, streamCfg.StreamTypes)
+		verbose := strings.ToLower(streamCfg.Verbose)
+		if verbose == "v" {
+			tmp.Streams.Streams[validUUID].verbose = true
+		} else if verbose == "vvv" {
+			tmp.Streams.Streams[validUUID].verbose = true
+			tmp.Streams.Streams[validUUID].verboseDetailed = true
+		}
 	}
 	return &tmp, nil
 }
@@ -83,27 +84,15 @@ func (app *Application) setCors(cfg *CorsConfiguration) {
 	app.CorsConfig.AllowCredentials = cfg.AllowCredentials
 }
 
-func (app *Application) cast(streamID uuid.UUID, pck av.Packet) error {
+func (app *Application) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled bool) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	curStream, ok := app.Streams.Streams[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
-	curStream.hlsChanel <- pck
-	for _, v := range curStream.Clients {
-		if len(v.c) < cap(v.c) {
-			v.c <- pck
-		}
-	}
-	return nil
-}
-func (app *Application) castMSE(streamID uuid.UUID, pck av.Packet) error {
-	app.Streams.Lock()
-	defer app.Streams.Unlock()
-	curStream, ok := app.Streams.Streams[streamID]
-	if !ok {
-		return ErrStreamNotFound
+	if hlsEnabled {
+		curStream.hlsChanel <- pck
 	}
 	for _, v := range curStream.Clients {
 		if len(v.c) < cap(v.c) {
@@ -117,7 +106,6 @@ func (app *Application) exists(streamID uuid.UUID) bool {
 	defer app.Streams.Unlock()
 	_, ok := app.Streams.Streams[streamID]
 	return ok
-
 }
 
 func (app *Application) existsWithType(streamID uuid.UUID, streamType string) bool {
@@ -132,13 +120,13 @@ func (app *Application) existsWithType(streamID uuid.UUID, streamType string) bo
 	return ok && typeEnabled
 }
 
-func (app *Application) codecAdd(streamID uuid.UUID, codecs []av.CodecData) {
+func (app *Application) addCodec(streamID uuid.UUID, codecs []av.CodecData) {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	app.Streams.Streams[streamID].Codecs = codecs
 }
 
-func (app *Application) codecGet(streamID uuid.UUID) ([]av.CodecData, error) {
+func (app *Application) getCodec(streamID uuid.UUID) ([]av.CodecData, error) {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	curStream, ok := app.Streams.Streams[streamID]
@@ -148,7 +136,7 @@ func (app *Application) codecGet(streamID uuid.UUID) ([]av.CodecData, error) {
 	return curStream.Codecs, nil
 }
 
-func (app *Application) updateStatus(streamID uuid.UUID, status bool) error {
+func (app *Application) updateStreamStatus(streamID uuid.UUID, status bool) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	t, ok := app.Streams.Streams[streamID]

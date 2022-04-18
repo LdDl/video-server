@@ -66,7 +66,7 @@
             },
             start() {
                 this.isPlaying = true;
-                this.ws = new WebSocket(this.schema + "://" + this.server + ":" + this.port + "/ws/live?suuid=" + this.suuid);
+                this.ws = new WebSocket(this.schema + "://" + this.server + ":" + this.port + "/ws/live?stream_id=" + this.suuid);
                 this.ws.binaryType = "arraybuffer";
                 this.ws.onopen = (event) => {
                     console.log('Socket opened', event);

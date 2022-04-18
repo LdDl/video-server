@@ -1,11 +1,11 @@
 package videoserver
 
 import (
-	"github.com/LdDl/vdk/av"
+	"github.com/deepch/vdk/av"
 	"github.com/google/uuid"
 )
 
-// StreamConfiguration Configuration parameters for stream
+// StreamConfiguration is a configuration parameters for specific stream
 type StreamConfiguration struct {
 	URL                  string   `json:"url"`
 	Status               bool     `json:"status"`
@@ -13,8 +13,11 @@ type StreamConfiguration struct {
 	Codecs               []av.CodecData
 	Clients              map[uuid.UUID]viewer
 	hlsChanel            chan av.Packet
+	verbose              bool
+	verboseDetailed      bool
 }
 
+// NewStreamConfiguration returns default configuration
 func NewStreamConfiguration(streamURL string, supportedTypes []string) *StreamConfiguration {
 	return &StreamConfiguration{
 		URL:                  streamURL,
