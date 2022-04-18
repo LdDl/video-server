@@ -2,7 +2,6 @@ package videoserver
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -18,14 +17,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		closeWSwithError(conn, 1011, fmt.Sprintf("Failed to make websocket upgrade: %s\n", err.Error()))
 		return
 	}
-
-	defer func() {
-		err = conn.Close()
-		if err != nil {
-			// log.Printf("WS connection has been closed %s: %s\n", conn.RemoteAddr().String(), err.Error())
-		}
-		// log.Printf("WS connection has been terminated %s\n", conn.RemoteAddr().String())
-	}()
+	defer conn.Close()
 
 	streamIDSTR := r.FormValue("stream_id")
 	streamID, err := uuid.Parse(streamIDSTR)
@@ -73,7 +65,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		rxPingCh := make(chan bool)
 
 		go func(q, p chan bool) {
-			for { //rx loop
+			for {
 				msgType, data, err := conn.ReadMessage()
 				if err != nil {
 					q <- true
@@ -96,7 +88,6 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		for {
 			select {
 			case <-noVideo.C:
-				log.Println("no video")
 				return
 			case <-quitCh:
 				return
@@ -115,10 +106,12 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 				}
 				ready, buf, err := muxer.WritePacket(pck, false)
 				if err != nil {
-					log.Printf("Can't write packet due the error: %s\n", err.Error())
 				}
 				if ready {
-					conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+					err = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+					if err != nil {
+						return
+					}
 					err := conn.WriteMessage(websocket.BinaryMessage, buf)
 					if err != nil {
 						closeWSwithError(conn, 1011, fmt.Sprintf("Can't write messsage due the error: %s\n", err.Error()))
