@@ -14,6 +14,8 @@ const (
 	defaultHlsWindowSize   = 5
 )
 
+// @todo: can we switch to TOML? Any benefits?
+
 // ConfigurationArgs is a configuration parameters for application as JSON-file
 type ConfigurationArgs struct {
 	Server     ServerConfiguration `json:"server"`
