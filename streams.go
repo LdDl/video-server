@@ -22,10 +22,7 @@ func (app *Application) StartStreams() {
 
 // StartStream starts single video stream
 func (app *Application) StartStream(k uuid.UUID) {
-	url, supportedTypes := app.Streams.GetStream(k)
-
-	hlsEnabled := typeExists("hls", supportedTypes)
-	go app.startLoop(context.Background(), k, url, hlsEnabled)
+	go app.RunStream(context.Background(), k)
 }
 
 func (app *Application) RunStream(ctx context.Context, k uuid.UUID) {
