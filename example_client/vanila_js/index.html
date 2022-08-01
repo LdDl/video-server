@@ -9,7 +9,6 @@
     <video id="livestream" class="mse-video-size" autoplay controls muted/>
   </div>
   <script>
-    // Инициализация MSE внутри видео-проигрывателя
     function initialize () {
       let load = document.getElementById('livestream');
       if ('MediaSource' in window) {
@@ -26,47 +25,41 @@
             }
           };
       } else {
-          console.error('Неподдерживаемый формат: MSE')
+          console.error('Unsupported: MSE')
       }
     }
 
-    // Старт работы с веб-сокетом
+    // Start job with WebSocket
     function start (ms) {
       let load = document.getElementById('livestream')
       let isPlaying = true
-      /* Пример составления ссылки на видеопоток для подачи на подключение к веб-сокеты - зависит от ситуации*/
+      /* Just an eexample how to prepare link for WS */
       const schema = 'ws'
       const server = 'localhost'
       const port = '8090'
       const streamID = 'c2680f08-07cc-4dee-9231-685893e2661f'
 
-      /* Инициализация веб-сокета */
       let ws = new WebSocket(schema + '://' + server + ':' + port + '/ws/live?stream_id=' + streamID)
       ws.binaryType = 'arraybuffer'
       
-      /* Обработка различных событий в рамках веб-сокет соединения */
-
-      /* Обработка открытия веб-сокета */
       ws.onopen = function() {
-        console.log("Соединение установлено.");
+        console.log("Connections has been established");
       };
 
-      /* Обработка закрытия веб-сокета */
       ws.onclose = function(event) {
         if (event.wasClean) {
-          console.log('Соединение закрыто чисто');
+          console.log('Connection closed successfully');
         } else {
-          console.log('Обрыв соединения'); // Например, "убит" процесс сервера
+          console.log('Connection has been terminated'); 
         }
-        console.log('Код: ' + event.code + ' причина: ' + event.reason);
+        console.log('Code: ' + event.code + ' reason: ' + event.reason);
       };
 
-      /* Обработка получения события от сервера */
       ws.onmessage = function(event) {
-        console.log("Получен набор данных для декодирования");
+        console.log("Got packet for decoding");
         const data = new Uint8Array(event.data)
         if (data[0] === 9) {
-          // Декодирование кодека при инициализации подключения
+          // Decond on initialization
           const decodedArr = data.slice(1)
           let mimeCodec
           if (window.TextDecoder) {
@@ -74,25 +67,22 @@
           } else {
               mimeCodec = String.fromCharCode(decodedArr)
           }
-          console.log("Кодек:", mimeCodec);
+          console.log("Codec:", mimeCodec);
           if (!sourceBuffer && load) {
               sourceBuffer = ms.addSourceBuffer('video/mp4; codecs="' + mimeCodec + '"')
               sourceBuffer.mode = 'segments'
               sourceBuffer.addEventListener('updateend', loadPacket())
           }
         } else {
-          /* Передача данных в функцию записи данных в буффер */
+          /* Write to buffer */
           pushPacket(event.data)
         }
       };
-
-      /* Обработка возникновения ошибки */
       ws.onerror = function(error) {
-        console.log("Ошибка:", error.message);
+        console.log("Error:", error.message);
       };
     }
 
-    // Помещение пакета в буффер
     function pushPacket (data) {
       let load = document.getElementById('livestream');
       if (!streamStarted && load) {
@@ -106,7 +96,6 @@
       }
     }
 
-    // Загрузка пакета в элемент
     function loadPacket () {
       let load = document.getElementById('livestream')
       if (!sourceBuffer.updating && load) {
