@@ -13,8 +13,8 @@ type StreamsStorage struct {
 }
 
 // NewStreamsStorageDefault prepares new allocated storage
-func NewStreamsStorageDefault() *StreamsStorage {
-	return &StreamsStorage{Streams: make(map[uuid.UUID]*StreamConfiguration)}
+func NewStreamsStorageDefault() StreamsStorage {
+	return StreamsStorage{Streams: make(map[uuid.UUID]*StreamConfiguration)}
 }
 
 // getKeys returns all storage streams' keys as slice

@@ -15,7 +15,7 @@ import (
 type Application struct {
 	APICfg         APIConfiguration   `json:"api"`
 	VideoServerCfg VideoConfiguration `json:"video"`
-	Streams        *StreamsStorage    `json:"streams"`
+	Streams        StreamsStorage     `json:"streams"`
 	HLS            HLSInfo            `json:"hls"`
 	CorsConfig     *cors.Config       `json:"-"`
 }
@@ -72,16 +72,16 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 		},
 	}
 	if cfg.CorsConfig.Enabled {
-		tmp.setCors(&cfg.CorsConfig)
+		tmp.setCors(cfg.CorsConfig)
 	}
-	for _, streamCfg := range cfg.RTSPStreams {
-		validUUID, err := uuid.Parse(streamCfg.GUID)
+	for _, rtspStream := range cfg.RTSPStreams {
+		validUUID, err := uuid.Parse(rtspStream.GUID)
 		if err != nil {
-			log.Printf("Not valid UUID: %s\n", streamCfg.GUID)
+			log.Printf("Not valid UUID: %s\n", rtspStream.GUID)
 			continue
 		}
-		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(streamCfg.URL, streamCfg.StreamTypes)
-		verbose := strings.ToLower(streamCfg.Verbose)
+		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(rtspStream.URL, rtspStream.StreamTypes)
+		verbose := strings.ToLower(rtspStream.Verbose)
 		if verbose == "v" {
 			tmp.Streams.Streams[validUUID].verbose = true
 		} else if verbose == "vvv" {
@@ -92,7 +92,7 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 	return &tmp, nil
 }
 
-func (app *Application) setCors(cfg *configuration.CORSConfiguration) {
+func (app *Application) setCors(cfg configuration.CORSConfiguration) {
 	newCors := cors.DefaultConfig()
 	app.CorsConfig = &newCors
 	app.CorsConfig.AllowOrigins = cfg.AllowOrigins
