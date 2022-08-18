@@ -4,6 +4,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/LdDl/video-server/configuration"
 	"github.com/gin-contrib/cors"
 
 	"github.com/deepch/vdk/av"
@@ -29,30 +30,30 @@ type HLSInfo struct {
 // ServerInfo is an information about server
 type ServerInfo struct {
 	HTTPAddr      string `json:"http_addr"`
-	VideoHTTPPort int    `json:"http_port"`
-	APIHTTPPort   int    `json:"-"`
+	VideoHTTPPort int32  `json:"http_port"`
+	APIHTTPPort   int32  `json:"-"`
 }
 
 // NewApplication Prepare configuration for application
-func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
+func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 	tmp := Application{
 		Server: &ServerInfo{
-			HTTPAddr:      cfg.Server.HTTPAddr,
-			VideoHTTPPort: cfg.Server.VideoHTTPPort,
-			APIHTTPPort:   cfg.Server.APIHTTPPort,
+			HTTPAddr:      cfg.APICfg.Host,
+			VideoHTTPPort: cfg.VideoServerCfg.Port,
+			APIHTTPPort:   cfg.APICfg.Port,
 		},
 		Streams: NewStreamsStorageDefault(),
 		HLS: HLSInfo{
-			MsPerSegment: cfg.HLSConfig.MsPerSegment,
-			Directory:    cfg.HLSConfig.Directory,
-			WindowSize:   cfg.HLSConfig.WindowSize,
-			Capacity:     cfg.HLSConfig.Capacity,
+			MsPerSegment: cfg.HLSCfg.MsPerSegment,
+			Directory:    cfg.HLSCfg.Directory,
+			WindowSize:   cfg.HLSCfg.WindowSize,
+			Capacity:     cfg.HLSCfg.Capacity,
 		},
 	}
-	if cfg.CorsConfig.UseCORS {
+	if cfg.CorsConfig.Enabled {
 		tmp.setCors(&cfg.CorsConfig)
 	}
-	for _, streamCfg := range cfg.Streams {
+	for _, streamCfg := range cfg.RTSPStreams {
 		validUUID, err := uuid.Parse(streamCfg.GUID)
 		if err != nil {
 			log.Printf("Not valid UUID: %s\n", streamCfg.GUID)
@@ -70,7 +71,7 @@ func NewApplication(cfg *ConfigurationArgs) (*Application, error) {
 	return &tmp, nil
 }
 
-func (app *Application) setCors(cfg *CorsConfiguration) {
+func (app *Application) setCors(cfg *configuration.CORSConfiguration) {
 	newCors := cors.DefaultConfig()
 	app.CorsConfig = &newCors
 	app.CorsConfig.AllowOrigins = cfg.AllowOrigins

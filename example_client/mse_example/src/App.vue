@@ -2,7 +2,7 @@
   <div id="app" >
     <p>MSE player</p>
     <div>
-      <MSEPlayer schema="ws" server="localhost" :port="8090" suuid="c2680f08-07cc-4dee-9231-685893e2661f" :verbose="false" />
+      <MSEPlayer schema="ws" server="localhost" :port="8090" suuid="a1b8e7cb-09e6-4f3a-b857-30c7b272a744" :verbose="false" />
     </div>
   </div>
 </template>

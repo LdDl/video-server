@@ -1,8 +1,12 @@
 {
-    "server": {
-        "http_addr": "localhost",
-        "video_http_port": 8090,
-        "api_http_port": 8091
+    "api": {
+        "enabled": true,
+        "host": "localhost",
+        "port": 8091
+    },
+    "video": {
+        "host": "localhost",
+        "port": 8090
     },
     "hls": {
         "ms_per_segment": 10000,
@@ -10,7 +14,15 @@
         "window_size": 5,
         "window_capacity" : 10
     },
-    "streams": [
+    "cors": {
+        "enabled": true,
+        "allow_origins": ["*"],
+        "allow_methods": ["GET", "PUT", "POST", "DELETE"],
+        "allow_headers": ["Origin", "Authorization", "Content-Type", "Content-Length", "Accept", "Accept-Encoding", "X-HttpRequest"],
+        "expose_headers": ["Content-Length"],
+        "allow_credentials":true
+    },
+    "rtsp_streams": [
         {
             "guid": "a1b8e7cb-09e6-4f3a-b857-30c7b272a744",
             "url": "rtsp://rtsp.stream/pattern",
@@ -29,13 +41,5 @@
             "stream_types": ["mse", "hls"],
             "verbose": "v"
         }
-    ],
-    "cors_config": {
-        "use_cors": true,
-        "allow_origins": ["*"],
-        "allow_methods": ["GET", "PUT", "POST", "DELETE"],
-        "allow_headers": ["Origin", "Authorization", "Content-Type", "Content-Length", "Accept", "Accept-Encoding", "X-HttpRequest"],
-        "expose_headers": ["Content-Length"],
-        "allow_credentials":true
-    }
+    ]
 }

@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	videoserver "github.com/LdDl/video-server"
+	"github.com/LdDl/video-server/configuration"
 )
 
 var (
@@ -34,13 +35,12 @@ func main() {
 		}
 		defer pprof.StopCPUProfile()
 	}
-
-	settings, err := videoserver.NewConfiguration(*conf)
+	appCfg, err := configuration.PrepareConfiguration(*conf)
 	if err != nil {
-		fmt.Printf("Can't prepare setting due the error: %s", err.Error())
+		fmt.Println(err)
 		return
 	}
-	app, err := videoserver.NewApplication(settings)
+	app, err := videoserver.NewApplication(appCfg)
 	if err != nil {
 		fmt.Printf("Can't prepare application due the error: %s", err.Error())
 		return
