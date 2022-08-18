@@ -2,9 +2,9 @@ package videoserver
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -20,8 +20,10 @@ var uuidRegExp = regexp.MustCompile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]
 // StartVideoServer initializes "video" server and run it (MSE-websockets and HLS-static files)
 func (app *Application) StartVideoServer() {
 	router := gin.New()
-	// @todo I guess we should make proper configuration...
-	gin.SetMode(gin.ReleaseMode)
+
+	if strings.ToLower(app.APICfg.Mode) == "release" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	pprof.Register(router)
 
 	wsUpgrader := websocket.Upgrader{
@@ -34,15 +36,17 @@ func (app *Application) StartVideoServer() {
 	}
 	router.GET("/ws/:stream_id", WebSocketWrapper(app, &wsUpgrader))
 	router.GET("/hls/:file", HLSWrapper(app))
+
+	url := fmt.Sprintf("%s:%d", app.VideoServerCfg.Host, app.VideoServerCfg.Port)
 	s := &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", app.Server.HTTPAddr, app.Server.VideoHTTPPort),
+		Addr:         url,
 		Handler:      router,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 	err := s.ListenAndServe()
 	if err != nil {
-		log.Printf("Can't run Video-server on port: %d\n", app.Server.VideoHTTPPort)
+		fmt.Printf("Can't start Video-server '%s' due the error: %s\n", url, err.Error())
 		return
 	}
 }

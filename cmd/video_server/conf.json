@@ -2,11 +2,13 @@
     "api": {
         "enabled": true,
         "host": "localhost",
-        "port": 8091
+        "port": 8091,
+        "mode": "release"
     },
     "video": {
         "host": "localhost",
-        "port": 8090
+        "port": 8090,
+        "mode": "release"
     },
     "hls": {
         "ms_per_segment": 10000,

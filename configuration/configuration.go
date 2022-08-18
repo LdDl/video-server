@@ -21,12 +21,16 @@ type APIConfiguration struct {
 	Enabled bool   `json:"enabled"`
 	Host    string `json:"host"`
 	Port    int32  `json:"port"`
+	// 'release' or 'debug' for GIN
+	Mode string `json:"mode"`
 }
 
 // VideoConfiguration is needed for configuring actual video server part
 type VideoConfiguration struct {
 	Host string `json:"host"`
 	Port int32  `json:"port"`
+	// 'release' or 'debug' for GIN
+	Mode string `json:"mode"`
 }
 
 // HLSConfiguration is a HLS configuration for every stream with provided "hls" type in 'stream_types' field of 'rtsp_streams' objects

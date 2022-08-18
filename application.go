@@ -13,10 +13,27 @@ import (
 
 // Application is a configuration parameters for application
 type Application struct {
-	Server     *ServerInfo     `json:"server"`
+	APICfg         APIConfiguration   `json:"api"`
+	VideoServerCfg VideoConfiguration `json:"video"`
+
 	Streams    *StreamsStorage `json:"streams"`
 	HLS        HLSInfo         `json:"hls"`
 	CorsConfig *cors.Config    `json:"-"`
+}
+
+// APIConfiguration is just copy of configuration.APIConfiguration but with some not exported fields
+type APIConfiguration struct {
+	Enabled bool   `json:"-"`
+	Host    string `json:"host"`
+	Port    int32  `json:"port"`
+	Mode    string `json:"-"`
+}
+
+// VideoConfiguration is just copy of configuration.VideoConfiguration but with some not exported fields
+type VideoConfiguration struct {
+	Host string `json:"host"`
+	Port int32  `json:"port"`
+	Mode string `json:"-"`
 }
 
 // HLSInfo is an information about HLS parameters for server
@@ -37,11 +54,21 @@ type ServerInfo struct {
 // NewApplication Prepare configuration for application
 func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 	tmp := Application{
-		Server: &ServerInfo{
-			HTTPAddr:      cfg.APICfg.Host,
-			VideoHTTPPort: cfg.VideoServerCfg.Port,
-			APIHTTPPort:   cfg.APICfg.Port,
+		APICfg: APIConfiguration{
+			Enabled: cfg.APICfg.Enabled,
+			Host:    cfg.APICfg.Host,
+			Port:    cfg.APICfg.Port,
+			Mode:    cfg.APICfg.Mode,
 		},
+		VideoServerCfg: VideoConfiguration{
+			Host: cfg.VideoServerCfg.Host,
+			Port: cfg.VideoServerCfg.Port,
+		},
+		// Server: &ServerInfo{
+		// 	HTTPAddr:      cfg.APICfg.Host,
+		// 	VideoHTTPPort: cfg.VideoServerCfg.Port,
+		// 	APIHTTPPort:   cfg.APICfg.Port,
+		// },
 		Streams: NewStreamsStorageDefault(),
 		HLS: HLSInfo{
 			MsPerSegment: cfg.HLSCfg.MsPerSegment,
@@ -178,11 +205,12 @@ func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) {
 }
 
 func (app *Application) getStreamsIDs() []uuid.UUID {
-	defer app.Streams.Unlock()
-	app.Streams.Lock()
-	res := make([]uuid.UUID, 0, len(app.Streams.Streams))
-	for k := range app.Streams.Streams {
-		res = append(res, k)
-	}
-	return res
+	return app.Streams.getKeys()
+	// defer app.Streams.Unlock()
+	// app.Streams.Lock()
+	// res := make([]uuid.UUID, 0, len(app.Streams.Streams))
+	// for k := range app.Streams.Streams {
+	// 	res = append(res, k)
+	// }
+	// return res
 }

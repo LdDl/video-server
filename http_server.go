@@ -2,8 +2,8 @@ package videoserver
 
 import (
 	"fmt"
-	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -16,7 +16,9 @@ import (
 func (app *Application) StartAPIServer() {
 	router := gin.New()
 
-	gin.SetMode(gin.ReleaseMode)
+	if strings.ToLower(app.APICfg.Mode) == "release" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	pprof.Register(router)
 
 	if app.CorsConfig != nil {
@@ -27,15 +29,16 @@ func (app *Application) StartAPIServer() {
 	router.POST("/enable_camera", EnableCamera(app))
 	router.POST("/disable_camera", DisableCamera(app))
 
+	url := fmt.Sprintf("%s:%d", app.APICfg.Host, app.APICfg.Port)
 	s := &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", app.Server.HTTPAddr, app.Server.APIHTTPPort),
+		Addr:         url,
 		Handler:      router,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
 	err := s.ListenAndServe()
 	if err != nil {
-		log.Printf("Can't run API-server on port: %d\n", app.Server.APIHTTPPort)
+		fmt.Printf("Can't start API-server '%s' due the error: %s\n", url, err.Error())
 		return
 	}
 }
