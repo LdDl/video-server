@@ -75,11 +75,27 @@ func (app *Application) StartAPIServer() {
 	}
 }
 
+type StreamsInfoShortenList struct {
+	Data []StreamInfoShorten `json:"data"`
+}
+
+type StreamInfoShorten struct {
+	StreamID string `json:"stream_id"`
+}
+
 // ListWrapper returns list of streams
 func ListWrapper(app *Application) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
-		_, all := app.list()
-		ctx.JSON(200, all)
+		allStreamsIDs := app.getStreamsIDs()
+		ans := StreamsInfoShortenList{
+			Data: make([]StreamInfoShorten, len(allStreamsIDs)),
+		}
+		for i, streamID := range allStreamsIDs {
+			ans.Data[i] = StreamInfoShorten{
+				StreamID: streamID.String(),
+			}
+		}
+		ctx.JSON(200, ans)
 	}
 }
 

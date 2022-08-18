@@ -176,16 +176,12 @@ func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) {
 	go app.startHls(streamID, app.Streams.Streams[streamID].hlsChanel, stopCast)
 }
 
-func (app *Application) list() (uuid.UUID, []uuid.UUID) {
+func (app *Application) getStreamsIDs() []uuid.UUID {
 	defer app.Streams.Unlock()
 	app.Streams.Lock()
-	res := []uuid.UUID{}
-	first := uuid.UUID{}
+	res := make([]uuid.UUID, 0, len(app.Streams.Streams))
 	for k := range app.Streams.Streams {
-		if first.String() == "" {
-			first = k
-		}
 		res = append(res, k)
 	}
-	return first, res
+	return res
 }
