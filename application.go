@@ -63,11 +63,6 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 			Host: cfg.VideoServerCfg.Host,
 			Port: cfg.VideoServerCfg.Port,
 		},
-		// Server: &ServerInfo{
-		// 	HTTPAddr:      cfg.APICfg.Host,
-		// 	VideoHTTPPort: cfg.VideoServerCfg.Port,
-		// 	APIHTTPPort:   cfg.APICfg.Port,
-		// },
 		Streams: NewStreamsStorageDefault(),
 		HLS: HLSInfo{
 			MsPerSegment: cfg.HLSCfg.MsPerSegment,
