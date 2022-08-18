@@ -62,7 +62,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled boo
 				}
 			case rtspv2.SignalStreamRTPStop:
 				_ = app.updateStreamStatus(streamID, false)
-				return errors.Wrapf(ErrStreamDistonnected, "URL is '%s'", url)
+				return errors.Wrapf(ErrStreamDisconnected, "URL is '%s'", url)
 			}
 		case packetAV := <-session.OutgoingPacketQueue:
 			if isAudioOnly || packetAV.IsKeyFrame {
