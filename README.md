@@ -28,9 +28,7 @@ It is highly inspired by https://github.com/deepch and his projects. So why am I
 
 ## Instalation
 ### Binaries
-Linux - [link](https://github.com/LdDl/video-server/releases/download/v0.3.2/linux-video_server.zip)
-
-Windows - [link](https://github.com/LdDl/video-server/releases/download/v0.3.2/windows-video_server.zip)
+Linux - [link](https://github.com/LdDl/video-server/releases/download/v0.4.0/linux-video_server.tar.gz)
 
 ### From source
 ```bash
