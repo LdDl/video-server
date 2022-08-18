@@ -48,10 +48,14 @@ func main() {
 
 	// Run streams
 	go app.StartStreams()
+
 	// Start "Video" server
 	go app.StartVideoServer()
+
 	// Start API server
-	go app.StartAPIServer()
+	if appCfg.APICfg.Enabled {
+		go app.StartAPIServer()
+	}
 
 	sigOUT := make(chan os.Signal, 1)
 	exit := make(chan bool, 1)
