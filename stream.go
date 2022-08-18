@@ -1,7 +1,6 @@
 package videoserver
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/deepch/vdk/format/rtspv2"
@@ -61,7 +60,10 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled boo
 					return errors.Wrapf(err, "Can't update status for stream %s", streamID)
 				}
 			case rtspv2.SignalStreamRTPStop:
-				_ = app.updateStreamStatus(streamID, false)
+				err = app.updateStreamStatus(streamID, false)
+				if err != nil {
+					errors.Wrapf(err, "Can't switch status to False for stream '%s'", url)
+				}
 				return errors.Wrapf(ErrStreamDisconnected, "URL is '%s'", url)
 			}
 		case packetAV := <-session.OutgoingPacketQueue:
@@ -73,8 +75,11 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled boo
 				if hlsEnabled {
 					stopHlsCast <- true
 				}
-				_ = app.updateStreamStatus(streamID, false)
-				return fmt.Errorf("Can't cast packet %s (%s): %s\n", streamID, url, err.Error())
+				errStatus := app.updateStreamStatus(streamID, false)
+				if errStatus != nil {
+					errors.Wrapf(errors.Wrapf(err, "Can't cast packet %s (%s)", streamID, url), "Can't switch status to False for stream '%s'", url)
+				}
+				return errors.Wrapf(err, "Can't cast packet %s (%s)", streamID, url)
 			}
 		}
 	}
