@@ -15,10 +15,9 @@ import (
 type Application struct {
 	APICfg         APIConfiguration   `json:"api"`
 	VideoServerCfg VideoConfiguration `json:"video"`
-
-	Streams    *StreamsStorage `json:"streams"`
-	HLS        HLSInfo         `json:"hls"`
-	CorsConfig *cors.Config    `json:"-"`
+	Streams        *StreamsStorage    `json:"streams"`
+	HLS            HLSInfo            `json:"hls"`
+	CorsConfig     *cors.Config       `json:"-"`
 }
 
 // APIConfiguration is just copy of configuration.APIConfiguration but with some not exported fields

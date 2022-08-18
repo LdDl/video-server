@@ -9,7 +9,7 @@ import (
 // StreamsStorage Map wrapper for map[uuid.UUID]*StreamConfiguration with mutex for concurrent usage
 type StreamsStorage struct {
 	sync.Mutex
-	Streams map[uuid.UUID]*StreamConfiguration
+	Streams map[uuid.UUID]*StreamConfiguration `json:"rtsp_streams"`
 }
 
 // NewStreamsStorageDefault prepares new allocated storage
