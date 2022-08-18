@@ -7,11 +7,11 @@ import (
 
 // StreamConfiguration is a configuration parameters for specific stream
 type StreamConfiguration struct {
-	URL                  string   `json:"url"`
-	Status               bool     `json:"status"`
-	SupportedStreamTypes []string `json:"supported_stream_types"`
-	Codecs               []av.CodecData
-	Clients              map[uuid.UUID]viewer
+	URL                  string               `json:"url"`
+	Status               bool                 `json:"status"`
+	SupportedStreamTypes []string             `json:"supported_stream_types"`
+	Codecs               []av.CodecData       `json:"codecs"`
+	Clients              map[uuid.UUID]viewer `json:"-"`
 	hlsChanel            chan av.Packet
 	verbose              bool
 	verboseDetailed      bool
