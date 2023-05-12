@@ -9,7 +9,7 @@ import (
 type StreamConfiguration struct {
 	URL                  string               `json:"url"`
 	Status               bool                 `json:"status"`
-	SupportedStreamTypes []string             `json:"supported_stream_types"`
+	SupportedOutputTypes []StreamType         `json:"supported_output_types"`
 	Codecs               []av.CodecData       `json:"codecs"`
 	Clients              map[uuid.UUID]viewer `json:"-"`
 	hlsChanel            chan av.Packet
@@ -18,11 +18,11 @@ type StreamConfiguration struct {
 }
 
 // NewStreamConfiguration returns default configuration
-func NewStreamConfiguration(streamURL string, supportedTypes []string) *StreamConfiguration {
+func NewStreamConfiguration(streamURL string, supportedTypes []StreamType) *StreamConfiguration {
 	return &StreamConfiguration{
 		URL:                  streamURL,
 		Clients:              make(map[uuid.UUID]viewer),
 		hlsChanel:            make(chan av.Packet, 100),
-		SupportedStreamTypes: supportedTypes,
+		SupportedOutputTypes: supportedTypes,
 	}
 }

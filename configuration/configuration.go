@@ -33,7 +33,7 @@ type VideoConfiguration struct {
 	Mode string `json:"mode"`
 }
 
-// HLSConfiguration is a HLS configuration for every stream with provided "hls" type in 'stream_types' field of 'rtsp_streams' objects
+// HLSConfiguration is a HLS configuration for every stream with provided "hls" type in 'output_types' field of 'rtsp_streams' objects
 type HLSConfiguration struct {
 	MsPerSegment int64  `json:"ms_per_segment"`
 	Directory    string `json:"directory"`
@@ -55,7 +55,8 @@ type CORSConfiguration struct {
 type SingleStreamConfiguration struct {
 	GUID        string   `json:"guid"`
 	URL         string   `json:"url"`
-	StreamTypes []string `json:"stream_types"`
+	Type        string   `json:"type"`
+	OutputTypes []string `json:"output_types"`
 	// Level of verbose. Pick 'v' or 'vvv' (or leave it empty)
 	Verbose string `json:"verbose"`
 }
