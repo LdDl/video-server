@@ -11,8 +11,8 @@ import (
 const (
 	pingDuration        = 15 * time.Second
 	pingDurationRestart = pingDuration + 1*time.Second
-	dialTimeoutDuration = 3 * time.Second
-	readTimeoutDuration = 3 * time.Second
+	dialTimeoutDuration = 33 * time.Second
+	readTimeoutDuration = 33 * time.Second
 )
 
 // runStream runs RTSP grabbing process
