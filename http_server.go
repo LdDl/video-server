@@ -10,6 +10,7 @@ import (
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 )
 
 // StartAPIServer starts server with API functionality
@@ -78,7 +79,7 @@ func StatusWrapper(app *Application) func(ctx *gin.Context) {
 type EnablePostData struct {
 	GUID        uuid.UUID `json:"guid"`
 	URL         string    `json:"url"`
-	StreamTypes []string  `json:"stream_types"`
+	OutputTypes []string  `json:"output_types"`
 }
 
 // EnableCamera adds new stream if does not exist
@@ -91,7 +92,20 @@ func EnableCamera(app *Application) func(ctx *gin.Context) {
 		}
 		if exist := app.exists(postData.GUID); !exist {
 			app.Streams.Lock()
-			app.Streams.Streams[postData.GUID] = NewStreamConfiguration(postData.URL, postData.StreamTypes)
+			outputTypes := make([]StreamType, 0, len(postData.OutputTypes))
+			for _, v := range postData.OutputTypes {
+				typ, ok := streamTypeExists(v)
+				if !ok {
+					ctx.JSON(http.StatusBadRequest, gin.H{"Error": errors.Wrapf(ErrStreamTypeNotExists, "Type: '%s'", v)})
+					return
+				}
+				if _, ok := supportedOutputStreamTypes[typ]; !ok {
+					ctx.JSON(http.StatusBadRequest, gin.H{"Error": errors.Wrapf(ErrStreamTypeNotSupported, "Type: '%s'", v)})
+					return
+				}
+				outputTypes = append(outputTypes, typ)
+			}
+			app.Streams.Streams[postData.GUID] = NewStreamConfiguration(postData.URL, outputTypes)
 			app.Streams.Unlock()
 			app.StartStream(postData.GUID)
 		}

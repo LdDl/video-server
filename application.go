@@ -1,14 +1,21 @@
 package videoserver
 
 import (
+	"fmt"
 	"log"
 	"strings"
 
 	"github.com/LdDl/video-server/configuration"
 	"github.com/gin-contrib/cors"
+	"github.com/pkg/errors"
 
 	"github.com/deepch/vdk/av"
 	"github.com/google/uuid"
+)
+
+var (
+	ErrStreamTypeNotExists    = fmt.Errorf("Stream type does not exists")
+	ErrStreamTypeNotSupported = fmt.Errorf("Stream type is not supported")
 )
 
 // Application is a configuration parameters for application
@@ -80,7 +87,19 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 			log.Printf("Not valid UUID: %s\n", rtspStream.GUID)
 			continue
 		}
-		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(rtspStream.URL, rtspStream.StreamTypes)
+		outputTypes := make([]StreamType, 0, len(rtspStream.OutputTypes))
+		for _, v := range rtspStream.OutputTypes {
+			typ, ok := streamTypeExists(v)
+			if !ok {
+				return nil, errors.Wrapf(ErrStreamTypeNotExists, "Type: '%s'", v)
+			}
+			if _, ok := supportedOutputStreamTypes[typ]; !ok {
+				return nil, errors.Wrapf(ErrStreamTypeNotSupported, "Type: '%s'", v)
+			}
+			outputTypes = append(outputTypes, typ)
+		}
+
+		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(rtspStream.URL, outputTypes)
 		verbose := strings.ToLower(rtspStream.Verbose)
 		if verbose == "v" {
 			tmp.Streams.Streams[validUUID].verbose = true
@@ -130,14 +149,14 @@ func (app *Application) exists(streamID uuid.UUID) bool {
 	return ok
 }
 
-func (app *Application) existsWithType(streamID uuid.UUID, streamType string) bool {
+func (app *Application) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	stream, ok := app.Streams.Streams[streamID]
 	if !ok {
 		return false
 	}
-	supportedTypes := stream.SupportedStreamTypes
+	supportedTypes := stream.SupportedOutputTypes
 	typeEnabled := typeExists(streamType, supportedTypes)
 	return ok && typeEnabled
 }

@@ -26,7 +26,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if app.existsWithType(streamID, "mse") {
+	if app.existsWithType(streamID, STREAM_TYPE_MSE) {
 		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		cuuid, ch, err := app.clientAdd(streamID)
 		if err != nil {

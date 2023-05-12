@@ -23,10 +23,10 @@ func (app *Application) StartStreams() {
 func (app *Application) StartStream(k uuid.UUID) {
 	app.Streams.Lock()
 	url := app.Streams.Streams[k].URL
-	supportedTypes := app.Streams.Streams[k].SupportedStreamTypes
+	supportedTypes := app.Streams.Streams[k].SupportedOutputTypes
 	app.Streams.Unlock()
 
-	hlsEnabled := typeExists("hls", supportedTypes)
+	hlsEnabled := typeExists(STREAM_TYPE_HLS, supportedTypes)
 	go app.startLoop(k, url, hlsEnabled)
 }
 
@@ -44,9 +44,9 @@ func (app *Application) startLoop(streamID uuid.UUID, url string, hlsEnabled boo
 }
 
 // typeExists checks if a type exists in a types list
-func typeExists(typeName string, typesNames []string) bool {
-	for i := range typesNames {
-		if typesNames[i] == typeName {
+func typeExists(typ StreamType, types []StreamType) bool {
+	for i := range types {
+		if types[i] == typ {
 			return true
 		}
 	}
