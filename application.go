@@ -126,21 +126,7 @@ func (app *Application) setCors(cfg configuration.CORSConfiguration) {
 }
 
 func (app *Application) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled bool) error {
-	app.Streams.Lock()
-	defer app.Streams.Unlock()
-	curStream, ok := app.Streams.Streams[streamID]
-	if !ok {
-		return ErrStreamNotFound
-	}
-	if hlsEnabled {
-		curStream.hlsChanel <- pck
-	}
-	for _, v := range curStream.Clients {
-		if len(v.c) < cap(v.c) {
-			v.c <- pck
-		}
-	}
-	return nil
+	return app.Streams.cast(streamID, pck, hlsEnabled)
 }
 
 func (app *Application) streamExists(streamID uuid.UUID) bool {
@@ -148,15 +134,7 @@ func (app *Application) streamExists(streamID uuid.UUID) bool {
 }
 
 func (app *Application) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
-	app.Streams.Lock()
-	defer app.Streams.Unlock()
-	stream, ok := app.Streams.Streams[streamID]
-	if !ok {
-		return false
-	}
-	supportedTypes := stream.SupportedOutputTypes
-	typeEnabled := typeExists(streamType, supportedTypes)
-	return ok && typeEnabled
+	return app.Streams.existsWithType(streamID, streamType)
 }
 
 func (app *Application) addCodec(streamID uuid.UUID, codecs []av.CodecData) {
@@ -177,6 +155,7 @@ func (app *Application) addClient(streamID uuid.UUID) (uuid.UUID, chan av.Packet
 
 func (app *Application) clientDelete(streamID, clientID uuid.UUID) {
 	app.Streams.deleteClient(streamID, clientID)
+
 }
 
 func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) {
