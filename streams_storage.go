@@ -1,15 +1,18 @@
 package videoserver
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/deepch/vdk/av"
+	"github.com/deepch/vdk/codec/aacparser"
+	"github.com/deepch/vdk/codec/h264parser"
 	"github.com/google/uuid"
 )
 
 // StreamsStorage Map wrapper for map[uuid.UUID]*StreamConfiguration with mutex for concurrent usage
 type StreamsStorage struct {
-	sync.Mutex
+	sync.RWMutex
 	Streams map[uuid.UUID]*StreamConfiguration `json:"rtsp_streams"`
 }
 
@@ -29,11 +32,87 @@ func (sm *StreamsStorage) getKeys() []uuid.UUID {
 	return keys
 }
 
-func (sm *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled bool) (err error) {
-	sm.Lock()
-	curStream, ok := sm.Streams[streamID]
+func (streams *StreamsStorage) streamExists(streamID uuid.UUID) bool {
+	streams.RLock()
+	_, ok := streams.Streams[streamID]
+	streams.RUnlock()
+	return ok
+}
+
+func (streams *StreamsStorage) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
+	streams.RLock()
+	curStream, ok := streams.Streams[streamID]
 	if !ok {
-		err = ErrStreamNotFound
+		return false
+	}
+	supportedTypes := curStream.SupportedOutputTypes
+	typeEnabled := typeExists(streamType, supportedTypes)
+	streams.RUnlock()
+	return ok && typeEnabled
+}
+
+func (streams *StreamsStorage) addCodec(streamID uuid.UUID, codecs []av.CodecData) {
+	streams.Lock()
+	streams.Streams[streamID].Codecs = codecs
+	streams.Unlock()
+}
+
+func (streams *StreamsStorage) getCodec(streamID uuid.UUID) ([]av.CodecData, error) {
+	curStream, ok := streams.Streams[streamID]
+	if !ok {
+		return nil, ErrStreamNotFound
+	}
+	codecs := make([]av.CodecData, len(curStream.Codecs))
+	for i, iface := range curStream.Codecs {
+		switch codecType := iface.(type) {
+		case aacparser.CodecData, h264parser.CodecData:
+			codecs[i] = codecType
+		default:
+			return nil, fmt.Errorf("unknown codec type: %T", iface)
+		}
+	}
+	return codecs, nil
+}
+
+func (streams *StreamsStorage) updateStreamStatus(streamID uuid.UUID, status bool) error {
+	streams.Lock()
+	curStream, ok := streams.Streams[streamID]
+	if !ok {
+		return ErrStreamNotFound
+	}
+	curStream.Status = status
+	streams.Streams[streamID] = curStream
+	streams.Unlock()
+	return nil
+}
+
+func (streams *StreamsStorage) addClient(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
+	streams.Lock()
+	curStream, ok := streams.Streams[streamID]
+	if !ok {
+		return uuid.UUID{}, nil, ErrStreamNotFound
+	}
+	clientID, err := uuid.NewUUID()
+	if err != nil {
+		return uuid.UUID{}, nil, err
+	}
+	ch := make(chan av.Packet, 100)
+	curStream.Clients[clientID] = viewer{c: ch}
+	streams.Unlock()
+	return clientID, ch, nil
+}
+
+func (streams *StreamsStorage) deleteClient(streamID, clientID uuid.UUID) {
+	streams.Lock()
+	delete(streams.Streams[streamID].Clients, clientID)
+	streams.Unlock()
+}
+
+func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled bool) error {
+	streams.Lock()
+	curStream, ok := streams.Streams[streamID]
+	if !ok {
+		return ErrStreamNotFound
 	}
 	if hlsEnabled {
 		curStream.hlsChanel <- pck
@@ -43,73 +122,6 @@ func (sm *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled boo
 			v.c <- pck
 		}
 	}
-	sm.Unlock()
-	return err
-}
-
-func (sm *StreamsStorage) exists(streamID uuid.UUID) bool {
-	sm.Lock()
-	_, ok := sm.Streams[streamID]
-	sm.Unlock()
-	return ok
-}
-
-func (sm *StreamsStorage) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
-	sm.Lock()
-	stream, ok := sm.Streams[streamID]
-	if !ok {
-		return false
-	}
-	supportedTypes := stream.SupportedOutputTypes
-	typeEnabled := typeExists(streamType, supportedTypes)
-	sm.Unlock()
-	return ok && typeEnabled
-}
-
-func (sm *StreamsStorage) addCodec(streamID uuid.UUID, codecs []av.CodecData) {
-	sm.Lock()
-	sm.Streams[streamID].Codecs = codecs
-	sm.Unlock()
-}
-
-func (sm *StreamsStorage) getCodec(streamID uuid.UUID) (codecs []av.CodecData, err error) {
-	sm.Lock()
-	curStream, ok := sm.Streams[streamID]
-	if !ok {
-		err = ErrStreamNotFound
-	}
-	codecs = curStream.Codecs
-	sm.Unlock()
-	return codecs, err
-}
-
-func (sm *StreamsStorage) updateStreamStatus(streamID uuid.UUID, status bool) (err error) {
-	sm.Lock()
-	t, ok := sm.Streams[streamID]
-	if !ok {
-		err = ErrStreamNotFound
-	}
-	t.Status = status
-	sm.Streams[streamID] = t
-	sm.Unlock()
-	return err
-}
-
-func (sm *StreamsStorage) clientAdd(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
-	sm.Lock()
-	clientID, err := uuid.NewUUID()
-	ch := make(chan av.Packet, 100)
-	curStream, ok := sm.Streams[streamID]
-	if !ok {
-		err = ErrStreamNotFound
-	}
-	curStream.Clients[clientID] = viewer{c: ch}
-	sm.Unlock()
-	return clientID, ch, err
-}
-
-func (sm *StreamsStorage) clientDelete(streamID, clientID uuid.UUID) {
-	sm.Lock()
-	delete(sm.Streams[streamID].Clients, clientID)
-	sm.Unlock()
+	streams.Unlock()
+	return nil
 }

@@ -128,8 +128,9 @@ func (app *Application) setCors(cfg configuration.CORSConfiguration) {
 func (app *Application) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled bool) error {
 	return app.Streams.cast(streamID, pck, hlsEnabled)
 }
-func (app *Application) exists(streamID uuid.UUID) bool {
-	return app.Streams.exists(streamID)
+
+func (app *Application) streamExists(streamID uuid.UUID) bool {
+	return app.Streams.streamExists(streamID)
 }
 
 func (app *Application) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
@@ -148,12 +149,13 @@ func (app *Application) updateStreamStatus(streamID uuid.UUID, status bool) erro
 	return app.Streams.updateStreamStatus(streamID, status)
 }
 
-func (app *Application) clientAdd(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
-	return app.Streams.clientAdd(streamID)
+func (app *Application) addClient(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
+	return app.Streams.addClient(streamID)
 }
 
 func (app *Application) clientDelete(streamID, clientID uuid.UUID) {
-	app.Streams.clientDelete(streamID, clientID)
+	app.Streams.deleteClient(streamID, clientID)
+
 }
 
 func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) {
@@ -164,11 +166,4 @@ func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) {
 
 func (app *Application) getStreamsIDs() []uuid.UUID {
 	return app.Streams.getKeys()
-	// defer app.Streams.Unlock()
-	// app.Streams.Lock()
-	// res := make([]uuid.UUID, 0, len(app.Streams.Streams))
-	// for k := range app.Streams.Streams {
-	// 	res = append(res, k)
-	// }
-	// return res
 }
