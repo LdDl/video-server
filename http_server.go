@@ -90,7 +90,7 @@ func EnableCamera(app *Application) func(ctx *gin.Context) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"Error": err.Error()})
 			return
 		}
-		if exist := app.exists(postData.GUID); !exist {
+		if exist := app.streamExists(postData.GUID); !exist {
 			app.Streams.Lock()
 			outputTypes := make([]StreamType, 0, len(postData.OutputTypes))
 			for _, v := range postData.OutputTypes {
@@ -122,7 +122,7 @@ func DisableCamera(app *Application) func(ctx *gin.Context) {
 			return
 		}
 
-		if exist := app.exists(postData.GUID); exist {
+		if exist := app.streamExists(postData.GUID); exist {
 			app.Streams.Lock()
 			delete(app.Streams.Streams, postData.GUID)
 			app.Streams.Unlock()
