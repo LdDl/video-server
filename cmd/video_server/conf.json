@@ -28,15 +28,8 @@
         {
             "guid": "a1b8e7cb-09e6-4f3a-b857-30c7b272a744",
             "type": "rtsp",
-            "url": "rtsp://zephyr.rtsp.stream/pattern?streamKey=e9b821b1554628c82b00c9f0d4b765ca",
-            "output_types": ["mse", "hls"],
-            "verbose": "v"
-        },
-        {
-            "guid": "c2680f08-07cc-4dee-9231-685893e2661f",
-            "type": "rtsp",
-            "url": "rtsp://zephyr.rtsp.stream/movie?streamKey=61774a75de9d077373be8705db85dc78",
-            "output_types": ["mse", "hls"],
+            "url": "rtsp://localhost:45666/live",
+            "output_types": ["mse","hls"],
             "verbose": "v"
         }
     ]
