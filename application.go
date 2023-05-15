@@ -162,7 +162,6 @@ func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) {
 	defer app.Streams.Unlock()
 	app.Streams.Lock()
 	go app.startHls(streamID, app.Streams.Streams[streamID].hlsChanel, stopCast)
-	go app.startMP4(streamID, app.Streams.Streams[streamID].mp4Chanel, stopCast)
 }
 
 func (app *Application) startMP4Cast(streamID uuid.UUID, stopCast chan bool) {
