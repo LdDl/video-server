@@ -64,27 +64,27 @@ func (streams *StreamsStorage) getCodec(streamID uuid.UUID) ([]av.CodecData, err
 
 func (streams *StreamsStorage) updateStreamStatus(streamID uuid.UUID, status bool) error {
 	streams.Lock()
-	t, ok := streams.Streams[streamID]
+	curStream, ok := streams.Streams[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
-	t.Status = status
-	streams.Streams[streamID] = t
+	curStream.Status = status
+	streams.Streams[streamID] = curStream
 	streams.Unlock()
 	return nil
 }
 
 func (streams *StreamsStorage) addClient(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
 	streams.Lock()
+	curStream, ok := streams.Streams[streamID]
+	if !ok {
+		return uuid.UUID{}, nil, ErrStreamNotFound
+	}
 	clientID, err := uuid.NewUUID()
 	if err != nil {
 		return uuid.UUID{}, nil, err
 	}
 	ch := make(chan av.Packet, 100)
-	curStream, ok := streams.Streams[streamID]
-	if !ok {
-		return uuid.UUID{}, nil, ErrStreamNotFound
-	}
 	curStream.Clients[clientID] = viewer{c: ch}
 	streams.Unlock()
 	return clientID, ch, nil
