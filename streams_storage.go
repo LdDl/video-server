@@ -116,6 +116,7 @@ func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnable
 	}
 	if hlsEnabled {
 		curStream.hlsChanel <- pck
+		curStream.mp4Chanel <- pck
 	}
 	for _, v := range curStream.Clients {
 		if len(v.c) < cap(v.c) {

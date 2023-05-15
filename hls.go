@@ -35,7 +35,7 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 	lastPacketTime := time.Duration(0)
 	lastKeyFrame := av.Packet{}
 
-	time.Sleep(5 * time.Second) // Artificial delay to wait for first key frame
+	// time.Sleep(5 * time.Second) // Artificial delay to wait for first key frame
 	for isConnected {
 		// Create new segment file
 		segmentName := fmt.Sprintf("%s%04d.ts", streamID, segmentNumber)

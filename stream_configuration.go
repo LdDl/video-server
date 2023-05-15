@@ -13,6 +13,7 @@ type StreamConfiguration struct {
 	Codecs               []av.CodecData       `json:"codecs"`
 	Clients              map[uuid.UUID]viewer `json:"-"`
 	hlsChanel            chan av.Packet
+	mp4Chanel            chan av.Packet
 	verbose              bool
 	verboseDetailed      bool
 }
@@ -23,6 +24,7 @@ func NewStreamConfiguration(streamURL string, supportedTypes []StreamType) *Stre
 		URL:                  streamURL,
 		Clients:              make(map[uuid.UUID]viewer),
 		hlsChanel:            make(chan av.Packet, 100),
+		mp4Chanel:            make(chan av.Packet, 100),
 		SupportedOutputTypes: supportedTypes,
 	}
 }
