@@ -126,89 +126,34 @@ func (app *Application) setCors(cfg configuration.CORSConfiguration) {
 }
 
 func (app *Application) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled bool) error {
-	app.Streams.Lock()
-	defer app.Streams.Unlock()
-	curStream, ok := app.Streams.Streams[streamID]
-	if !ok {
-		return ErrStreamNotFound
-	}
-	if hlsEnabled {
-		curStream.hlsChanel <- pck
-	}
-	for _, v := range curStream.Clients {
-		if len(v.c) < cap(v.c) {
-			v.c <- pck
-		}
-	}
-	return nil
+	return app.Streams.cast(streamID, pck, hlsEnabled)
 }
 func (app *Application) exists(streamID uuid.UUID) bool {
-	app.Streams.Lock()
-	defer app.Streams.Unlock()
-	_, ok := app.Streams.Streams[streamID]
-	return ok
+	return app.Streams.exists(streamID)
 }
 
 func (app *Application) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
-	app.Streams.Lock()
-	defer app.Streams.Unlock()
-	stream, ok := app.Streams.Streams[streamID]
-	if !ok {
-		return false
-	}
-	supportedTypes := stream.SupportedOutputTypes
-	typeEnabled := typeExists(streamType, supportedTypes)
-	return ok && typeEnabled
+	return app.Streams.existsWithType(streamID, streamType)
 }
 
 func (app *Application) addCodec(streamID uuid.UUID, codecs []av.CodecData) {
-	app.Streams.Lock()
-	defer app.Streams.Unlock()
-	app.Streams.Streams[streamID].Codecs = codecs
+	app.Streams.addCodec(streamID, codecs)
 }
 
 func (app *Application) getCodec(streamID uuid.UUID) ([]av.CodecData, error) {
-	app.Streams.Lock()
-	defer app.Streams.Unlock()
-	curStream, ok := app.Streams.Streams[streamID]
-	if !ok {
-		return nil, ErrStreamNotFound
-	}
-	return curStream.Codecs, nil
+	return app.Streams.getCodec(streamID)
 }
 
 func (app *Application) updateStreamStatus(streamID uuid.UUID, status bool) error {
-	app.Streams.Lock()
-	defer app.Streams.Unlock()
-	t, ok := app.Streams.Streams[streamID]
-	if !ok {
-		return ErrStreamNotFound
-	}
-	t.Status = status
-	app.Streams.Streams[streamID] = t
-	return nil
+	return app.Streams.updateStreamStatus(streamID, status)
 }
 
 func (app *Application) clientAdd(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
-	app.Streams.Lock()
-	defer app.Streams.Unlock()
-	clientID, err := uuid.NewUUID()
-	if err != nil {
-		return uuid.UUID{}, nil, err
-	}
-	ch := make(chan av.Packet, 100)
-	curStream, ok := app.Streams.Streams[streamID]
-	if !ok {
-		return uuid.UUID{}, nil, ErrStreamNotFound
-	}
-	curStream.Clients[clientID] = viewer{c: ch}
-	return clientID, ch, nil
+	return app.Streams.clientAdd(streamID)
 }
 
 func (app *Application) clientDelete(streamID, clientID uuid.UUID) {
-	defer app.Streams.Unlock()
-	app.Streams.Lock()
-	delete(app.Streams.Streams[streamID].Clients, clientID)
+	app.Streams.clientDelete(streamID, clientID)
 }
 
 func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) {
