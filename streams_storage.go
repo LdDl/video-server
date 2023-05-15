@@ -39,6 +39,18 @@ func (streams *StreamsStorage) streamExists(streamID uuid.UUID) bool {
 	return ok
 }
 
+func (streams *StreamsStorage) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
+	streams.RLock()
+	curStream, ok := streams.Streams[streamID]
+	if !ok {
+		return false
+	}
+	supportedTypes := curStream.SupportedOutputTypes
+	typeEnabled := typeExists(streamType, supportedTypes)
+	streams.RUnlock()
+	return ok && typeEnabled
+}
+
 func (streams *StreamsStorage) addCodec(streamID uuid.UUID, codecs []av.CodecData) {
 	streams.Lock()
 	streams.Streams[streamID].Codecs = codecs
@@ -94,4 +106,22 @@ func (streams *StreamsStorage) deleteClient(streamID, clientID uuid.UUID) {
 	streams.Lock()
 	delete(streams.Streams[streamID].Clients, clientID)
 	streams.Unlock()
+}
+
+func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled bool) error {
+	streams.Lock()
+	curStream, ok := streams.Streams[streamID]
+	if !ok {
+		return ErrStreamNotFound
+	}
+	if hlsEnabled {
+		curStream.hlsChanel <- pck
+	}
+	for _, v := range curStream.Clients {
+		if len(v.c) < cap(v.c) {
+			v.c <- pck
+		}
+	}
+	streams.Unlock()
+	return nil
 }
