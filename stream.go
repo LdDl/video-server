@@ -41,10 +41,17 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled boo
 			isAudioOnly = true
 		}
 	}
+
 	var stopHlsCast chan bool
+	var stopMP4Cast chan bool
 	if hlsEnabled {
 		stopHlsCast = make(chan bool, 1)
 		app.startHlsCast(streamID, stopHlsCast)
+	}
+	mp4Enable := true
+	if mp4Enable {
+		stopMP4Cast = make(chan bool, 1)
+		app.startMP4Cast(streamID, stopMP4Cast)
 	}
 	pingStream := time.NewTimer(pingDuration)
 	for {
@@ -74,6 +81,9 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled boo
 			if err != nil {
 				if hlsEnabled {
 					stopHlsCast <- true
+				}
+				if mp4Enable {
+					stopMP4Cast <- true
 				}
 				errStatus := app.updateStreamStatus(streamID, false)
 				if errStatus != nil {
