@@ -100,6 +100,17 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 		}
 
 		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(rtspStream.URL, outputTypes)
+		if rtspStream.Archive.Enabled {
+			dir := rtspStream.Archive.Directory
+			msPerSegment := rtspStream.Archive.MsPerSegment
+			if dir == "" {
+				dir = cfg.ArchiveCfg.Directory
+			}
+			if msPerSegment == 0 {
+				msPerSegment = cfg.ArchiveCfg.MsPerSegment
+			}
+			tmp.SetStreamArchive(validUUID, dir, msPerSegment)
+		}
 		verbose := strings.ToLower(rtspStream.Verbose)
 		if verbose == "v" {
 			tmp.Streams.Streams[validUUID].verbose = true
@@ -172,4 +183,12 @@ func (app *Application) startMP4Cast(streamID uuid.UUID, stopCast chan bool) {
 
 func (app *Application) getStreamsIDs() []uuid.UUID {
 	return app.Streams.getKeys()
+}
+
+func (app *Application) SetStreamArchive(streamID uuid.UUID, dir string, msPerSegment int64) error {
+	return app.Streams.setArchiveStream(streamID, dir, msPerSegment)
+}
+
+func (app *Application) getStreamArchive(streamID uuid.UUID) *streamArhive {
+	return app.Streams.getArchiveStream(streamID)
 }

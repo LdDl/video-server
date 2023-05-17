@@ -16,6 +16,11 @@ type StreamConfiguration struct {
 	mp4Chanel            chan av.Packet
 	verbose              bool
 	verboseDetailed      bool
+	archive              *streamArhive
+}
+type streamArhive struct {
+	dir          string
+	msPerSegment int64
 }
 
 // NewStreamConfiguration returns default configuration
