@@ -14,9 +14,13 @@ import (
 )
 
 func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
+	var err error
+	archive := app.getStreamArchive(streamID)
+	if archive == nil {
+		return errors.Wrap(err, "Bad archive stream")
+	}
 
-	folderMP4 := "mp4"
-	err := ensureDir(folderMP4)
+	err = ensureDir(archive.dir)
 	if err != nil {
 		return errors.Wrap(err, "Can't create directory for mp4 temporary files")
 	}
@@ -30,7 +34,7 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 	for isConnected {
 		// Create new segment file
 		segmentName := fmt.Sprintf("%s%04d.mp4", streamID, segmentNumber)
-		segmentPath := filepath.Join(folderMP4, segmentName)
+		segmentPath := filepath.Join(archive.dir, segmentName)
 		outFile, err := os.Create(segmentPath)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("Can't create mp4-segment for stream %s", streamID))
@@ -83,7 +87,7 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 			case pck := <-ch:
 				if pck.Idx == videoStreamIdx && pck.IsKeyFrame {
 					start = true
-					if segmentLength.Milliseconds() >= app.HLS.MsPerSegment {
+					if segmentLength.Milliseconds() >= archive.msPerSegment {
 						lastKeyFrame = pck
 						break segmentLoop
 					}

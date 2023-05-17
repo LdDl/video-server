@@ -116,6 +116,9 @@ func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnable
 	}
 	if hlsEnabled {
 		curStream.hlsChanel <- pck
+	}
+	archive := streams.getArchiveStream(streamID)
+	if archive != nil {
 		curStream.mp4Chanel <- pck
 	}
 	for _, v := range curStream.Clients {
@@ -125,4 +128,28 @@ func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnable
 	}
 	streams.Unlock()
 	return nil
+}
+
+func (streams *StreamsStorage) setArchiveStream(streamID uuid.UUID, dir string, msPerSegment int64) error {
+	if dir == "" {
+		return fmt.Errorf("Bad directory archive stream")
+	}
+	if msPerSegment == 0 {
+		return fmt.Errorf("Bad ms per segment archive stream")
+	}
+	newArhive := streamArhive{
+		dir:          dir,
+		msPerSegment: msPerSegment,
+	}
+	streams.Lock()
+	streams.Streams[streamID].archive = &newArhive
+	streams.Unlock()
+	return nil
+}
+
+func (streams *StreamsStorage) getArchiveStream(streamID uuid.UUID) *streamArhive {
+	streams.Lock()
+	archive := streams.Streams[streamID].archive
+	streams.Unlock()
+	return archive
 }

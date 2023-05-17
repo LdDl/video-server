@@ -16,6 +16,10 @@
         "window_size": 5,
         "window_capacity" : 10
     },
+    "archive": {
+        "directory": "./mp4",
+        "ms_per_file": 30000
+    },
     "cors": {
         "enabled": true,
         "allow_origins": ["*"],
@@ -30,7 +34,33 @@
             "type": "rtsp",
             "url": "rtsp://localhost:45666/live",
             "output_types": ["mse","hls"],
+            "archive": {
+                "enabled": false
+            },
             "verbose": "v"
+        },
+        {
+            "guid": "0742091c-19cd-4658-9b4f-5320da160f45",
+            "type": "rtsp",
+            "url": "rtsp://localhost:45666/live",
+            "output_types": ["mse","hls"],
+            "verbose": "v",
+            "archive": {
+                "enabled": true,
+                "directory": "./other_mp4_dir",
+                "ms_per_file": 10000
+            }
+        },
+        {
+            "guid": "566bfe72-1f85-4e7d-9c0a-424e6c3b29f3",
+            "type": "rtsp",
+            "url": "rtsp://localhost:45666/live",
+            "output_types": ["mse","hls"],
+            "verbose": "v",
+            "archive": {
+                "enabled": true,
+                "ms_per_file": 15000
+            }
         }
     ]
 }

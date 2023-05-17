@@ -12,6 +12,7 @@ type Configuration struct {
 	APICfg         APIConfiguration            `json:"api"`
 	VideoServerCfg VideoConfiguration          `json:"video"`
 	HLSCfg         HLSConfiguration            `json:"hls"`
+	ArchiveCfg     ArchiveConfiguration        `json:"archive"`
 	CorsConfig     CORSConfiguration           `json:"cors"`
 	RTSPStreams    []SingleStreamConfiguration `json:"rtsp_streams"`
 }
@@ -41,6 +42,12 @@ type HLSConfiguration struct {
 	Capacity     uint   `json:"window_capacity"`
 }
 
+// ArchiveConfiguration is a archive configuration for every stream with enabled archive option
+type ArchiveConfiguration struct {
+	MsPerSegment int64  `json:"ms_per_file"`
+	Directory    string `json:"directory"`
+}
+
 // CORSConfiguration is settings for CORS
 type CORSConfiguration struct {
 	Enabled          bool     `json:"enabled"`
@@ -53,12 +60,20 @@ type CORSConfiguration struct {
 
 // SingleStreamConfiguration is needed for configuring certain RTSP stream
 type SingleStreamConfiguration struct {
-	GUID        string   `json:"guid"`
-	URL         string   `json:"url"`
-	Type        string   `json:"type"`
-	OutputTypes []string `json:"output_types"`
+	GUID        string                     `json:"guid"`
+	URL         string                     `json:"url"`
+	Type        string                     `json:"type"`
+	OutputTypes []string                   `json:"output_types"`
+	Archive     StreamArchiveConfiguration `json:"archive"`
 	// Level of verbose. Pick 'v' or 'vvv' (or leave it empty)
 	Verbose string `json:"verbose"`
+}
+
+// StreamArchiveConfiguration is a archive configuration for cpecific stream. I can overwrite parent archive options in needed
+type StreamArchiveConfiguration struct {
+	Enabled      bool   `json:"enabled"`
+	MsPerSegment int64  `json:"ms_per_file"`
+	Directory    string `json:"directory"`
 }
 
 const (

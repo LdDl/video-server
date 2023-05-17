@@ -48,8 +48,8 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled boo
 		stopHlsCast = make(chan bool, 1)
 		app.startHlsCast(streamID, stopHlsCast)
 	}
-	mp4Enable := true
-	if mp4Enable {
+	archive := app.getStreamArchive(streamID)
+	if archive != nil {
 		stopMP4Cast = make(chan bool, 1)
 		app.startMP4Cast(streamID, stopMP4Cast)
 	}
@@ -82,7 +82,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled boo
 				if hlsEnabled {
 					stopHlsCast <- true
 				}
-				if mp4Enable {
+				if archive != nil {
 					stopMP4Cast <- true
 				}
 				errStatus := app.updateStreamStatus(streamID, false)
