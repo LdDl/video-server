@@ -5,7 +5,7 @@ go 1.21.0
 toolchain go1.22.5
 
 require (
-	github.com/deepch/vdk v0.0.0-20220402115557-02504b116966
+	github.com/deepch/vdk v0.0.27
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.10.0
