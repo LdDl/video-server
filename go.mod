@@ -22,4 +22,6 @@ require (
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/crypto v0.9.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+	golang.org/x/net v0.7.0 // indirect
 )
