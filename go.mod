@@ -16,7 +16,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/pelletier/go-toml/v2 v2.0.3 // indirect
 	github.com/pkg/errors v0.9.1
-	golang.org/x/crypto v0.0.0-20220817201139-bc19a97f63c8 // indirect
-	golang.org/x/net v0.7.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 )
