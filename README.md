@@ -68,6 +68,7 @@ For MSE-based (websockets) player go to [mse-subdirectory](mse_example/hls_examp
 Then follow this set of commands:
 ```shell
 npm install
+export NODE_OPTIONS=--openssl-legacy-provider
 npm run dev
 ```
 
