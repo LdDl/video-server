@@ -6,7 +6,7 @@ toolchain go1.22.5
 
 require (
 	github.com/deepch/vdk v0.0.27
-	github.com/gin-contrib/cors v1.3.1
+	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-contrib/pprof v1.5.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/uuid v1.6.0
