@@ -17,6 +17,13 @@ func NewStreamsStorageDefault() StreamsStorage {
 	return StreamsStorage{Streams: make(map[uuid.UUID]*StreamConfiguration)}
 }
 
+func (sm *StreamsStorage) GetStream(id uuid.UUID) (string, []string) {
+	sm.Lock()
+	defer sm.Unlock()
+
+	return sm.Streams[id].URL, sm.Streams[id].SupportedStreamTypes
+}
+
 // getKeys returns all storage streams' keys as slice
 func (sm *StreamsStorage) getKeys() []uuid.UUID {
 	sm.Lock()
