@@ -1,6 +1,7 @@
 package videoserver
 
 import (
+	"context"
 	"log"
 	"time"
 
@@ -21,18 +22,21 @@ func (app *Application) StartStreams() {
 
 // StartStream starts single video stream
 func (app *Application) StartStream(k uuid.UUID) {
-	app.Streams.Lock()
-	url := app.Streams.Streams[k].URL
-	supportedTypes := app.Streams.Streams[k].SupportedOutputTypes
-	app.Streams.Unlock()
+	go app.RunStream(context.Background(), k)
+}
 
+func (app *Application) RunStream(ctx context.Context, k uuid.UUID) {
+	url, supportedTypes := app.Streams.GetStream(k)
 	hlsEnabled := typeExists(STREAM_TYPE_HLS, supportedTypes)
-	go app.startLoop(k, url, hlsEnabled)
+	app.startLoop(ctx, k, url, hlsEnabled)
 }
 
 // startLoop starts stream loop with dialing to certain RTSP
-func (app *Application) startLoop(streamID uuid.UUID, url string, hlsEnabled bool) {
-	for {
+func (app *Application) startLoop(ctx context.Context, streamID uuid.UUID, url string, hlsEnabled bool) {
+	select {
+	case <-ctx.Done():
+		return
+	default:
 		log.Printf("Stream must be establishment for '%s' by connecting to %s", streamID, url)
 		err := app.runStream(streamID, url, hlsEnabled)
 		if err != nil {
