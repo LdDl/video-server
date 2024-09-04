@@ -12,3 +12,5 @@ example_client/hls_example/package-lock.json
 build.sh
 cmd/video_server/linux-video_server.zip
 cmd/video_server/windows-video_server.zip
+cmd/video_server/conf_token.json
+video-server-ui
