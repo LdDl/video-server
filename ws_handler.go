@@ -81,6 +81,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		rxPingCh := make(chan bool)
 
 		go func(q, p chan bool) {
+			log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Start loop in goroutine")
 			for {
 				msgType, data, err := conn.ReadMessage()
 				if err != nil {
@@ -88,12 +89,15 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 					closeWSwithError(conn, 1011, fmt.Sprintf("Read message error: %s\n", err.Error()))
 					return
 				}
+				log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Int("message_type", msgType).Int("data_len", len(data)).Msg("Read message in a loop")
 				if msgType == websocket.TextMessage && len(data) > 0 && string(data) == "ping" {
 					select {
 					case p <- true:
+						log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Int("message_type", msgType).Int("data_len", len(data)).Msg("Message has been sent")
 						// message sent
 					default:
 						// message dropped
+						log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Int("message_type", msgType).Int("data_len", len(data)).Msg("Message has been dropped")
 					}
 				}
 			}
@@ -101,29 +105,43 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 
 		noVideo := time.NewTimer(10 * time.Second)
 
+		log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Start loop")
+
 		for {
 			select {
 			case <-noVideo.C:
+				// @error: when it could happen?
+				log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("No video")
 				return
 			case <-quitCh:
+				log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Quit")
 				return
 			case <-rxPingCh:
+				log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("'Ping' has been recieved")
 				err := conn.WriteMessage(websocket.TextMessage, []byte("pong"))
 				if err != nil {
 					return
 				}
 			case pck := <-ch:
+				log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Packet has been recieved from stream source")
 				if pck.IsKeyFrame {
+					log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Packet is a keyframe")
 					noVideo.Reset(10 * time.Second)
 					start = true
 				}
 				if !start {
+					log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Stream has not been started")
 					continue
 				}
 				ready, buf, err := muxer.WritePacket(pck, false)
 				if err != nil {
+					// @todo: handle?
+					log.Error().Err(err).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Can't write packet to the muxer")
 				}
+				log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Bool("ready", ready).Int("buf_len", len(buf)).Msg("Write packet to the muxer")
+
 				if ready {
+					log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Bool("ready", ready).Int("buf_len", len(buf)).Msg("Muxer is ready to write another packet")
 					err = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 					if err != nil {
 						return
@@ -133,6 +151,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 						closeWSwithError(conn, 1011, fmt.Sprintf("Can't write messsage due the error: %s\n", err.Error()))
 						return
 					}
+					log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Bool("ready", ready).Int("buf_len", len(buf)).Msg("Write buffer to the client")
 				}
 			}
 		}
