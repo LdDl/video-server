@@ -39,7 +39,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 			closeWSwithError(conn, 1011, fmt.Sprintf("Can't add client '%s' due the error: %s\n", streamID, err.Error()))
 			return
 		}
-		if codecData == nil {
+		if len(codecData) == 0 {
 			closeWSwithError(conn, 1011, fmt.Sprintf("No codec information for stream %s\n", streamID))
 			return
 		}
