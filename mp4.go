@@ -30,7 +30,7 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 	lastPacketTime := time.Duration(0)
 	lastKeyFrame := av.Packet{}
 
-	//time.Sleep(5 * time.Second) // Artificial delay to wait for first key frame
+	// time.Sleep(5 * time.Second) // Artificial delay to wait for first key frame
 	for isConnected {
 		// Create new segment file
 		segmentName := fmt.Sprintf("%s%04d.mp4", streamID, segmentNumber)
@@ -46,7 +46,8 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 		if err != nil {
 			return errors.Wrap(err, streamID.String())
 		}
-		if err := tsMuxer.WriteHeader(codecData); err != nil {
+		err = tsMuxer.WriteHeader(codecData)
+		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("Can't write header for mp4 muxer for stream %s", streamID))
 		}
 
