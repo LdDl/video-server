@@ -9,9 +9,12 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"syscall"
+	"time"
 
 	videoserver "github.com/LdDl/video-server"
 	"github.com/LdDl/video-server/configuration"
+	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
 )
 
 var (
@@ -19,6 +22,11 @@ var (
 	memprofile = flag.String("memprofile", "", "write memory profile to `file`")
 	conf       = flag.String("conf", "conf.json", "Path to configuration JSON-file")
 )
+
+func init() {
+	zerolog.TimeFieldFormat = time.RFC3339
+	gin.SetMode(gin.ReleaseMode)
+}
 
 func main() {
 	flag.Parse()
@@ -83,5 +91,4 @@ func main() {
 			return
 		}
 	}
-
 }
