@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 // StartAPIServer starts server with API functionality
@@ -33,9 +34,10 @@ func (app *Application) StartAPIServer() {
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
+	log.Info().Str("scope", "api_server").Str("event", "api_server_start").Str("url", url).Msg("Start microservice for API server")
 	err := s.ListenAndServe()
 	if err != nil {
-		fmt.Printf("Can't start API-server '%s' due the error: %s\n", url, err.Error())
+		log.Error().Err(err).Str("scope", "api_server").Str("event", "api_server_start").Str("url", url).Msg("Can't start API server routers")
 		return
 	}
 }
