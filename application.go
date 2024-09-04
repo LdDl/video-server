@@ -1,7 +1,6 @@
 package videoserver
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/LdDl/video-server/configuration"
@@ -11,11 +10,6 @@ import (
 	"github.com/deepch/vdk/av"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-)
-
-var (
-	ErrStreamTypeNotExists    = fmt.Errorf("stream type does not exists")
-	ErrStreamTypeNotSupported = fmt.Errorf("stream type is not supported")
 )
 
 // Application is a configuration parameters for application
