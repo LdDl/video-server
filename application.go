@@ -139,6 +139,9 @@ func (app *Application) streamExists(streamID uuid.UUID) bool {
 }
 
 func (app *Application) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
+	app.Streams.Lock()
+	defer app.Streams.Unlock()
+
 	return app.Streams.existsWithType(streamID, streamType)
 }
 

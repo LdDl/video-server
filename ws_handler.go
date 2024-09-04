@@ -8,10 +8,12 @@ import (
 	"github.com/deepch/vdk/format/mp4f"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/rs/zerolog/log"
 )
 
 // wshandler is a websocket handler for user connection
 func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Request, app *Application) {
+	log.Info().Str("remote_addr", r.RemoteAddr).Msg("Connected")
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
 		closeWSwithError(conn, 1011, fmt.Sprintf("Failed to make websocket upgrade: %s\n", err.Error()))
@@ -20,13 +22,16 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 	defer conn.Close()
 
 	streamIDSTR := r.FormValue("stream_id")
+	log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Msg("Request stream")
 	streamID, err := uuid.Parse(streamIDSTR)
 	if err != nil {
 		closeWSwithError(conn, 1011, fmt.Sprintf("Can't parse UUID: '%s' due the error: %s\n", streamIDSTR, err.Error()))
 		return
 	}
 
-	if app.existsWithType(streamID, STREAM_TYPE_MSE) {
+	mseExists := app.existsWithType(streamID, STREAM_TYPE_MSE)
+	log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Bool("mse_exists", mseExists).Msg("Validate stream type")
+	if mseExists {
 		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 		cuuid, ch, err := app.addClient(streamID)
 		if err != nil {

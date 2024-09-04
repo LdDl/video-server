@@ -47,14 +47,15 @@ func (streams *StreamsStorage) streamExists(streamID uuid.UUID) bool {
 }
 
 func (streams *StreamsStorage) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
-	streams.RLock()
+	// @error: here is wrong?
+	streams.Lock()
+	defer streams.Unlock()
 	curStream, ok := streams.Streams[streamID]
 	if !ok {
 		return false
 	}
 	supportedTypes := curStream.SupportedOutputTypes
 	typeEnabled := typeExists(streamType, supportedTypes)
-	streams.RUnlock()
 	return ok && typeEnabled
 }
 
