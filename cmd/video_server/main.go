@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"runtime"
 	"runtime/pprof"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,7 +25,6 @@ var (
 
 func init() {
 	zerolog.TimeFieldFormat = time.RFC3339
-	gin.SetMode(gin.ReleaseMode)
 }
 
 func main() {
@@ -51,6 +51,10 @@ func main() {
 	if err != nil {
 		log.Error().Err(err).Str("scope", "configuration").Msg("Could not prepare application")
 		return
+	}
+
+	if strings.ToLower(app.APICfg.Mode) == "release" {
+		gin.SetMode(gin.ReleaseMode)
 	}
 
 	// Run streams

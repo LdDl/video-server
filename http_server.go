@@ -3,7 +3,6 @@ package videoserver
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -17,9 +16,6 @@ import (
 func (app *Application) StartAPIServer() {
 	router := gin.New()
 
-	if strings.ToLower(app.APICfg.Mode) == "release" {
-		gin.SetMode(gin.ReleaseMode)
-	}
 	pprof.Register(router)
 
 	if app.CorsConfig != nil {
