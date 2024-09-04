@@ -139,10 +139,10 @@ func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnable
 
 func (streams *StreamsStorage) setArchiveStream(streamID uuid.UUID, dir string, msPerSegment int64) error {
 	if dir == "" {
-		return fmt.Errorf("Bad directory archive stream")
+		return fmt.Errorf("bad directory archive stream")
 	}
 	if msPerSegment == 0 {
-		return fmt.Errorf("Bad ms per segment archive stream")
+		return fmt.Errorf("bad ms per segment archive stream")
 	}
 	newArhive := streamArhive{
 		dir:          dir,

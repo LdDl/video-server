@@ -2,7 +2,6 @@ package videoserver
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/deepch/vdk/format/mp4"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
@@ -30,7 +30,7 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 	lastPacketTime := time.Duration(0)
 	lastKeyFrame := av.Packet{}
 
-	//time.Sleep(5 * time.Second) // Artificial delay to wait for first key frame
+	// time.Sleep(5 * time.Second) // Artificial delay to wait for first key frame
 	for isConnected {
 		// Create new segment file
 		segmentName := fmt.Sprintf("%s%04d.mp4", streamID, segmentNumber)
@@ -46,7 +46,8 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 		if err != nil {
 			return errors.Wrap(err, streamID.String())
 		}
-		if err := tsMuxer.WriteHeader(codecData); err != nil {
+		err = tsMuxer.WriteHeader(codecData)
+		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("Can't write header for mp4 muxer for stream %s", streamID))
 		}
 
@@ -113,11 +114,13 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 		}
 
 		if err := tsMuxer.WriteTrailer(); err != nil {
-			log.Printf("Can't write trailing data for TS muxer for %s: %s\n", streamID, err.Error())
+			log.Error().Err(err).Str("scope", "mp4").Str("event", "mp4_write_trail").Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't write trailing data for TS muxer")
+			// @todo: handle?
 		}
 
 		if err := outFile.Close(); err != nil {
-			log.Printf("Can't close file %s: %s\n", outFile.Name(), err.Error())
+			log.Error().Err(err).Str("scope", "mp4").Str("event", "mp4_close").Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't close file")
+			// @todo: handle?
 		}
 		segmentNumber++
 	}

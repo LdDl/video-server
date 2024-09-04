@@ -1,8 +1,6 @@
 package videoserver
 
 import (
-	"fmt"
-	"log"
 	"strings"
 
 	"github.com/LdDl/video-server/configuration"
@@ -11,11 +9,7 @@ import (
 
 	"github.com/deepch/vdk/av"
 	"github.com/google/uuid"
-)
-
-var (
-	ErrStreamTypeNotExists    = fmt.Errorf("Stream type does not exists")
-	ErrStreamTypeNotSupported = fmt.Errorf("Stream type is not supported")
+	"github.com/rs/zerolog/log"
 )
 
 // Application is a configuration parameters for application
@@ -84,7 +78,7 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 	for _, rtspStream := range cfg.RTSPStreams {
 		validUUID, err := uuid.Parse(rtspStream.GUID)
 		if err != nil {
-			log.Printf("Not valid UUID: %s\n", rtspStream.GUID)
+			log.Error().Err(err).Str("scope", "configuration").Str("stream_id", rtspStream.GUID).Msg("Not valid UUID")
 			continue
 		}
 		outputTypes := make([]StreamType, 0, len(rtspStream.OutputTypes))
@@ -166,7 +160,6 @@ func (app *Application) addClient(streamID uuid.UUID) (uuid.UUID, chan av.Packet
 
 func (app *Application) clientDelete(streamID, clientID uuid.UUID) {
 	app.Streams.deleteClient(streamID, clientID)
-
 }
 
 func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) {

@@ -2,10 +2,10 @@ package videoserver
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -37,12 +37,12 @@ func (app *Application) startLoop(ctx context.Context, streamID uuid.UUID, url s
 	case <-ctx.Done():
 		return
 	default:
-		log.Printf("Stream must be establishment for '%s' by connecting to %s", streamID, url)
+		log.Info().Str("scope", "streaming").Str("event", "stream_start").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Stream must be establishment")
 		err := app.runStream(streamID, url, hlsEnabled)
 		if err != nil {
-			log.Printf("Error occured for stream %s on URL '%s': %s", streamID, url, err.Error())
+			log.Error().Err(err).Str("scope", "streaming").Str("event", "stream_restart").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Can't start stream")
 		}
-		log.Printf("Stream must be re-establishment for '%s' by connecting to %s in %s\n", streamID, url, restartStreamDuration)
+		log.Info().Str("scope", "streaming").Str("event", "stream_restart").Str("stream_id", streamID.String()).Str("stream_url", url).Any("restart_duration", restartStreamDuration).Msg("Stream must be re-establishment")
 		time.Sleep(restartStreamDuration)
 	}
 }

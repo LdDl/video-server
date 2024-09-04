@@ -2,16 +2,19 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"runtime"
 	"runtime/pprof"
+	"strings"
 	"syscall"
+	"time"
 
 	videoserver "github.com/LdDl/video-server"
 	"github.com/LdDl/video-server/configuration"
+	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -20,30 +23,38 @@ var (
 	conf       = flag.String("conf", "conf.json", "Path to configuration JSON-file")
 )
 
+func init() {
+	zerolog.TimeFieldFormat = time.RFC3339
+}
+
 func main() {
 	flag.Parse()
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
 		if err != nil {
-			log.Printf("Could not create file for CPU profiling: %s\n", err.Error())
+			log.Error().Err(err).Str("event", "cpu_profile").Msg("Could not create file for CPU profiling")
 			return
 		}
 		defer f.Close()
 		if err := pprof.StartCPUProfile(f); err != nil {
-			log.Printf("Could not start CPU profiling: %s\n", err.Error())
+			log.Error().Err(err).Str("event", "cpu_profile").Msg("Could not start CPU profiling")
 			return
 		}
 		defer pprof.StopCPUProfile()
 	}
 	appCfg, err := configuration.PrepareConfiguration(*conf)
 	if err != nil {
-		fmt.Println(err)
+		log.Error().Err(err).Str("scope", "configuration").Msg("Could not prepare application configuration")
 		return
 	}
 	app, err := videoserver.NewApplication(appCfg)
 	if err != nil {
-		fmt.Printf("Can't prepare application due the error: %s", err.Error())
+		log.Error().Err(err).Str("scope", "configuration").Msg("Could not prepare application")
 		return
+	}
+
+	if strings.ToLower(app.APICfg.Mode) == "release" {
+		gin.SetMode(gin.ReleaseMode)
 	}
 
 	// Run streams
@@ -62,26 +73,25 @@ func main() {
 	signal.Notify(sigOUT, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigOUT
-		log.Println("Server has captured signal:", sig)
+		log.Info().Str("event", "signal_capture").Any("signal", sig).Msg("Server has captured signal")
 		exit <- true
 	}()
-	log.Println("Server has been started (awaiting signal to exit)")
+	log.Info().Str("event", "server_start").Msg("Server has been started (awaiting signal to exit)")
 	<-exit
-	log.Println("Stopping video_server")
+	log.Info().Str("event", "server_stop").Msg("Stopping video server")
 
 	if *memprofile != "" {
 		f, err := os.Create(*memprofile)
 		if err != nil {
-			log.Printf("Could not create file for memory profiling: %s\n", err.Error())
+			log.Error().Err(err).Str("event", "memory_profile").Msg("Could not create file for memory profiling")
 			return
 		}
 		defer f.Close()
 		// Explicit for garbage collection
 		runtime.GC()
 		if err := pprof.WriteHeapProfile(f); err != nil {
-			log.Printf("Could not write to file for memory profiling: %s\n", err.Error())
+			log.Error().Err(err).Str("event", "memory_profile").Msg("Could not write to file for memory profiling")
 			return
 		}
 	}
-
 }
