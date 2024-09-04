@@ -95,7 +95,9 @@ func (streams *StreamsStorage) updateStreamStatus(streamID uuid.UUID, status boo
 }
 
 func (streams *StreamsStorage) addClient(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
+	// @error: here is wrong?
 	streams.Lock()
+	defer streams.Unlock()
 	curStream, ok := streams.Streams[streamID]
 	if !ok {
 		return uuid.UUID{}, nil, ErrStreamNotFound
@@ -106,7 +108,6 @@ func (streams *StreamsStorage) addClient(streamID uuid.UUID) (uuid.UUID, chan av
 	}
 	ch := make(chan av.Packet, 100)
 	curStream.Clients[clientID] = viewer{c: ch}
-	streams.Unlock()
 	return clientID, ch, nil
 }
 

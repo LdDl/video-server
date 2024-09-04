@@ -39,11 +39,15 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 			return
 		}
 		defer app.clientDelete(streamID, cuuid)
+		log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Client has been added")
+
 		codecData, err := app.getCodec(streamID)
 		if err != nil {
 			closeWSwithError(conn, 1011, fmt.Sprintf("Can't add client '%s' due the error: %s\n", streamID, err.Error()))
 			return
 		}
+		log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Msg("Validate codecs")
+
 		if len(codecData) == 0 {
 			closeWSwithError(conn, 1011, fmt.Sprintf("No codec information for stream %s\n", streamID))
 			return
@@ -54,17 +58,24 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 			closeWSwithError(conn, 1011, fmt.Sprintf("Can't write header to muxer for %s: %s\n", conn.RemoteAddr().String(), err.Error()))
 			return
 		}
+		log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Msg("Write header to muxer")
+
 		meta, init := muxer.GetInit(codecData)
+		log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg("Get meta information")
+
 		err = conn.WriteMessage(websocket.BinaryMessage, append([]byte{9}, meta...))
 		if err != nil {
 			closeWSwithError(conn, 1011, fmt.Sprintf("Can't write header to %s: %s\n", conn.RemoteAddr().String(), err.Error()))
 			return
 		}
+		log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg("Send meta information")
 		err = conn.WriteMessage(websocket.BinaryMessage, init)
 		if err != nil {
 			closeWSwithError(conn, 1011, fmt.Sprintf("Can't write message to %s: %s\n", conn.RemoteAddr().String(), err.Error()))
 			return
 		}
+		log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg("Send initialization message")
+
 		var start bool
 		quitCh := make(chan bool)
 		rxPingCh := make(chan bool)
