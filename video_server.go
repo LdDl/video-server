@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -12,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/rs/zerolog/log"
 )
 
 // @todo: eliminate this regexp and use the third party
@@ -21,9 +21,6 @@ var uuidRegExp = regexp.MustCompile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]
 func (app *Application) StartVideoServer() {
 	router := gin.New()
 
-	if strings.ToLower(app.APICfg.Mode) == "release" {
-		gin.SetMode(gin.ReleaseMode)
-	}
 	pprof.Register(router)
 
 	wsUpgrader := websocket.Upgrader{
@@ -38,6 +35,7 @@ func (app *Application) StartVideoServer() {
 	router.GET("/hls/:file", HLSWrapper(app))
 
 	url := fmt.Sprintf("%s:%d", app.VideoServerCfg.Host, app.VideoServerCfg.Port)
+	log.Info().Str("scope", "video_server").Str("event", "video_server_start").Str("url", url).Msg("Start microservice for video server")
 	s := &http.Server{
 		Addr:         url,
 		Handler:      router,
@@ -46,7 +44,7 @@ func (app *Application) StartVideoServer() {
 	}
 	err := s.ListenAndServe()
 	if err != nil {
-		fmt.Printf("Can't start Video-server '%s' due the error: %s\n", url, err.Error())
+		log.Error().Err(err).Str("scope", "video_server").Str("event", "video_server_start").Str("url", url).Msg("Can't start video server routers")
 		return
 	}
 }
