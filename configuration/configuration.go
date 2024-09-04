@@ -2,7 +2,7 @@ package configuration
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 )
 
 // @todo: can we switch to TOML? Any benefits?
@@ -85,7 +85,7 @@ const (
 
 // PrepareConfiguration
 func PrepareConfiguration(fname string) (*Configuration, error) {
-	configFile, err := ioutil.ReadFile(fname)
+	configFile, err := os.ReadFile(fname)
 	if err != nil {
 		return nil, err
 	}
