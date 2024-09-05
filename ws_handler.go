@@ -11,24 +11,28 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var keyFramesTimeout = 10 * time.Second
+
 // wshandler is a websocket handler for user connection
 func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Request, app *Application) {
-	log.Info().Str("remote_addr", r.RemoteAddr).Msg("Connected")
+	streamIDSTR := r.FormValue("stream_id")
+	log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Msg("MSE Connected")
+
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
 		closeWSwithError(conn, 1011, fmt.Sprintf("Failed to make websocket upgrade: %s\n", err.Error()))
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		log.Info().Str("remote_addr", r.RemoteAddr).Msg("Connection has been closed")
+		conn.Close()
+	}()
 
-	streamIDSTR := r.FormValue("stream_id")
-	log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Msg("Request stream")
 	streamID, err := uuid.Parse(streamIDSTR)
 	if err != nil {
 		closeWSwithError(conn, 1011, fmt.Sprintf("Can't parse UUID: '%s' due the error: %s\n", streamIDSTR, err.Error()))
 		return
 	}
-
 	mseExists := app.existsWithType(streamID, STREAM_TYPE_MSE)
 	log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Bool("mse_exists", mseExists).Msg("Validate stream type")
 	if mseExists {
@@ -103,15 +107,14 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 			}
 		}(quitCh, rxPingCh)
 
-		noVideo := time.NewTimer(10 * time.Second)
+		noKeyFrames := time.NewTimer(keyFramesTimeout)
 
 		log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Start loop")
 
 		for {
 			select {
-			case <-noVideo.C:
-				// @error: when it could happen?
-				log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("No video")
+			case <-noKeyFrames.C:
+				log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("No keyframes has been met")
 				return
 			case <-quitCh:
 				log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Quit")
@@ -126,7 +129,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 				// log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Packet has been recieved from stream source")
 				if pck.IsKeyFrame {
 					log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Packet is a keyframe")
-					noVideo.Reset(10 * time.Second)
+					noKeyFrames.Reset(keyFramesTimeout)
 					start = true
 				}
 				if !start {
@@ -142,7 +145,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 
 				if ready {
 					// log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Bool("ready", ready).Int("buf_len", len(buf)).Msg("Muxer is ready to write another packet")
-					err = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+					err = conn.SetWriteDeadline(time.Now().Add(keyFramesTimeout))
 					if err != nil {
 						return
 					}
@@ -160,7 +163,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 
 func prepareError(code int16, message string) []byte {
 	buf := make([]byte, 0, 2+len(message))
-	var h, l uint8 = uint8(code >> 8), uint8(code & 0xff)
+	h, l := uint8(code>>8), uint8(code&0xff)
 	buf = append(buf, h, l)
 	buf = append(buf, []byte(message)...)
 	return buf
