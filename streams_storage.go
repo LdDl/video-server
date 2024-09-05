@@ -47,14 +47,14 @@ func (streams *StreamsStorage) streamExists(streamID uuid.UUID) bool {
 }
 
 func (streams *StreamsStorage) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
-	streams.RLock()
+	streams.Lock()
+	defer streams.Unlock()
 	curStream, ok := streams.Streams[streamID]
 	if !ok {
 		return false
 	}
 	supportedTypes := curStream.SupportedOutputTypes
 	typeEnabled := typeExists(streamType, supportedTypes)
-	streams.RUnlock()
 	return ok && typeEnabled
 }
 
@@ -65,6 +65,8 @@ func (streams *StreamsStorage) addCodec(streamID uuid.UUID, codecs []av.CodecDat
 }
 
 func (streams *StreamsStorage) getCodec(streamID uuid.UUID) ([]av.CodecData, error) {
+	streams.Lock()
+	defer streams.Unlock()
 	curStream, ok := streams.Streams[streamID]
 	if !ok {
 		return nil, ErrStreamNotFound
@@ -83,18 +85,19 @@ func (streams *StreamsStorage) getCodec(streamID uuid.UUID) ([]av.CodecData, err
 
 func (streams *StreamsStorage) updateStreamStatus(streamID uuid.UUID, status bool) error {
 	streams.Lock()
+	defer streams.Unlock()
 	curStream, ok := streams.Streams[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
 	curStream.Status = status
 	streams.Streams[streamID] = curStream
-	streams.Unlock()
 	return nil
 }
 
 func (streams *StreamsStorage) addClient(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
 	streams.Lock()
+	defer streams.Unlock()
 	curStream, ok := streams.Streams[streamID]
 	if !ok {
 		return uuid.UUID{}, nil, ErrStreamNotFound
@@ -105,7 +108,6 @@ func (streams *StreamsStorage) addClient(streamID uuid.UUID) (uuid.UUID, chan av
 	}
 	ch := make(chan av.Packet, 100)
 	curStream.Clients[clientID] = viewer{c: ch}
-	streams.Unlock()
 	return clientID, ch, nil
 }
 
@@ -117,6 +119,7 @@ func (streams *StreamsStorage) deleteClient(streamID, clientID uuid.UUID) {
 
 func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled bool) error {
 	streams.Lock()
+	defer streams.Unlock()
 	curStream, ok := streams.Streams[streamID]
 	if !ok {
 		return ErrStreamNotFound
@@ -124,7 +127,7 @@ func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnable
 	if hlsEnabled {
 		curStream.hlsChanel <- pck
 	}
-	archive := streams.getArchiveStream(streamID)
+	archive := curStream.archive
 	if archive != nil {
 		curStream.mp4Chanel <- pck
 	}
@@ -133,7 +136,6 @@ func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnable
 			v.c <- pck
 		}
 	}
-	streams.Unlock()
 	return nil
 }
 
