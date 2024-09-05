@@ -14,6 +14,7 @@ import (
 var (
 	keyFramesTimeout = 10 * time.Second
 	deadlineTimeout  = 10 * time.Second
+	controlTimeout   = 10 * time.Second
 )
 
 // wshandler is a websocket handler for user connection
@@ -207,5 +208,5 @@ func prepareError(code int16, message string) []byte {
 }
 
 func closeWSwithError(conn *websocket.Conn, code int16, message string) {
-	conn.WriteControl(8, prepareError(code, message), time.Now().Add(10*time.Second))
+	conn.WriteControl(8, prepareError(code, message), time.Now().Add(controlTimeout))
 }
