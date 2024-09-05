@@ -1,8 +1,6 @@
 package videoserver
 
 import (
-	"strings"
-
 	"github.com/LdDl/video-server/configuration"
 	"github.com/gin-contrib/cors"
 	"github.com/pkg/errors"
@@ -94,6 +92,7 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 		}
 
 		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(rtspStream.URL, outputTypes)
+		tmp.Streams.Streams[validUUID].verboseLevel = NewVerboseLevelFrom(rtspStream.Verbose)
 		if rtspStream.Archive.Enabled {
 			dir := rtspStream.Archive.Directory
 			msPerSegment := rtspStream.Archive.MsPerSegment
@@ -104,13 +103,6 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 				msPerSegment = cfg.ArchiveCfg.MsPerSegment
 			}
 			tmp.SetStreamArchive(validUUID, dir, msPerSegment)
-		}
-		verbose := strings.ToLower(rtspStream.Verbose)
-		if verbose == "v" {
-			tmp.Streams.Streams[validUUID].verbose = true
-		} else if verbose == "vvv" {
-			tmp.Streams.Streams[validUUID].verbose = true
-			tmp.Streams.Streams[validUUID].verboseDetailed = true
 		}
 	}
 	return &tmp, nil
