@@ -15,8 +15,8 @@ const (
 // StartStreams starts all video streams
 func (app *Application) StartStreams() {
 	streamsIDs := app.Streams.getKeys()
-	for _, k := range streamsIDs {
-		app.StartStream(k)
+	for i := range streamsIDs {
+		app.StartStream(streamsIDs[i])
 	}
 }
 

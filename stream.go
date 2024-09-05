@@ -30,8 +30,8 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled boo
 		return errors.Wrapf(err, "Can't connect to stream '%s'", url)
 	}
 	defer session.Close()
-	if len(session.CodecData) == 0 {
-		log.Info().Str("scope", "streaming").Str("event", "stream_no_codec_met").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Any("codec_data", session.CodecData).Msg("Empty codec. Adding a one")
+	if len(session.CodecData) != 0 {
+		log.Info().Str("scope", "streaming").Str("event", "stream_codec_met").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Any("codec_data", session.CodecData).Msg("Found codec. Adding this one")
 		app.addCodec(streamID, session.CodecData)
 		log.Info().Str("scope", "streaming").Str("event", "stream_status_update").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Msg("Update stream status")
 		err = app.updateStreamStatus(streamID, true)
