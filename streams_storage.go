@@ -76,7 +76,6 @@ func (streams *StreamsStorage) streamExists(streamID uuid.UUID) bool {
 }
 
 func (streams *StreamsStorage) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
-	// @error: here is wrong?
 	streams.Lock()
 	defer streams.Unlock()
 	curStream, ok := streams.Streams[streamID]
@@ -95,6 +94,8 @@ func (streams *StreamsStorage) addCodec(streamID uuid.UUID, codecs []av.CodecDat
 }
 
 func (streams *StreamsStorage) getCodec(streamID uuid.UUID) ([]av.CodecData, error) {
+	streams.Lock()
+	defer streams.Unlock()
 	curStream, ok := streams.Streams[streamID]
 	if !ok {
 		return nil, ErrStreamNotFound
@@ -113,18 +114,17 @@ func (streams *StreamsStorage) getCodec(streamID uuid.UUID) ([]av.CodecData, err
 
 func (streams *StreamsStorage) updateStreamStatus(streamID uuid.UUID, status bool) error {
 	streams.Lock()
+	defer streams.Unlock()
 	curStream, ok := streams.Streams[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
 	curStream.Status = status
 	streams.Streams[streamID] = curStream
-	streams.Unlock()
 	return nil
 }
 
 func (streams *StreamsStorage) addClient(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
-	// @error: here is wrong?
 	streams.Lock()
 	defer streams.Unlock()
 	curStream, ok := streams.Streams[streamID]
@@ -148,6 +148,7 @@ func (streams *StreamsStorage) deleteClient(streamID, clientID uuid.UUID) {
 
 func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled bool) error {
 	streams.Lock()
+	defer streams.Unlock()
 	curStream, ok := streams.Streams[streamID]
 	if !ok {
 		return ErrStreamNotFound
@@ -164,7 +165,6 @@ func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnable
 			v.c <- pck
 		}
 	}
-	streams.Unlock()
 	return nil
 }
 
