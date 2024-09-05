@@ -151,7 +151,7 @@ func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnable
 		return ErrStreamNotFound
 	}
 	if stream.verboseLevel > VERBOSE_ADD {
-		log.Info().Str("scope", SCOPE_STREAM).Str("event", "cast").Str("stream_id", streamID.String()).Bool("hls_enabled", hlsEnabled).Int("clients_num", len(stream.Clients)).Msg("Cast packet")
+		log.Info().Str("scope", SCOPE_STREAM).Str("event", "cast").Str("stream_id", streamID.String()).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", stream.archive != nil).Int("clients_num", len(stream.Clients)).Msg("Cast packet")
 	}
 	if hlsEnabled {
 		stream.hlsChanel <- pck
