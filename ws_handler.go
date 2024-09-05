@@ -11,7 +11,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var keyFramesTimeout = 10 * time.Second
+var (
+	keyFramesTimeout = 10 * time.Second
+	deadlineTimeout  = 10 * time.Second
+)
 
 // wshandler is a websocket handler for user connection
 func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Request, app *Application) {
@@ -20,7 +23,9 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
-		closeWSwithError(conn, 1011, fmt.Sprintf("Failed to make websocket upgrade: %s\n", err.Error()))
+		errReason := "Can't call websocket upgrader"
+		log.Error().Err(err).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Msg(errReason)
+		closeWSwithError(conn, 1011, errReason)
 		return
 	}
 	defer func() {
@@ -30,16 +35,26 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 
 	streamID, err := uuid.Parse(streamIDSTR)
 	if err != nil {
-		closeWSwithError(conn, 1011, fmt.Sprintf("Can't parse UUID: '%s' due the error: %s\n", streamIDSTR, err.Error()))
+		errReason := fmt.Sprintf("Not valid UUID: '%s'", streamIDSTR)
+		log.Error().Err(err).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Msg(errReason)
+		closeWSwithError(conn, 1011, errReason)
 		return
 	}
 	mseExists := app.existsWithType(streamID, STREAM_TYPE_MSE)
 	log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Bool("mse_exists", mseExists).Msg("Validate stream type")
 	if mseExists {
-		conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+		err = conn.SetWriteDeadline(time.Now().Add(deadlineTimeout))
+		if err != nil {
+			errReason := "Can't set deadline"
+			log.Error().Err(err).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Msg(errReason)
+			closeWSwithError(conn, 1011, errReason)
+			return
+		}
 		cuuid, ch, err := app.addClient(streamID)
 		if err != nil {
-			closeWSwithError(conn, 1011, fmt.Sprintf("Can't add client for '%s' due the error: %s\n", streamID, err.Error()))
+			errReason := "Can't add client to the queue"
+			log.Error().Err(err).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Msg(errReason)
+			closeWSwithError(conn, 1011, errReason)
 			return
 		}
 		defer app.clientDelete(streamID, cuuid)
@@ -47,19 +62,25 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 
 		codecData, err := app.getCodec(streamID)
 		if err != nil {
-			closeWSwithError(conn, 1011, fmt.Sprintf("Can't add client '%s' due the error: %s\n", streamID, err.Error()))
+			errReason := "Can't extract codec for stream"
+			log.Error().Err(err).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg(errReason)
+			closeWSwithError(conn, 1011, errReason)
 			return
 		}
 		log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Msg("Validate codecs")
 
 		if len(codecData) == 0 {
-			closeWSwithError(conn, 1011, fmt.Sprintf("No codec information for stream %s\n", streamID))
+			errReason := "No codec information"
+			log.Error().Err(err).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg(errReason)
+			closeWSwithError(conn, 1011, errReason)
 			return
 		}
 		muxer := mp4f.NewMuxer(nil)
 		err = muxer.WriteHeader(codecData)
 		if err != nil {
-			closeWSwithError(conn, 1011, fmt.Sprintf("Can't write header to muxer for %s: %s\n", conn.RemoteAddr().String(), err.Error()))
+			errReason := "Can't write codec information to the header"
+			log.Error().Err(err).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Msg(errReason)
+			closeWSwithError(conn, 1011, errReason)
 			return
 		}
 		log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Msg("Write header to muxer")
@@ -69,13 +90,17 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 
 		err = conn.WriteMessage(websocket.BinaryMessage, append([]byte{9}, meta...))
 		if err != nil {
-			closeWSwithError(conn, 1011, fmt.Sprintf("Can't write header to %s: %s\n", conn.RemoteAddr().String(), err.Error()))
+			errReason := "Can't write meta information"
+			log.Error().Err(err).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Str("meta", meta).Msg(errReason)
+			closeWSwithError(conn, 1011, errReason)
 			return
 		}
 		log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg("Send meta information")
 		err = conn.WriteMessage(websocket.BinaryMessage, init)
 		if err != nil {
-			closeWSwithError(conn, 1011, fmt.Sprintf("Can't write message to %s: %s\n", conn.RemoteAddr().String(), err.Error()))
+			errReason := "Can't write initialization information"
+			log.Error().Err(err).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg(errReason)
+			closeWSwithError(conn, 1011, errReason)
 			return
 		}
 		log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg("Send initialization message")
@@ -90,7 +115,9 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 				msgType, data, err := conn.ReadMessage()
 				if err != nil {
 					q <- true
-					closeWSwithError(conn, 1011, fmt.Sprintf("Read message error: %s\n", err.Error()))
+					errReason := "Can't read message"
+					log.Error().Err(err).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg(errReason)
+					closeWSwithError(conn, 1011, errReason)
 					return
 				}
 				log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Int("message_type", msgType).Int("data_len", len(data)).Msg("Read message in a loop")
@@ -123,6 +150,9 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 				log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("'Ping' has been recieved")
 				err := conn.WriteMessage(websocket.TextMessage, []byte("pong"))
 				if err != nil {
+					errReason := "Can't write PONG message"
+					log.Error().Err(err).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg(errReason)
+					closeWSwithError(conn, 1011, errReason)
 					return
 				}
 			case pck := <-ch:
@@ -138,20 +168,27 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 				}
 				ready, buf, err := muxer.WritePacket(pck, false)
 				if err != nil {
-					log.Error().Err(err).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Can't write packet to the muxer")
+					errReason := "Can't write packet to the muxer"
+					log.Error().Err(err).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("packet_len", len(pck.Data)).Msg(errReason)
+					closeWSwithError(conn, 1011, errReason)
 					return
 				}
 				// log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Bool("ready", ready).Int("buf_len", len(buf)).Msg("Write packet to the muxer")
 
 				if ready {
 					// log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Bool("ready", ready).Int("buf_len", len(buf)).Msg("Muxer is ready to write another packet")
-					err = conn.SetWriteDeadline(time.Now().Add(keyFramesTimeout))
+					err = conn.SetWriteDeadline(time.Now().Add(deadlineTimeout))
 					if err != nil {
+						errReason := "Can't set new deadline"
+						log.Error().Err(err).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("packet_len", len(pck.Data)).Bool("ready", ready).Int("buf_len", len(buf)).Msg(errReason)
+						closeWSwithError(conn, 1011, errReason)
 						return
 					}
 					err := conn.WriteMessage(websocket.BinaryMessage, buf)
 					if err != nil {
-						closeWSwithError(conn, 1011, fmt.Sprintf("Can't write messsage due the error: %s\n", err.Error()))
+						errReason := "Can't write buffered message"
+						log.Error().Err(err).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("packet_len", len(pck.Data)).Bool("ready", ready).Int("buf_len", len(buf)).Msg(errReason)
+						closeWSwithError(conn, 1011, errReason)
 						return
 					}
 					// log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Bool("ready", ready).Int("buf_len", len(buf)).Msg("Write buffer to the client")
