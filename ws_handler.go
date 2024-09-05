@@ -138,8 +138,8 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 				}
 				ready, buf, err := muxer.WritePacket(pck, false)
 				if err != nil {
-					// @todo: handle?
 					log.Error().Err(err).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Can't write packet to the muxer")
+					return
 				}
 				// log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Bool("ready", ready).Int("buf_len", len(buf)).Msg("Write packet to the muxer")
 
