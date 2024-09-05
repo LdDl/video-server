@@ -8,6 +8,11 @@ import (
 	"github.com/deepch/vdk/codec/aacparser"
 	"github.com/deepch/vdk/codec/h264parser"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
+)
+
+const (
+	SCOPE_STREAM = "stream"
 )
 
 // StreamsStorage Map wrapper for map[uuid.UUID]*StreamConfiguration with mutex for concurrent usage
@@ -49,30 +54,37 @@ func (streams *StreamsStorage) streamExists(streamID uuid.UUID) bool {
 func (streams *StreamsStorage) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
 	streams.Lock()
 	defer streams.Unlock()
-	curStream, ok := streams.Streams[streamID]
+	stream, ok := streams.Streams[streamID]
 	if !ok {
 		return false
 	}
-	supportedTypes := curStream.SupportedOutputTypes
+	supportedTypes := stream.SupportedOutputTypes
 	typeEnabled := typeExists(streamType, supportedTypes)
 	return ok && typeEnabled
 }
 
 func (streams *StreamsStorage) addCodec(streamID uuid.UUID, codecs []av.CodecData) {
 	streams.Lock()
-	streams.Streams[streamID].Codecs = codecs
-	streams.Unlock()
+	defer streams.Unlock()
+	stream, ok := streams.Streams[streamID]
+	if !ok {
+		return
+	}
+	stream.Codecs = codecs
+	if stream.verboseLevel > VERBOSE_SIMPLE {
+		log.Info().Str("scope", SCOPE_STREAM).Str("event", "codec_add").Str("stream_id", streamID.String()).Any("codec_data", codecs).Msg("Add codec")
+	}
 }
 
 func (streams *StreamsStorage) getCodec(streamID uuid.UUID) ([]av.CodecData, error) {
 	streams.Lock()
 	defer streams.Unlock()
-	curStream, ok := streams.Streams[streamID]
+	stream, ok := streams.Streams[streamID]
 	if !ok {
 		return nil, ErrStreamNotFound
 	}
-	codecs := make([]av.CodecData, len(curStream.Codecs))
-	for i, iface := range curStream.Codecs {
+	codecs := make([]av.CodecData, len(stream.Codecs))
+	for i, iface := range stream.Codecs {
 		switch codecType := iface.(type) {
 		case aacparser.CodecData, h264parser.CodecData:
 			codecs[i] = codecType
@@ -86,19 +98,23 @@ func (streams *StreamsStorage) getCodec(streamID uuid.UUID) ([]av.CodecData, err
 func (streams *StreamsStorage) updateStreamStatus(streamID uuid.UUID, status bool) error {
 	streams.Lock()
 	defer streams.Unlock()
-	curStream, ok := streams.Streams[streamID]
+	stream, ok := streams.Streams[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
-	curStream.Status = status
-	streams.Streams[streamID] = curStream
+	stream.Status = status
+	if stream.verboseLevel > VERBOSE_SIMPLE {
+		log.Info().Str("scope", SCOPE_STREAM).Str("event", "status_update").Str("stream_id", streamID.String()).Bool("status", status).Msg("Status update")
+	}
+	// @todo: what is this? why?
+	// streams.Streams[streamID] = stream
 	return nil
 }
 
 func (streams *StreamsStorage) addClient(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
 	streams.Lock()
 	defer streams.Unlock()
-	curStream, ok := streams.Streams[streamID]
+	stream, ok := streams.Streams[streamID]
 	if !ok {
 		return uuid.UUID{}, nil, ErrStreamNotFound
 	}
@@ -106,32 +122,45 @@ func (streams *StreamsStorage) addClient(streamID uuid.UUID) (uuid.UUID, chan av
 	if err != nil {
 		return uuid.UUID{}, nil, err
 	}
+	if stream.verboseLevel > VERBOSE_SIMPLE {
+		log.Info().Str("scope", SCOPE_STREAM).Str("event", "client_add").Str("stream_id", streamID.String()).Str("client_id", clientID.String()).Msg("Add client")
+	}
 	ch := make(chan av.Packet, 100)
-	curStream.Clients[clientID] = viewer{c: ch}
+	stream.Clients[clientID] = viewer{c: ch}
 	return clientID, ch, nil
 }
 
 func (streams *StreamsStorage) deleteClient(streamID, clientID uuid.UUID) {
 	streams.Lock()
-	delete(streams.Streams[streamID].Clients, clientID)
-	streams.Unlock()
+	defer streams.Unlock()
+	stream, ok := streams.Streams[streamID]
+	if !ok {
+		return
+	}
+	if stream.verboseLevel > VERBOSE_SIMPLE {
+		log.Info().Str("scope", SCOPE_STREAM).Str("event", "client_delete").Str("stream_id", streamID.String()).Str("client_id", clientID.String()).Msg("Delete client")
+	}
+	delete(stream.Clients, clientID)
 }
 
 func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled bool) error {
 	streams.Lock()
 	defer streams.Unlock()
-	curStream, ok := streams.Streams[streamID]
+	stream, ok := streams.Streams[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
+	if stream.verboseLevel > VERBOSE_ADD {
+		log.Info().Str("scope", SCOPE_STREAM).Str("event", "cast").Str("stream_id", streamID.String()).Bool("hls_enabled", hlsEnabled).Int("clients_num", len(stream.Clients)).Msg("Cast packet")
+	}
 	if hlsEnabled {
-		curStream.hlsChanel <- pck
+		stream.hlsChanel <- pck
 	}
-	archive := curStream.archive
+	archive := stream.archive
 	if archive != nil {
-		curStream.mp4Chanel <- pck
+		stream.mp4Chanel <- pck
 	}
-	for _, v := range curStream.Clients {
+	for _, v := range stream.Clients {
 		if len(v.c) < cap(v.c) {
 			v.c <- pck
 		}
@@ -151,14 +180,24 @@ func (streams *StreamsStorage) setArchiveStream(streamID uuid.UUID, dir string, 
 		msPerSegment: msPerSegment,
 	}
 	streams.Lock()
-	streams.Streams[streamID].archive = &newArhive
-	streams.Unlock()
+	defer streams.Unlock()
+	stream, ok := streams.Streams[streamID]
+	if !ok {
+		return ErrStreamNotFound
+	}
+	stream.archive = &newArhive
+	if stream.verboseLevel > VERBOSE_NONE {
+		log.Info().Str("scope", SCOPE_STREAM).Str("event", "set_archive").Str("stream_id", streamID.String()).Str("dir", dir).Int64("ms_per_segment", msPerSegment).Msg("Add archive")
+	}
 	return nil
 }
 
 func (streams *StreamsStorage) getArchiveStream(streamID uuid.UUID) *streamArhive {
 	streams.Lock()
-	archive := streams.Streams[streamID].archive
-	streams.Unlock()
-	return archive
+	defer streams.Unlock()
+	stream, ok := streams.Streams[streamID]
+	if !ok {
+		return nil
+	}
+	return stream.archive
 }

@@ -1,11 +1,13 @@
 package videoserver
 
-import "strings"
+import (
+	"strings"
+)
 
 type VerboseLevel uint16
 
 const (
-	VERBOSE_NONE = VerboseLevel(0)
+	VERBOSE_NONE = VerboseLevel(iota)
 	VERBOSE_SIMPLE
 	VERBOSE_ADD
 	VERBOSE_ALL
