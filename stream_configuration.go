@@ -14,8 +14,7 @@ type StreamConfiguration struct {
 	Clients              map[uuid.UUID]viewer `json:"-"`
 	hlsChanel            chan av.Packet
 	mp4Chanel            chan av.Packet
-	verbose              bool
-	verboseDetailed      bool
+	verboseLevel         VerboseLevel
 	archive              *streamArhive
 }
 type streamArhive struct {
