@@ -35,6 +35,7 @@ func (app *Application) RunStream(ctx context.Context, k uuid.UUID) {
 func (app *Application) startLoop(ctx context.Context, streamID uuid.UUID, url string, hlsEnabled bool) {
 	select {
 	case <-ctx.Done():
+		log.Info().Str("scope", "streaming").Str("event", "stream_done").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Stream is done")
 		return
 	default:
 		log.Info().Str("scope", "streaming").Str("event", "stream_start").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Stream must be establishment")

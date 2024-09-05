@@ -2,13 +2,42 @@ package videoserver
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
+	"sync/atomic"
 
 	"github.com/deepch/vdk/av"
 	"github.com/deepch/vdk/codec/aacparser"
 	"github.com/deepch/vdk/codec/h264parser"
 	"github.com/google/uuid"
 )
+
+// https://github.com/trailofbits/go-mutexasserts/blob/master/mutex.go#L15
+const mutexLocked = 1
+
+func RWMutexLocked(rw *sync.RWMutex) bool {
+	// RWMutex has a "w" sync.Mutex field for write lock
+	state := reflect.ValueOf(rw).Elem().FieldByName("w").FieldByName("state")
+	return state.Int()&mutexLocked == mutexLocked
+}
+
+func MutexLocked(m *sync.Mutex) bool {
+	state := reflect.ValueOf(m).Elem().FieldByName("state")
+	return state.Int()&mutexLocked == mutexLocked
+}
+
+func RWMutexRLocked(rw *sync.RWMutex) bool {
+	return readerCount(rw) > 0
+}
+
+// Starting in go1.20, readerCount is an atomic int32 value.
+// See: https://go-review.googlesource.com/c/go/+/429767
+func readerCount(rw *sync.RWMutex) int64 {
+	// Look up the address of the readerCount field and use it to create a pointer to an atomic.Int32,
+	// then load the value to return.
+	rc := (*atomic.Int32)(reflect.ValueOf(rw).Elem().FieldByName("readerCount").Addr().UnsafePointer())
+	return int64(rc.Load())
+}
 
 // StreamsStorage Map wrapper for map[uuid.UUID]*StreamConfiguration with mutex for concurrent usage
 type StreamsStorage struct {
@@ -126,7 +155,7 @@ func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnable
 	if hlsEnabled {
 		curStream.hlsChanel <- pck
 	}
-	archive := streams.getArchiveStream(streamID)
+	archive := curStream.archive
 	if archive != nil {
 		curStream.mp4Chanel <- pck
 	}
