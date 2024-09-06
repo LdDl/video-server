@@ -23,7 +23,8 @@ type APIConfiguration struct {
 	Host    string `json:"host"`
 	Port    int32  `json:"port"`
 	// 'release' or 'debug' for GIN
-	Mode string `json:"mode"`
+	Mode    string `json:"mode"`
+	Verbose string `json:"verbose"`
 }
 
 // VideoConfiguration is needed for configuring actual video server part

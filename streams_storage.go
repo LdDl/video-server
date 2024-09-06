@@ -115,8 +115,6 @@ func (streams *StreamsStorage) updateStreamStatus(streamID uuid.UUID, status boo
 	if stream.verboseLevel > VERBOSE_SIMPLE {
 		log.Info().Str("scope", SCOPE_STREAM).Str("event", "status_update").Str("stream_id", streamID.String()).Bool("status", status).Msg("Status update")
 	}
-	// @todo: what is this? why?
-	// streams.Streams[streamID] = stream
 	return nil
 }
 
