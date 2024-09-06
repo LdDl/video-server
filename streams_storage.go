@@ -152,7 +152,7 @@ func (streams *StreamsStorage) deleteClient(streamID, clientID uuid.UUID) {
 	delete(stream.Clients, clientID)
 }
 
-func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled bool) error {
+func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled, archiveEnabled bool) error {
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.Streams[streamID]
@@ -165,8 +165,7 @@ func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnable
 	if hlsEnabled {
 		stream.hlsChanel <- pck
 	}
-	archive := stream.archive
-	if archive != nil {
+	if archiveEnabled {
 		stream.mp4Chanel <- pck
 	}
 	for _, v := range stream.Clients {

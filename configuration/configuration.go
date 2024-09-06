@@ -109,5 +109,27 @@ func PrepareConfiguration(fname string) (*Configuration, error) {
 	if cfg.HLSCfg.WindowSize > cfg.HLSCfg.Capacity {
 		cfg.HLSCfg.WindowSize = cfg.HLSCfg.Capacity
 	}
+	for i := range cfg.RTSPStreams {
+		stream := cfg.RTSPStreams[i]
+		archiveCfg := stream.Archive
+		if !archiveCfg.Enabled {
+			continue
+		}
+		if archiveCfg.Directory == "" {
+			if cfg.ArchiveCfg.Directory != "" {
+				cfg.RTSPStreams[i].Archive.Directory = cfg.ArchiveCfg.Directory
+			} else {
+				cfg.RTSPStreams[i].Archive.Directory = "./mp4"
+			}
+		}
+		if archiveCfg.MsPerSegment == 0 {
+			if cfg.ArchiveCfg.MsPerSegment > 0 {
+				cfg.RTSPStreams[i].Archive.MsPerSegment = cfg.ArchiveCfg.MsPerSegment
+			} else {
+				cfg.RTSPStreams[i].Archive.MsPerSegment = 30
+			}
+		}
+
+	}
 	return cfg, nil
 }
