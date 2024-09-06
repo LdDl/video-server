@@ -87,9 +87,16 @@ func (streams *StreamsStorage) updateStreamStatus(streamID uuid.UUID, status boo
 	if !ok {
 		return ErrStreamNotFound
 	}
+<<<<<<< Updated upstream
 	curStream.Status = status
 	streams.Streams[streamID] = curStream
 	streams.Unlock()
+=======
+	stream.Status = status
+	if stream.verboseLevel > VERBOSE_SIMPLE {
+		log.Info().Str("scope", SCOPE_STREAM).Str("event", "status_update").Str("stream_id", streamID.String()).Bool("status", status).Msg("Status update")
+	}
+>>>>>>> Stashed changes
 	return nil
 }
 
