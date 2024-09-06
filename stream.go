@@ -52,7 +52,10 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 	if hlsEnabled {
 		log.Info().Str("scope", "streaming").Str("event", "stream_hls_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Need to start casting for HLS")
 		stopHlsCast = make(chan bool, 1)
-		app.startHlsCast(streamID, stopHlsCast)
+		err = app.startHlsCast(streamID, stopHlsCast)
+		if err != nil {
+			log.Warn().Str("scope", "streaming").Str("event", "stream_hls_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Can't start HLS casting")
+		}
 	}
 
 	var stopMP4Cast chan bool
@@ -63,7 +66,10 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 			log.Warn().Str("scope", "streaming").Str("event", "stream_mp4_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Empty archive configuration for the given stream")
 		} else {
 			stopMP4Cast = make(chan bool, 1)
-			app.startMP4Cast(streamID, stopMP4Cast)
+			err = app.startMP4Cast(streamID, stopMP4Cast)
+			if err != nil {
+				log.Warn().Str("scope", "streaming").Str("event", "stream_mp4_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Can't start MP4 archive process")
+			}
 		}
 	}
 

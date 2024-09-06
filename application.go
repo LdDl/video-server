@@ -154,16 +154,26 @@ func (app *Application) clientDelete(streamID, clientID uuid.UUID) {
 	app.Streams.deleteClient(streamID, clientID)
 }
 
-func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) {
+func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
-	go app.startHls(streamID, app.Streams.Streams[streamID].hlsChanel, stopCast)
+	stream, ok := app.Streams.Streams[streamID]
+	if !ok {
+		return ErrStreamNotFound
+	}
+	go app.startHls(streamID, stream.hlsChanel, stopCast)
+	return nil
 }
 
-func (app *Application) startMP4Cast(streamID uuid.UUID, stopCast chan bool) {
+func (app *Application) startMP4Cast(streamID uuid.UUID, stopCast chan bool) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
-	go app.startMP4(streamID, app.Streams.Streams[streamID].mp4Chanel, stopCast)
+	stream, ok := app.Streams.Streams[streamID]
+	if !ok {
+		return ErrStreamNotFound
+	}
+	go app.startMP4(streamID, stream.mp4Chanel, stopCast)
+	return nil
 }
 
 func (app *Application) getStreamsIDs() []uuid.UUID {
