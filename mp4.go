@@ -13,6 +13,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	segmentMP4layout = time.RFC3339
+)
+
 func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
 	var err error
 	archive := app.getStreamArchive(streamID)
@@ -26,14 +30,15 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 	}
 
 	isConnected := true
-	segmentNumber := 0
+	lastSegmentTime := time.Now()
 	lastPacketTime := time.Duration(0)
 	lastKeyFrame := av.Packet{}
 
 	// time.Sleep(5 * time.Second) // Artificial delay to wait for first key frame
 	for isConnected {
 		// Create new segment file
-		segmentName := fmt.Sprintf("%s%04d.mp4", streamID, segmentNumber)
+		st := time.Now()
+		segmentName := fmt.Sprintf("%s_%s.mp4", streamID, lastSegmentTime.Format(segmentMP4layout))
 		segmentPath := filepath.Join(archive.dir, segmentName)
 		outFile, err := os.Create(segmentPath)
 		if err != nil {
@@ -104,6 +109,9 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 						// Evaluate segment length
 						packetLength = pck.Time - lastPacketTime
 						lastPacketTime = pck.Time
+						if packetLength.Milliseconds() > archive.msPerSegment { // If comment this you get [0; keyframe time] interval for the very first video file
+							continue
+						}
 						segmentLength += packetLength
 					}
 					segmentCount++
@@ -122,7 +130,7 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 			log.Error().Err(err).Str("scope", "mp4").Str("event", "mp4_close").Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't close file")
 			// @todo: handle?
 		}
-		segmentNumber++
+		lastSegmentTime = lastSegmentTime.Add(time.Since(st))
 	}
 	return nil
 }
