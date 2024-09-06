@@ -94,15 +94,7 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(rtspStream.URL, outputTypes)
 		tmp.Streams.Streams[validUUID].verboseLevel = NewVerboseLevelFrom(rtspStream.Verbose)
 		if rtspStream.Archive.Enabled {
-			dir := rtspStream.Archive.Directory
-			msPerSegment := rtspStream.Archive.MsPerSegment
-			if dir == "" {
-				dir = cfg.ArchiveCfg.Directory
-			}
-			if msPerSegment == 0 {
-				msPerSegment = cfg.ArchiveCfg.MsPerSegment
-			}
-			tmp.SetStreamArchive(validUUID, dir, msPerSegment)
+			tmp.SetStreamArchive(validUUID, rtspStream.Archive.Directory, rtspStream.Archive.MsPerSegment)
 		}
 	}
 	return &tmp, nil
