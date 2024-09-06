@@ -29,7 +29,6 @@ func NewStreamsStorageDefault() StreamsStorage {
 func (sm *StreamsStorage) GetStream(id uuid.UUID) (string, []StreamType) {
 	sm.Lock()
 	defer sm.Unlock()
-
 	return sm.Streams[id].URL, sm.Streams[id].SupportedOutputTypes
 }
 
@@ -42,6 +41,16 @@ func (sm *StreamsStorage) getKeys() []uuid.UUID {
 	}
 	sm.Unlock()
 	return keys
+}
+
+func (streams *StreamsStorage) archiveEnabled(streamID uuid.UUID) (bool, error) {
+	streams.RLock()
+	defer streams.RUnlock()
+	stream, ok := streams.Streams[streamID]
+	if !ok {
+		return false, ErrStreamNotFound
+	}
+	return stream.archive != nil, nil
 }
 
 func (streams *StreamsStorage) streamExists(streamID uuid.UUID) bool {
