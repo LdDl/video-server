@@ -39,6 +39,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 			return errors.Wrapf(err, "Can't update status for stream %s", streamID)
 		}
 	}
+
 	isAudioOnly := false
 	if len(session.CodecData) == 1 {
 		if session.CodecData[0].Type().IsAudio() {
@@ -48,12 +49,13 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 	}
 
 	var stopHlsCast chan bool
-	var stopMP4Cast chan bool
 	if hlsEnabled {
 		log.Info().Str("scope", "streaming").Str("event", "stream_hls_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Need to start casting for HLS")
 		stopHlsCast = make(chan bool, 1)
 		app.startHlsCast(streamID, stopHlsCast)
 	}
+
+	var stopMP4Cast chan bool
 	if archiveEnabled {
 		log.Info().Str("scope", "streaming").Str("event", "stream_mp4_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Need to start casting to MP4 archive")
 		archive := app.getStreamArchive(streamID)
@@ -64,6 +66,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 			app.startMP4Cast(streamID, stopMP4Cast)
 		}
 	}
+
 	pingStream := time.NewTimer(pingDuration)
 	for {
 		select {
