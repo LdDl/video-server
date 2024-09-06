@@ -15,8 +15,8 @@ const (
 // StartStreams starts all video streams
 func (app *Application) StartStreams() {
 	streamsIDs := app.Streams.getKeys()
-	for _, k := range streamsIDs {
-		app.StartStream(k)
+	for i := range streamsIDs {
+		app.StartStream(streamsIDs[i])
 	}
 }
 
@@ -25,20 +25,26 @@ func (app *Application) StartStream(k uuid.UUID) {
 	go app.RunStream(context.Background(), k)
 }
 
-func (app *Application) RunStream(ctx context.Context, k uuid.UUID) {
-	url, supportedTypes := app.Streams.GetStream(k)
+func (app *Application) RunStream(ctx context.Context, streamID uuid.UUID) error {
+	url, supportedTypes := app.Streams.GetStream(streamID)
 	hlsEnabled := typeExists(STREAM_TYPE_HLS, supportedTypes)
-	app.startLoop(ctx, k, url, hlsEnabled)
+	archiveEnabled, err := app.Streams.archiveEnabled(streamID)
+	if err != nil {
+		return err
+	}
+	app.startLoop(ctx, streamID, url, hlsEnabled, archiveEnabled)
+	return nil
 }
 
 // startLoop starts stream loop with dialing to certain RTSP
-func (app *Application) startLoop(ctx context.Context, streamID uuid.UUID, url string, hlsEnabled bool) {
+func (app *Application) startLoop(ctx context.Context, streamID uuid.UUID, url string, hlsEnabled, archiveEnabled bool) {
 	select {
 	case <-ctx.Done():
+		log.Info().Str("scope", "streaming").Str("event", "stream_done").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Stream is done")
 		return
 	default:
 		log.Info().Str("scope", "streaming").Str("event", "stream_start").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Stream must be establishment")
-		err := app.runStream(streamID, url, hlsEnabled)
+		err := app.runStream(streamID, url, hlsEnabled, archiveEnabled)
 		if err != nil {
 			log.Error().Err(err).Str("scope", "streaming").Str("event", "stream_restart").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Can't start stream")
 		}

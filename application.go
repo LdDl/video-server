@@ -1,8 +1,6 @@
 package videoserver
 
 import (
-	"strings"
-
 	"github.com/LdDl/video-server/configuration"
 	"github.com/gin-contrib/cors"
 	"github.com/pkg/errors"
@@ -94,23 +92,9 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 		}
 
 		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(rtspStream.URL, outputTypes)
+		tmp.Streams.Streams[validUUID].verboseLevel = NewVerboseLevelFrom(rtspStream.Verbose)
 		if rtspStream.Archive.Enabled {
-			dir := rtspStream.Archive.Directory
-			msPerSegment := rtspStream.Archive.MsPerSegment
-			if dir == "" {
-				dir = cfg.ArchiveCfg.Directory
-			}
-			if msPerSegment == 0 {
-				msPerSegment = cfg.ArchiveCfg.MsPerSegment
-			}
-			tmp.SetStreamArchive(validUUID, dir, msPerSegment)
-		}
-		verbose := strings.ToLower(rtspStream.Verbose)
-		if verbose == "v" {
-			tmp.Streams.Streams[validUUID].verbose = true
-		} else if verbose == "vvv" {
-			tmp.Streams.Streams[validUUID].verbose = true
-			tmp.Streams.Streams[validUUID].verboseDetailed = true
+			tmp.SetStreamArchive(validUUID, rtspStream.Archive.Directory, rtspStream.Archive.MsPerSegment)
 		}
 	}
 	return &tmp, nil
@@ -130,8 +114,8 @@ func (app *Application) setCors(cfg configuration.CORSConfiguration) {
 	app.CorsConfig.AllowCredentials = cfg.AllowCredentials
 }
 
-func (app *Application) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled bool) error {
-	return app.Streams.cast(streamID, pck, hlsEnabled)
+func (app *Application) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled, archiveEnabled bool) error {
+	return app.Streams.cast(streamID, pck, hlsEnabled, archiveEnabled)
 }
 
 func (app *Application) streamExists(streamID uuid.UUID) bool {
@@ -162,16 +146,26 @@ func (app *Application) clientDelete(streamID, clientID uuid.UUID) {
 	app.Streams.deleteClient(streamID, clientID)
 }
 
-func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) {
-	defer app.Streams.Unlock()
+func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) error {
 	app.Streams.Lock()
-	go app.startHls(streamID, app.Streams.Streams[streamID].hlsChanel, stopCast)
+	defer app.Streams.Unlock()
+	stream, ok := app.Streams.Streams[streamID]
+	if !ok {
+		return ErrStreamNotFound
+	}
+	go app.startHls(streamID, stream.hlsChanel, stopCast)
+	return nil
 }
 
-func (app *Application) startMP4Cast(streamID uuid.UUID, stopCast chan bool) {
-	defer app.Streams.Unlock()
+func (app *Application) startMP4Cast(streamID uuid.UUID, stopCast chan bool) error {
 	app.Streams.Lock()
-	go app.startMP4(streamID, app.Streams.Streams[streamID].mp4Chanel, stopCast)
+	defer app.Streams.Unlock()
+	stream, ok := app.Streams.Streams[streamID]
+	if !ok {
+		return ErrStreamNotFound
+	}
+	go app.startMP4(streamID, stream.mp4Chanel, stopCast)
+	return nil
 }
 
 func (app *Application) getStreamsIDs() []uuid.UUID {
