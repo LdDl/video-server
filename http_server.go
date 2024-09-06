@@ -89,7 +89,6 @@ func EnableCamera(app *Application) func(ctx *gin.Context) {
 			return
 		}
 		if exist := app.streamExists(postData.GUID); !exist {
-			app.Streams.Lock()
 			outputTypes := make([]StreamType, 0, len(postData.OutputTypes))
 			for _, v := range postData.OutputTypes {
 				typ, ok := streamTypeExists(v)
@@ -103,6 +102,7 @@ func EnableCamera(app *Application) func(ctx *gin.Context) {
 				}
 				outputTypes = append(outputTypes, typ)
 			}
+			app.Streams.Lock()
 			app.Streams.Streams[postData.GUID] = NewStreamConfiguration(postData.URL, outputTypes)
 			app.Streams.Unlock()
 			app.StartStream(postData.GUID)
