@@ -103,7 +103,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 				pingStream.Reset(pingDurationRestart)
 			}
 			// log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Casting packet")
-			err = app.cast(streamID, *packetAV, hlsEnabled)
+			err = app.cast(streamID, *packetAV, hlsEnabled, archiveEnabled)
 			if err != nil {
 				if hlsEnabled {
 					log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Need to stop HLS cast")
