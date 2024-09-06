@@ -21,10 +21,11 @@ type Application struct {
 
 // APIConfiguration is just copy of configuration.APIConfiguration but with some not exported fields
 type APIConfiguration struct {
-	Enabled bool   `json:"-"`
-	Host    string `json:"host"`
-	Port    int32  `json:"port"`
-	Mode    string `json:"-"`
+	Enabled bool         `json:"-"`
+	Host    string       `json:"host"`
+	Port    int32        `json:"port"`
+	Mode    string       `json:"-"`
+	Verbose VerboseLevel `json:"-"`
 }
 
 // VideoConfiguration is just copy of configuration.VideoConfiguration but with some not exported fields
@@ -57,6 +58,7 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 			Host:    cfg.APICfg.Host,
 			Port:    cfg.APICfg.Port,
 			Mode:    cfg.APICfg.Mode,
+			Verbose: NewVerboseLevelFrom(cfg.APICfg.Verbose),
 		},
 		VideoServerCfg: VideoConfiguration{
 			Host: cfg.VideoServerCfg.Host,

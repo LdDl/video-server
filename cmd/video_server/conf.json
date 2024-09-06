@@ -3,7 +3,8 @@
         "enabled": true,
         "host": "localhost",
         "port": 8091,
-        "mode": "release"
+        "mode": "release",
+        "verbose": "v"
     },
     "video": {
         "host": "localhost",
