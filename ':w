@@ -30,8 +30,10 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 	lastPacketTime := time.Duration(0)
 	lastKeyFrame := av.Packet{}
 
+	fmt.Println("======>>>>>>Start", time.Now())
 	// time.Sleep(5 * time.Second) // Artificial delay to wait for first key frame
 	for isConnected {
+		fmt.Println("======>>>>>>Connected", time.Now())
 		// Create new segment file
 		segmentName := fmt.Sprintf("%s%04d.mp4", streamID, segmentNumber)
 		segmentPath := filepath.Join(archive.dir, segmentName)
@@ -67,6 +69,7 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 
 		// Write lastKeyFrame if exist
 		if lastKeyFrame.IsKeyFrame {
+			fmt.Println("Is key?", lastKeyFrame.IsKeyFrame)
 			start = true
 			if err = tsMuxer.WritePacket(lastKeyFrame); err != nil {
 				return errors.Wrap(err, fmt.Sprintf("Can't write packet for TS muxer for stream %s (1)", streamID))
@@ -78,18 +81,21 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 			segmentCount++
 		}
 
+		fmt.Println(segmentLength.Milliseconds(), segmentCount)
 		// @todo Oh, I don't like GOTOs, but it is what it is.
 	segmentLoop:
 		for {
 			select {
 			case <-stopCast:
 				isConnected = false
+				fmt.Println("======>>>>>>Disconnected", time.Now())
 				break segmentLoop
 			case pck := <-ch:
 				if pck.Idx == videoStreamIdx && pck.IsKeyFrame {
 					start = true
 					if segmentLength.Milliseconds() >= archive.msPerSegment {
 						lastKeyFrame = pck
+						fmt.Println("======>>>>>>Complete chunk", time.Now(), archive.msPerSegment, segmentLength.Milliseconds(), pck.Time, lastPacketTime, pck.Time > lastPacketTime)
 						break segmentLoop
 					}
 				}
@@ -102,12 +108,14 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 					}
 					if pck.Idx == videoStreamIdx {
 						// Evaluate segment length
+						fmt.Println("Inc", packetLength, segmentLength, lastPacketTime, pck.Time)
 						packetLength = pck.Time - lastPacketTime
 						lastPacketTime = pck.Time
-						if packetLength.Milliseconds() > archive.msPerSegment { // If comment this you get [0; keyframe time] interval for the very first video file
+						if packetLength.Milliseconds() > archive.msPerSegment { // If comment you get [0; keyframe time] for the very first video file
 							continue
 						}
 						segmentLength += packetLength
+						fmt.Println("\tupper", packetLength, segmentLength)
 					}
 					segmentCount++
 				} else {
@@ -126,6 +134,7 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 			// @todo: handle?
 		}
 		segmentNumber++
+		fmt.Println("======>>>>>>Go to next", time.Now())
 	}
 	return nil
 }
