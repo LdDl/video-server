@@ -20,6 +20,22 @@ func (app *Application) StartAPIServer() {
 	pprof.Register(router)
 
 	if app.CorsConfig != nil {
+		log.Info().Str("scope", SCOPE_API_SERVER).Str("event", EVENT_API_CORS_ENABLE).
+			Bool("cors_allow_all_origins", app.CorsConfig.AllowAllOrigins).
+			Any("cors_allow_origins", app.CorsConfig.AllowOrigins).
+			Any("cors_allow_methods", app.CorsConfig.AllowMethods).
+			Bool("cors_allow_private_network", app.CorsConfig.AllowPrivateNetwork).
+			Any("cors_allow_headers", app.CorsConfig.AllowHeaders).
+			Bool("cors_allow_credentials", app.CorsConfig.AllowCredentials).
+			Any("cors_expose_headers", app.CorsConfig.ExposeHeaders).
+			Dur("cors_max_age", app.CorsConfig.MaxAge).
+			Bool("cors_allow_wildcard", app.CorsConfig.AllowWildcard).
+			Bool("cors_allow_browser_extensions", app.CorsConfig.AllowBrowserExtensions).
+			Any("cors_custom_schemas", app.CorsConfig.CustomSchemas).
+			Bool("cors_allow_websockets", app.CorsConfig.AllowWebSockets).
+			Bool("cors_allow_files", app.CorsConfig.AllowFiles).
+			Int("cors_allow_option_status_code", app.CorsConfig.OptionsResponseStatusCode).
+			Msg("CORS are enabled")
 		router.Use(cors.New(*app.CorsConfig))
 	}
 	router.GET("/list", ListWrapper(app, app.APICfg.Verbose))
