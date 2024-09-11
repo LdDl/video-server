@@ -14,6 +14,7 @@ import (
 
 // StartAPIServer starts server with API functionality
 func (app *Application) StartAPIServer() {
+	log.Info().Str("scope", SCOPE_API_SERVER).Str("event", EVENT_API_PREPARE).Msg("Preparing to start API Server")
 	router := gin.New()
 
 	pprof.Register(router)
@@ -34,12 +35,12 @@ func (app *Application) StartAPIServer() {
 		WriteTimeout: 30 * time.Second,
 	}
 	if app.APICfg.Verbose > VERBOSE_NONE {
-		log.Info().Str("scope", "api_server").Str("event", "api_server_start").Str("url", url).Msg("Start microservice for API server")
+		log.Info().Str("scope", SCOPE_API_SERVER).Str("event", EVENT_API_START).Str("url", url).Msg("Start microservice for API server")
 	}
 	err := s.ListenAndServe()
 	if err != nil {
 		if app.APICfg.Verbose > VERBOSE_NONE {
-			log.Error().Err(err).Str("scope", "api_server").Str("event", "api_server_start").Str("url", url).Msg("Can't start API server routers")
+			log.Error().Err(err).Str("scope", SCOPE_API_SERVER).Str("event", EVENT_API_START).Str("url", url).Msg("Can't start API server routers")
 		}
 		return
 	}
@@ -57,7 +58,7 @@ type StreamInfoShorten struct {
 func ListWrapper(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		if verboseLevel > VERBOSE_SIMPLE {
-			log.Info().Str("scope", "api_server").Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg("Call streams list")
+			log.Info().Str("scope", SCOPE_API_SERVER).Str("event", EVENT_API_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg("Call streams list")
 		}
 		allStreamsIDs := app.getStreamsIDs()
 		ans := StreamsInfoShortenList{
@@ -76,7 +77,7 @@ func ListWrapper(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Cont
 func StatusWrapper(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		if verboseLevel > VERBOSE_SIMPLE {
-			log.Info().Str("scope", "api_server").Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg("Call streams' statuses list")
+			log.Info().Str("scope", SCOPE_API_SERVER).Str("event", EVENT_API_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg("Call streams' statuses list")
 		}
 		ctx.JSON(200, app)
 	}
@@ -93,13 +94,13 @@ type EnablePostData struct {
 func EnableCamera(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		if verboseLevel > VERBOSE_SIMPLE {
-			log.Info().Str("scope", "api_server").Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg("Try to enable camera")
+			log.Info().Str("scope", SCOPE_API_SERVER).Str("event", EVENT_API_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg("Try to enable camera")
 		}
 		var postData EnablePostData
 		if err := ctx.ShouldBindJSON(&postData); err != nil {
 			errReason := "Bad JSON binding"
 			if verboseLevel > VERBOSE_NONE {
-				log.Error().Err(err).Str("scope", "api_server").Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg(errReason)
+				log.Error().Err(err).Str("scope", SCOPE_API_SERVER).Str("event", EVENT_API_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg(errReason)
 			}
 			ctx.JSON(http.StatusBadRequest, gin.H{"Error": errReason})
 			return
@@ -111,7 +112,7 @@ func EnableCamera(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Con
 				if !ok {
 					errReason := fmt.Sprintf("%s. Type: '%s'", ErrStreamTypeNotExists, v)
 					if verboseLevel > VERBOSE_NONE {
-						log.Error().Err(fmt.Errorf(errReason)).Str("scope", "api_server").Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg(errReason)
+						log.Error().Err(fmt.Errorf(errReason)).Str("scope", SCOPE_API_SERVER).Str("event", EVENT_API_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg(errReason)
 					}
 					ctx.JSON(http.StatusBadRequest, gin.H{"Error": errReason})
 					return
@@ -119,7 +120,7 @@ func EnableCamera(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Con
 				if _, ok := supportedOutputStreamTypes[typ]; !ok {
 					errReason := fmt.Sprintf("%s. Type: '%s'", ErrStreamTypeNotSupported, v)
 					if verboseLevel > VERBOSE_NONE {
-						log.Error().Err(fmt.Errorf(errReason)).Str("scope", "api_server").Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg(errReason)
+						log.Error().Err(fmt.Errorf(errReason)).Str("scope", SCOPE_API_SERVER).Str("event", EVENT_API_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg(errReason)
 					}
 					ctx.JSON(http.StatusBadRequest, gin.H{"Error": errReason})
 					return
@@ -139,13 +140,13 @@ func EnableCamera(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Con
 func DisableCamera(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		if verboseLevel > VERBOSE_SIMPLE {
-			log.Info().Str("scope", "api_server").Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg("Try to disable camera")
+			log.Info().Str("scope", SCOPE_API_SERVER).Str("event", EVENT_API_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg("Try to disable camera")
 		}
 		var postData EnablePostData
 		if err := ctx.ShouldBindJSON(&postData); err != nil {
 			errReason := "Bad JSON binding"
 			if verboseLevel > VERBOSE_NONE {
-				log.Error().Err(err).Str("scope", "api_server").Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg(errReason)
+				log.Error().Err(err).Str("scope", SCOPE_API_SERVER).Str("event", EVENT_API_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg(errReason)
 			}
 			ctx.JSON(http.StatusBadRequest, gin.H{"Error": errReason})
 			return
