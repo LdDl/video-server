@@ -10,8 +10,11 @@ example_client/mse_example/package-lock.json
 example_client/hls_example/node_modules
 example_client/hls_example/.nuxt
 example_client/hls_example/package-lock.json
-build.sh
 cmd/video_server/linux-video_server.zip
 cmd/video_server/windows-video_server.zip
 cmd/video_server/conf_token.json
 video-server-ui
+video_server
+linux-amd64-video_server.tar.gz 
+video_server.exe
+windows-video_server.zip
