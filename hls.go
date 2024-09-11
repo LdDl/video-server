@@ -2,10 +2,11 @@ package videoserver
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/deepch/vdk/av"
 	"github.com/deepch/vdk/format/ts"
@@ -16,7 +17,6 @@ import (
 
 // startHls starts routine to create m3u8 playlists
 func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
-
 	err := ensureDir(app.HLS.Directory)
 	if err != nil {
 		return errors.Wrap(err, "Can't create directory for HLS temporary files")
@@ -24,7 +24,7 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 
 	// Create playlist for HLS streams
 	playlistFileName := filepath.Join(app.HLS.Directory, fmt.Sprintf("%s.m3u8", streamID))
-	log.Printf("Need to start HLS: %s\n", playlistFileName)
+	log.Info().Str("scope", "hls").Str("event", "hls_playlist_prepare").Str("stream_id", streamID.String()).Str("filename", playlistFileName).Msg("Need to start HLS for the given stream")
 	playlist, err := m3u8.NewMediaPlaylist(app.HLS.WindowSize, app.HLS.Capacity)
 	if err != nil {
 		return errors.Wrap(err, "Can't create new mediaplayer list")
@@ -35,6 +35,7 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 	lastPacketTime := time.Duration(0)
 	lastKeyFrame := av.Packet{}
 
+	// time.Sleep(5 * time.Second) // Artificial delay to wait for first key frame
 	for isConnected {
 		// Create new segment file
 		segmentName := fmt.Sprintf("%s%04d.ts", streamID, segmentNumber)
@@ -50,7 +51,8 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 		if err != nil {
 			return errors.Wrap(err, streamID.String())
 		}
-		if err := tsMuxer.WriteHeader(codecData); err != nil {
+		err = tsMuxer.WriteHeader(codecData)
+		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("Can't write header for TS muxer for stream %s", streamID))
 		}
 
@@ -116,27 +118,32 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 			}
 		}
 
-		if err := tsMuxer.WriteTrailer(); err != nil {
-			log.Printf("Can't write trailing data for TS muxer for %s: %s\n", streamID, err.Error())
+		err = tsMuxer.WriteTrailer()
+		if err != nil {
+			log.Error().Err(err).Str("scope", "hls").Str("event", "hls_write_trail").Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("out_filename", outFile.Name()).Msg("Can't write trailing data for TS muxer")
+			// @todo: handle?
 		}
 
-		if err := outFile.Close(); err != nil {
-			log.Printf("Can't close file %s: %s\n", outFile.Name(), err.Error())
+		err = outFile.Close()
+		if err != nil {
+			log.Error().Err(err).Str("scope", "hls").Str("event", "hls_close").Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("out_filename", outFile.Name()).Msg("Can't close file")
+			// @todo: handle?
 		}
 
 		// Update playlist
 		playlist.Slide(segmentName, segmentLength.Seconds(), "")
 		playlistFile, err := os.Create(playlistFileName)
 		if err != nil {
-			log.Printf("Can't create playlist %s: %s\n", playlistFileName, err.Error())
+			log.Error().Err(err).Str("scope", "hls").Str("event", "hls_playlist_create").Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("out_filename", outFile.Name()).Msg("Can't create playlist")
+			// @todo: handle?
 		}
 		playlistFile.Write(playlist.Encode().Bytes())
 		playlistFile.Close()
-		// log.Printf("m3u8 file has been re-created: %s\n", playlistFileName)
-
+		log.Info().Str("scope", "hls").Str("event", "hls_playlist_restart").Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("out_filename", outFile.Name()).Msg("Playlist restart")
 		// Cleanup segments
 		if err := app.removeOutdatedSegments(streamID, playlist); err != nil {
-			log.Printf("Can't call removeOutdatedSegments on stream %s: %s\n", streamID, err.Error())
+			log.Error().Err(err).Str("scope", "hls").Str("event", "hls_remove_outdated").Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("out_filename", outFile.Name()).Msg("Can't remove outdated segments")
+			// @todo: handle?
 		}
 
 		segmentNumber++
@@ -159,7 +166,8 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 		for _, file := range filesToRemove {
 			if file != "" {
 				if err := os.Remove(filepath.Join(app.HLS.Directory, file)); err != nil {
-					log.Printf("Can't call defered file remove: %s\n", err.Error())
+					log.Error().Err(err).Str("scope", "hls").Str("event", "hls_remove_chunk").Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("chunk_name", file).Msg("Can't remove file (defered)")
+					// @todo: handle?
 				}
 			}
 		}
@@ -180,7 +188,6 @@ func (app *Application) removeOutdatedSegments(streamID uuid.UUID, playlist *m3u
 	// Find possible segment files in current directory
 	segmentFiles, err := filepath.Glob(filepath.Join(app.HLS.Directory, fmt.Sprintf("%s*.ts", streamID)))
 	if err != nil {
-		log.Printf("Can't find glob for '%s': %s\n", streamID, err.Error())
 		return err
 	}
 	for _, segmentFile := range segmentFiles {
@@ -188,7 +195,8 @@ func (app *Application) removeOutdatedSegments(streamID uuid.UUID, playlist *m3u
 		// Check if file belongs to a playlist's segment
 		if _, ok := currentSegments[fileName]; !ok {
 			if err := os.Remove(segmentFile); err != nil {
-				log.Printf("Can't call removeOutdatedSegments() for segment %s: %s\n", segmentFile, err.Error())
+				log.Error().Err(err).Str("scope", "hls").Str("event", "hls_remove_outdated_segment").Str("stream_id", streamID.String()).Str("filename", playlist.String()).Str("segment", segmentFile).Msg("Can't remove outdated segment")
+				// @todo: handle?
 			}
 		}
 	}

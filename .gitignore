@@ -3,6 +3,7 @@
 cmd/video_server/video_server
 cmd/video_server/video_server.exe
 cmd/video_server/hls/*
+cmd/video_server/mp4/*
 example_client/mse_example/node_modules
 example_client/mse_example/.nuxt
 example_client/mse_example/package-lock.json

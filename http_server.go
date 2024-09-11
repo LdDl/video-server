@@ -3,31 +3,28 @@ package videoserver
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 // StartAPIServer starts server with API functionality
 func (app *Application) StartAPIServer() {
 	router := gin.New()
 
-	if strings.ToLower(app.APICfg.Mode) == "release" {
-		gin.SetMode(gin.ReleaseMode)
-	}
 	pprof.Register(router)
 
 	if app.CorsConfig != nil {
 		router.Use(cors.New(*app.CorsConfig))
 	}
-	router.GET("/list", ListWrapper(app))
-	router.GET("/status", StatusWrapper(app))
-	router.POST("/enable_camera", EnableCamera(app))
-	router.POST("/disable_camera", DisableCamera(app))
+	router.GET("/list", ListWrapper(app, app.APICfg.Verbose))
+	router.GET("/status", StatusWrapper(app, app.APICfg.Verbose))
+	router.POST("/enable_camera", EnableCamera(app, app.APICfg.Verbose))
+	router.POST("/disable_camera", DisableCamera(app, app.APICfg.Verbose))
 
 	url := fmt.Sprintf("%s:%d", app.APICfg.Host, app.APICfg.Port)
 	s := &http.Server{
@@ -36,9 +33,14 @@ func (app *Application) StartAPIServer() {
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
+	if app.APICfg.Verbose > VERBOSE_NONE {
+		log.Info().Str("scope", "api_server").Str("event", "api_server_start").Str("url", url).Msg("Start microservice for API server")
+	}
 	err := s.ListenAndServe()
 	if err != nil {
-		fmt.Printf("Can't start API-server '%s' due the error: %s\n", url, err.Error())
+		if app.APICfg.Verbose > VERBOSE_NONE {
+			log.Error().Err(err).Str("scope", "api_server").Str("event", "api_server_start").Str("url", url).Msg("Can't start API server routers")
+		}
 		return
 	}
 }
@@ -52,8 +54,11 @@ type StreamInfoShorten struct {
 }
 
 // ListWrapper returns list of streams
-func ListWrapper(app *Application) func(ctx *gin.Context) {
+func ListWrapper(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
+		if verboseLevel > VERBOSE_SIMPLE {
+			log.Info().Str("scope", "api_server").Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg("Call streams list")
+		}
 		allStreamsIDs := app.getStreamsIDs()
 		ans := StreamsInfoShortenList{
 			Data: make([]StreamInfoShorten, len(allStreamsIDs)),
@@ -68,8 +73,11 @@ func ListWrapper(app *Application) func(ctx *gin.Context) {
 }
 
 // StatusWrapper returns statuses for list of streams
-func StatusWrapper(app *Application) func(ctx *gin.Context) {
+func StatusWrapper(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
+		if verboseLevel > VERBOSE_SIMPLE {
+			log.Info().Str("scope", "api_server").Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg("Call streams' statuses list")
+		}
 		ctx.JSON(200, app)
 	}
 }
@@ -78,20 +86,48 @@ func StatusWrapper(app *Application) func(ctx *gin.Context) {
 type EnablePostData struct {
 	GUID        uuid.UUID `json:"guid"`
 	URL         string    `json:"url"`
-	StreamTypes []string  `json:"stream_types"`
+	OutputTypes []string  `json:"output_types"`
 }
 
 // EnableCamera adds new stream if does not exist
-func EnableCamera(app *Application) func(ctx *gin.Context) {
+func EnableCamera(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
+		if verboseLevel > VERBOSE_SIMPLE {
+			log.Info().Str("scope", "api_server").Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg("Try to enable camera")
+		}
 		var postData EnablePostData
 		if err := ctx.ShouldBindJSON(&postData); err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"Error": err.Error()})
+			errReason := "Bad JSON binding"
+			if verboseLevel > VERBOSE_NONE {
+				log.Error().Err(err).Str("scope", "api_server").Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg(errReason)
+			}
+			ctx.JSON(http.StatusBadRequest, gin.H{"Error": errReason})
 			return
 		}
-		if exist := app.exists(postData.GUID); !exist {
+		if exist := app.streamExists(postData.GUID); !exist {
+			outputTypes := make([]StreamType, 0, len(postData.OutputTypes))
+			for _, v := range postData.OutputTypes {
+				typ, ok := streamTypeExists(v)
+				if !ok {
+					errReason := fmt.Sprintf("%s. Type: '%s'", ErrStreamTypeNotExists, v)
+					if verboseLevel > VERBOSE_NONE {
+						log.Error().Err(fmt.Errorf(errReason)).Str("scope", "api_server").Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg(errReason)
+					}
+					ctx.JSON(http.StatusBadRequest, gin.H{"Error": errReason})
+					return
+				}
+				if _, ok := supportedOutputStreamTypes[typ]; !ok {
+					errReason := fmt.Sprintf("%s. Type: '%s'", ErrStreamTypeNotSupported, v)
+					if verboseLevel > VERBOSE_NONE {
+						log.Error().Err(fmt.Errorf(errReason)).Str("scope", "api_server").Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg(errReason)
+					}
+					ctx.JSON(http.StatusBadRequest, gin.H{"Error": errReason})
+					return
+				}
+				outputTypes = append(outputTypes, typ)
+			}
 			app.Streams.Lock()
-			app.Streams.Streams[postData.GUID] = NewStreamConfiguration(postData.URL, postData.StreamTypes)
+			app.Streams.Streams[postData.GUID] = NewStreamConfiguration(postData.URL, outputTypes)
 			app.Streams.Unlock()
 			app.StartStream(postData.GUID)
 		}
@@ -100,15 +136,21 @@ func EnableCamera(app *Application) func(ctx *gin.Context) {
 }
 
 // DisableCamera turns off stream for specific stream ID
-func DisableCamera(app *Application) func(ctx *gin.Context) {
+func DisableCamera(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
+		if verboseLevel > VERBOSE_SIMPLE {
+			log.Info().Str("scope", "api_server").Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg("Try to disable camera")
+		}
 		var postData EnablePostData
 		if err := ctx.ShouldBindJSON(&postData); err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"Error": err.Error()})
+			errReason := "Bad JSON binding"
+			if verboseLevel > VERBOSE_NONE {
+				log.Error().Err(err).Str("scope", "api_server").Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg(errReason)
+			}
+			ctx.JSON(http.StatusBadRequest, gin.H{"Error": errReason})
 			return
 		}
-
-		if exist := app.exists(postData.GUID); exist {
+		if exist := app.streamExists(postData.GUID); exist {
 			app.Streams.Lock()
 			delete(app.Streams.Streams, postData.GUID)
 			app.Streams.Unlock()

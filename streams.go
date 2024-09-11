@@ -2,10 +2,10 @@ package videoserver
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -15,8 +15,8 @@ const (
 // StartStreams starts all video streams
 func (app *Application) StartStreams() {
 	streamsIDs := app.Streams.getKeys()
-	for _, k := range streamsIDs {
-		app.StartStream(k)
+	for i := range streamsIDs {
+		app.StartStream(streamsIDs[i])
 	}
 }
 
@@ -25,33 +25,38 @@ func (app *Application) StartStream(k uuid.UUID) {
 	go app.RunStream(context.Background(), k)
 }
 
-func (app *Application) RunStream(ctx context.Context, k uuid.UUID) {
-	url, supportedTypes := app.Streams.GetStream(k)
-	hlsEnabled := typeExists("hls", supportedTypes)
-
-	app.startLoop(ctx, k, url, hlsEnabled)
+func (app *Application) RunStream(ctx context.Context, streamID uuid.UUID) error {
+	url, supportedTypes := app.Streams.GetStream(streamID)
+	hlsEnabled := typeExists(STREAM_TYPE_HLS, supportedTypes)
+	archiveEnabled, err := app.Streams.archiveEnabled(streamID)
+	if err != nil {
+		return err
+	}
+	app.startLoop(ctx, streamID, url, hlsEnabled, archiveEnabled)
+	return nil
 }
 
 // startLoop starts stream loop with dialing to certain RTSP
-func (app *Application) startLoop(ctx context.Context, streamID uuid.UUID, url string, hlsEnabled bool) {
+func (app *Application) startLoop(ctx context.Context, streamID uuid.UUID, url string, hlsEnabled, archiveEnabled bool) {
 	select {
 	case <-ctx.Done():
+		log.Info().Str("scope", "streaming").Str("event", "stream_done").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Stream is done")
 		return
 	default:
-		log.Printf("Stream must be establishment for '%s' by connecting to %s", streamID, url)
-		err := app.runStream(streamID, url, hlsEnabled)
+		log.Info().Str("scope", "streaming").Str("event", "stream_start").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Stream must be establishment")
+		err := app.runStream(streamID, url, hlsEnabled, archiveEnabled)
 		if err != nil {
-			log.Printf("Error occured for stream %s on URL '%s': %s", streamID, url, err.Error())
+			log.Error().Err(err).Str("scope", "streaming").Str("event", "stream_restart").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Can't start stream")
 		}
-		log.Printf("Stream must be re-establishment for '%s' by connecting to %s in %s\n", streamID, url, restartStreamDuration)
+		log.Info().Str("scope", "streaming").Str("event", "stream_restart").Str("stream_id", streamID.String()).Str("stream_url", url).Any("restart_duration", restartStreamDuration).Msg("Stream must be re-establishment")
 		time.Sleep(restartStreamDuration)
 	}
 }
 
 // typeExists checks if a type exists in a types list
-func typeExists(typeName string, typesNames []string) bool {
-	for i := range typesNames {
-		if typesNames[i] == typeName {
+func typeExists(typ StreamType, types []StreamType) bool {
+	for i := range types {
+		if types[i] == typ {
 			return true
 		}
 	}

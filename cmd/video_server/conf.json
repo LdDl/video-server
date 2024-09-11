@@ -3,7 +3,8 @@
         "enabled": true,
         "host": "localhost",
         "port": 8091,
-        "mode": "release"
+        "mode": "release",
+        "verbose": "v"
     },
     "video": {
         "host": "localhost",
@@ -16,6 +17,19 @@
         "window_size": 5,
         "window_capacity" : 10
     },
+    "archive": {
+        "enabled": true,
+        "directory": "./mp4",
+        "ms_per_file": 30000,
+        "minio_settings": {
+            "host": "localhost",
+            "port": 29199,
+            "user": "minio_secret_login",
+            "password": "minio_secret_password",
+            "default_bucket": "archive-bucket",
+            "default_path": "/var/archive_data"
+        }
+    },
     "cors": {
         "enabled": true,
         "allow_origins": ["*"],
@@ -26,22 +40,31 @@
     },
     "rtsp_streams": [
         {
-            "guid": "a1b8e7cb-09e6-4f3a-b857-30c7b272a744",
-            "url": "rtsp://rtsp.stream/pattern",
-            "stream_types": ["mse", "hls"],
-            "verbose": "v"
+            "guid": "0742091c-19cd-4658-9b4f-5320da160f45",
+            "type": "rtsp",
+            "url": "rtsp://localhost:45666/live",
+            "output_types": ["mse"],
+            "verbose": "v",
+            "archive": {
+                "enabled": true,
+                "ms_per_file": 10000,
+                "type": "filesystem",
+                "directory": "custom_folder"
+            }
         },
         {
-            "guid": "c2680f08-07cc-4dee-9231-685893e2661f",
-            "url": "rtsp://rtsp.stream/movie",
-            "stream_types": ["mse", "hls"],
-            "verbose": "v"
-        },
-        {
-            "guid": "74f17aa1-dd57-4c77-96de-b71668a9a25a",
-            "url": "rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mp4",
-            "stream_types": ["mse", "hls"],
-            "verbose": "v"
+            "guid": "566bfe72-1f85-4e7d-9c0a-424e6c3b29f3",
+            "type": "rtsp",
+            "url": "rtsp://localhost:45664/live",
+            "output_types": ["mse"],
+            "verbose": "v",
+            "archive": {
+                "enabled": true,
+                "ms_per_file": 15000,
+                "type": "minio",
+                "minio_bucket": "vod-bucket",
+                "minio_path": "/var/archive_data_custom"
+            }
         }
     ]
 }

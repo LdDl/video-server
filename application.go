@@ -1,14 +1,18 @@
 package videoserver
 
 import (
-	"log"
-	"strings"
+	"fmt"
 
 	"github.com/LdDl/video-server/configuration"
+	"github.com/LdDl/video-server/storage"
 	"github.com/gin-contrib/cors"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/pkg/errors"
 
 	"github.com/deepch/vdk/av"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 // Application is a configuration parameters for application
@@ -18,14 +22,16 @@ type Application struct {
 	Streams        StreamsStorage     `json:"streams"`
 	HLS            HLSInfo            `json:"hls"`
 	CorsConfig     *cors.Config       `json:"-"`
+	minioClient    *minio.Client
 }
 
 // APIConfiguration is just copy of configuration.APIConfiguration but with some not exported fields
 type APIConfiguration struct {
-	Enabled bool   `json:"-"`
-	Host    string `json:"host"`
-	Port    int32  `json:"port"`
-	Mode    string `json:"-"`
+	Enabled bool         `json:"-"`
+	Host    string       `json:"host"`
+	Port    int32        `json:"port"`
+	Mode    string       `json:"-"`
+	Verbose VerboseLevel `json:"-"`
 }
 
 // VideoConfiguration is just copy of configuration.VideoConfiguration but with some not exported fields
@@ -58,6 +64,7 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 			Host:    cfg.APICfg.Host,
 			Port:    cfg.APICfg.Port,
 			Mode:    cfg.APICfg.Mode,
+			Verbose: NewVerboseLevelFrom(cfg.APICfg.Verbose),
 		},
 		VideoServerCfg: VideoConfiguration{
 			Host: cfg.VideoServerCfg.Host,
@@ -74,19 +81,76 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 	if cfg.CorsConfig.Enabled {
 		tmp.setCors(cfg.CorsConfig)
 	}
+	minioEnabled := false
 	for _, rtspStream := range cfg.RTSPStreams {
 		validUUID, err := uuid.Parse(rtspStream.GUID)
 		if err != nil {
-			log.Printf("Not valid UUID: %s\n", rtspStream.GUID)
+			log.Error().Err(err).Str("scope", "configuration").Str("stream_id", rtspStream.GUID).Msg("Not valid UUID")
 			continue
 		}
-		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(rtspStream.URL, rtspStream.StreamTypes)
-		verbose := strings.ToLower(rtspStream.Verbose)
-		if verbose == "v" {
-			tmp.Streams.Streams[validUUID].verbose = true
-		} else if verbose == "vvv" {
-			tmp.Streams.Streams[validUUID].verbose = true
-			tmp.Streams.Streams[validUUID].verboseDetailed = true
+		outputTypes := make([]StreamType, 0, len(rtspStream.OutputTypes))
+		for _, v := range rtspStream.OutputTypes {
+			typ, ok := streamTypeExists(v)
+			if !ok {
+				return nil, errors.Wrapf(ErrStreamTypeNotExists, "Type: '%s'", v)
+			}
+			if _, ok := supportedOutputStreamTypes[typ]; !ok {
+				return nil, errors.Wrapf(ErrStreamTypeNotSupported, "Type: '%s'", v)
+			}
+			outputTypes = append(outputTypes, typ)
+		}
+
+		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(rtspStream.URL, outputTypes)
+		tmp.Streams.Streams[validUUID].verboseLevel = NewVerboseLevelFrom(rtspStream.Verbose)
+		if rtspStream.Archive.Enabled && cfg.ArchiveCfg.Enabled {
+			if rtspStream.Archive.MsPerSegment == 0 {
+				return nil, fmt.Errorf("bad ms per segment archive stream")
+			}
+			storageType := storage.NewStorageTypeFrom(rtspStream.Archive.TypeArchive)
+			var archiveStorage streamArhive
+			switch storageType {
+			case storage.STORAGE_FILESYSTEM:
+				fsStorage, err := storage.NewFileSystemProvider(rtspStream.Archive.Directory)
+				if err != nil {
+					return nil, errors.Wrap(err, "Can't create filesystem provider")
+				}
+				archiveStorage = streamArhive{
+					store:        fsStorage,
+					dir:          rtspStream.Archive.Directory,
+					bucket:       rtspStream.Archive.Directory,
+					bucketPath:   rtspStream.Archive.Directory,
+					msPerSegment: rtspStream.Archive.MsPerSegment,
+				}
+			case storage.STORAGE_MINIO:
+				if !minioEnabled {
+					client, err := minio.New(fmt.Sprintf("%s:%d", cfg.ArchiveCfg.Minio.Host, cfg.ArchiveCfg.Minio.Port), &minio.Options{
+						Creds:  credentials.NewStaticV4(cfg.ArchiveCfg.Minio.User, cfg.ArchiveCfg.Minio.Password, ""),
+						Secure: false,
+					})
+					if err != nil {
+						return nil, errors.Wrap(err, "Can't connect to MinIO instance")
+					}
+					tmp.minioClient = client
+					minioEnabled = true
+				}
+				minioStorage, err := storage.NewMinioProvider(tmp.minioClient, rtspStream.Archive.MinioBucket, rtspStream.Archive.MinioPath)
+				if err != nil {
+					return nil, errors.Wrap(err, "Can't create MinIO provider")
+				}
+				archiveStorage = streamArhive{
+					store:        minioStorage,
+					dir:          rtspStream.Archive.Directory,
+					bucket:       rtspStream.Archive.MinioBucket,
+					bucketPath:   rtspStream.Archive.MinioPath,
+					msPerSegment: rtspStream.Archive.MsPerSegment,
+				}
+			default:
+				return nil, fmt.Errorf("unsupported archive type")
+			}
+			err = tmp.SetStreamArchive(validUUID, &archiveStorage)
+			if err != nil {
+				return nil, errors.Wrap(err, "can't set archive for given stream")
+			}
 		}
 	}
 	return &tmp, nil
@@ -106,105 +170,68 @@ func (app *Application) setCors(cfg configuration.CORSConfiguration) {
 	app.CorsConfig.AllowCredentials = cfg.AllowCredentials
 }
 
-func (app *Application) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled bool) error {
-	app.Streams.Lock()
-	defer app.Streams.Unlock()
-	curStream, ok := app.Streams.Streams[streamID]
-	if !ok {
-		return ErrStreamNotFound
-	}
-	if hlsEnabled {
-		curStream.hlsChanel <- pck
-	}
-	for _, v := range curStream.Clients {
-		if len(v.c) < cap(v.c) {
-			v.c <- pck
-		}
-	}
-	return nil
-}
-func (app *Application) exists(streamID uuid.UUID) bool {
-	app.Streams.Lock()
-	defer app.Streams.Unlock()
-	_, ok := app.Streams.Streams[streamID]
-	return ok
+func (app *Application) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled, archiveEnabled bool) error {
+	return app.Streams.cast(streamID, pck, hlsEnabled, archiveEnabled)
 }
 
-func (app *Application) existsWithType(streamID uuid.UUID, streamType string) bool {
+func (app *Application) streamExists(streamID uuid.UUID) bool {
+	return app.Streams.streamExists(streamID)
+}
+
+func (app *Application) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
+	return app.Streams.existsWithType(streamID, streamType)
+}
+
+func (app *Application) addCodec(streamID uuid.UUID, codecs []av.CodecData) {
+	app.Streams.addCodec(streamID, codecs)
+}
+
+func (app *Application) getCodec(streamID uuid.UUID) ([]av.CodecData, error) {
+	return app.Streams.getCodec(streamID)
+}
+
+func (app *Application) updateStreamStatus(streamID uuid.UUID, status bool) error {
+	return app.Streams.updateStreamStatus(streamID, status)
+}
+
+func (app *Application) addClient(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
+	return app.Streams.addClient(streamID)
+}
+
+func (app *Application) clientDelete(streamID, clientID uuid.UUID) {
+	app.Streams.deleteClient(streamID, clientID)
+}
+
+func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	stream, ok := app.Streams.Streams[streamID]
 	if !ok {
-		return false
-	}
-	supportedTypes := stream.SupportedStreamTypes
-	typeEnabled := typeExists(streamType, supportedTypes)
-	return ok && typeEnabled
-}
-
-func (app *Application) addCodec(streamID uuid.UUID, codecs []av.CodecData) {
-	app.Streams.Lock()
-	defer app.Streams.Unlock()
-	app.Streams.Streams[streamID].Codecs = codecs
-}
-
-func (app *Application) getCodec(streamID uuid.UUID) ([]av.CodecData, error) {
-	app.Streams.Lock()
-	defer app.Streams.Unlock()
-	curStream, ok := app.Streams.Streams[streamID]
-	if !ok {
-		return nil, ErrStreamNotFound
-	}
-	return curStream.Codecs, nil
-}
-
-func (app *Application) updateStreamStatus(streamID uuid.UUID, status bool) error {
-	app.Streams.Lock()
-	defer app.Streams.Unlock()
-	t, ok := app.Streams.Streams[streamID]
-	if !ok {
 		return ErrStreamNotFound
 	}
-	t.Status = status
-	app.Streams.Streams[streamID] = t
+	go app.startHls(streamID, stream.hlsChanel, stopCast)
 	return nil
 }
 
-func (app *Application) clientAdd(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
+func (app *Application) startMP4Cast(streamID uuid.UUID, stopCast chan bool) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
-	clientID, err := uuid.NewUUID()
-	if err != nil {
-		return uuid.UUID{}, nil, err
-	}
-	ch := make(chan av.Packet, 100)
-	curStream, ok := app.Streams.Streams[streamID]
+	stream, ok := app.Streams.Streams[streamID]
 	if !ok {
-		return uuid.UUID{}, nil, ErrStreamNotFound
+		return ErrStreamNotFound
 	}
-	curStream.Clients[clientID] = viewer{c: ch}
-	return clientID, ch, nil
-}
-
-func (app *Application) clientDelete(streamID, clientID uuid.UUID) {
-	defer app.Streams.Unlock()
-	app.Streams.Lock()
-	delete(app.Streams.Streams[streamID].Clients, clientID)
-}
-
-func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) {
-	defer app.Streams.Unlock()
-	app.Streams.Lock()
-	go app.startHls(streamID, app.Streams.Streams[streamID].hlsChanel, stopCast)
+	go app.startMP4(streamID, stream.mp4Chanel, stopCast)
+	return nil
 }
 
 func (app *Application) getStreamsIDs() []uuid.UUID {
 	return app.Streams.getKeys()
-	// defer app.Streams.Unlock()
-	// app.Streams.Lock()
-	// res := make([]uuid.UUID, 0, len(app.Streams.Streams))
-	// for k := range app.Streams.Streams {
-	// 	res = append(res, k)
-	// }
-	// return res
+}
+
+func (app *Application) SetStreamArchive(streamID uuid.UUID, archiveStorage *streamArhive) error {
+	return app.Streams.setArchiveStream(streamID, archiveStorage)
+}
+
+func (app *Application) getStreamArchive(streamID uuid.UUID) *streamArhive {
+	return app.Streams.getArchiveStream(streamID)
 }
