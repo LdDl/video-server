@@ -2,6 +2,7 @@ package configuration
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 )
 
@@ -45,8 +46,24 @@ type HLSConfiguration struct {
 
 // ArchiveConfiguration is a archive configuration for every stream with enabled archive option
 type ArchiveConfiguration struct {
-	MsPerSegment int64  `json:"ms_per_file"`
-	Directory    string `json:"directory"`
+	Enabled      bool          `json:"enabled"`
+	MsPerSegment int64         `json:"ms_per_file"`
+	Directory    string        `json:"directory"`
+	Minio        MinioSettings `json:"minio_settings"`
+}
+
+// MinioSettings
+type MinioSettings struct {
+	Host          string `json:"host"`
+	Port          int32  `json:"port"`
+	User          string `json:"user"`
+	Password      string `json:"password"`
+	DefaultBucket string `json:"default_bucket"`
+	DefaultPath   string `json:"default_path"`
+}
+
+func (ms *MinioSettings) String() string {
+	return fmt.Sprintf("Host '%s' Port '%d' User '%s' Pass '%s' Bucket '%s' Path '%s'", ms.Host, ms.Port, ms.User, ms.Password, ms.DefaultBucket, ms.DefaultPath)
 }
 
 // CORSConfiguration is settings for CORS
@@ -75,6 +92,9 @@ type StreamArchiveConfiguration struct {
 	Enabled      bool   `json:"enabled"`
 	MsPerSegment int64  `json:"ms_per_file"`
 	Directory    string `json:"directory"`
+	TypeArchive  string `json:"type"`
+	MinioBucket  string `json:"minio_bucket"`
+	MinioPath    string `json:"minio_path"`
 }
 
 const (
@@ -116,14 +136,9 @@ func PrepareConfiguration(fname string) (*Configuration, error) {
 		if !archiveCfg.Enabled {
 			continue
 		}
-		if archiveCfg.Directory == "" {
-			if cfg.ArchiveCfg.Directory != "" {
-				cfg.RTSPStreams[i].Archive.Directory = cfg.ArchiveCfg.Directory
-			} else {
-				cfg.RTSPStreams[i].Archive.Directory = "./mp4"
-			}
-		}
-		if archiveCfg.MsPerSegment == 0 {
+
+		// Default common settings for archive
+		if archiveCfg.MsPerSegment <= 0 {
 			if cfg.ArchiveCfg.MsPerSegment > 0 {
 				cfg.RTSPStreams[i].Archive.MsPerSegment = cfg.ArchiveCfg.MsPerSegment
 			} else {
@@ -131,6 +146,22 @@ func PrepareConfiguration(fname string) (*Configuration, error) {
 			}
 		}
 
+		// Default filesystem settigs
+		if archiveCfg.Directory == "" {
+			if cfg.ArchiveCfg.Directory != "" {
+				cfg.RTSPStreams[i].Archive.Directory = cfg.ArchiveCfg.Directory
+			} else {
+				cfg.RTSPStreams[i].Archive.Directory = "./mp4"
+			}
+		}
+
+		// Default minio settings
+		if archiveCfg.MinioBucket == "" {
+			cfg.RTSPStreams[i].Archive.MinioBucket = cfg.ArchiveCfg.Minio.DefaultBucket
+		}
+		if archiveCfg.MinioPath == "" {
+			cfg.RTSPStreams[i].Archive.MinioPath = cfg.ArchiveCfg.Minio.DefaultPath
+		}
 	}
 	return cfg, nil
 }

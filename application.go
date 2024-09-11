@@ -1,8 +1,13 @@
 package videoserver
 
 import (
+	"fmt"
+
 	"github.com/LdDl/video-server/configuration"
+	"github.com/LdDl/video-server/storage"
 	"github.com/gin-contrib/cors"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/errors"
 
 	"github.com/deepch/vdk/av"
@@ -17,6 +22,7 @@ type Application struct {
 	Streams        StreamsStorage     `json:"streams"`
 	HLS            HLSInfo            `json:"hls"`
 	CorsConfig     *cors.Config       `json:"-"`
+	minioClient    *minio.Client
 }
 
 // APIConfiguration is just copy of configuration.APIConfiguration but with some not exported fields
@@ -75,6 +81,7 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 	if cfg.CorsConfig.Enabled {
 		tmp.setCors(cfg.CorsConfig)
 	}
+	minioEnabled := false
 	for _, rtspStream := range cfg.RTSPStreams {
 		validUUID, err := uuid.Parse(rtspStream.GUID)
 		if err != nil {
@@ -95,8 +102,55 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 
 		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(rtspStream.URL, outputTypes)
 		tmp.Streams.Streams[validUUID].verboseLevel = NewVerboseLevelFrom(rtspStream.Verbose)
-		if rtspStream.Archive.Enabled {
-			tmp.SetStreamArchive(validUUID, rtspStream.Archive.Directory, rtspStream.Archive.MsPerSegment)
+		if rtspStream.Archive.Enabled && cfg.ArchiveCfg.Enabled {
+			if rtspStream.Archive.MsPerSegment == 0 {
+				return nil, fmt.Errorf("bad ms per segment archive stream")
+			}
+			storageType := storage.NewStorageTypeFrom(rtspStream.Archive.TypeArchive)
+			var archiveStorage streamArhive
+			switch storageType {
+			case storage.STORAGE_FILESYSTEM:
+				fsStorage, err := storage.NewFileSystemProvider(rtspStream.Archive.Directory)
+				if err != nil {
+					return nil, errors.Wrap(err, "Can't create filesystem provider")
+				}
+				archiveStorage = streamArhive{
+					store:        fsStorage,
+					dir:          rtspStream.Archive.Directory,
+					bucket:       rtspStream.Archive.Directory,
+					bucketPath:   rtspStream.Archive.Directory,
+					msPerSegment: rtspStream.Archive.MsPerSegment,
+				}
+			case storage.STORAGE_MINIO:
+				if !minioEnabled {
+					client, err := minio.New(fmt.Sprintf("%s:%d", cfg.ArchiveCfg.Minio.Host, cfg.ArchiveCfg.Minio.Port), &minio.Options{
+						Creds:  credentials.NewStaticV4(cfg.ArchiveCfg.Minio.User, cfg.ArchiveCfg.Minio.Password, ""),
+						Secure: false,
+					})
+					if err != nil {
+						return nil, errors.Wrap(err, "Can't connect to MinIO instance")
+					}
+					tmp.minioClient = client
+					minioEnabled = true
+				}
+				minioStorage, err := storage.NewMinioProvider(tmp.minioClient, rtspStream.Archive.MinioBucket, rtspStream.Archive.MinioPath)
+				if err != nil {
+					return nil, errors.Wrap(err, "Can't create MinIO provider")
+				}
+				archiveStorage = streamArhive{
+					store:        minioStorage,
+					dir:          rtspStream.Archive.Directory,
+					bucket:       rtspStream.Archive.MinioBucket,
+					bucketPath:   rtspStream.Archive.MinioPath,
+					msPerSegment: rtspStream.Archive.MsPerSegment,
+				}
+			default:
+				return nil, fmt.Errorf("unsupported archive type")
+			}
+			err = tmp.SetStreamArchive(validUUID, &archiveStorage)
+			if err != nil {
+				return nil, errors.Wrap(err, "can't set archive for given stream")
+			}
 		}
 	}
 	return &tmp, nil
@@ -174,8 +228,8 @@ func (app *Application) getStreamsIDs() []uuid.UUID {
 	return app.Streams.getKeys()
 }
 
-func (app *Application) SetStreamArchive(streamID uuid.UUID, dir string, msPerSegment int64) error {
-	return app.Streams.setArchiveStream(streamID, dir, msPerSegment)
+func (app *Application) SetStreamArchive(streamID uuid.UUID, archiveStorage *streamArhive) error {
+	return app.Streams.setArchiveStream(streamID, archiveStorage)
 }
 
 func (app *Application) getStreamArchive(streamID uuid.UUID) *streamArhive {

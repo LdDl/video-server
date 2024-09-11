@@ -10,4 +10,5 @@ var (
 	ErrStreamDisconnected     = fmt.Errorf("disconnected")
 	ErrStreamTypeNotExists    = fmt.Errorf("stream type does not exists")
 	ErrStreamTypeNotSupported = fmt.Errorf("stream type is not supported")
+	ErrNotSupportedStorage    = fmt.Errorf("not supported storage")
 )

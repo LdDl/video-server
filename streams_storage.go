@@ -174,27 +174,14 @@ func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnable
 	return nil
 }
 
-func (streams *StreamsStorage) setArchiveStream(streamID uuid.UUID, dir string, msPerSegment int64) error {
-	if dir == "" {
-		return fmt.Errorf("bad directory archive stream")
-	}
-	if msPerSegment == 0 {
-		return fmt.Errorf("bad ms per segment archive stream")
-	}
-	newArhive := streamArhive{
-		dir:          dir,
-		msPerSegment: msPerSegment,
-	}
+func (streams *StreamsStorage) setArchiveStream(streamID uuid.UUID, archiveStorage *streamArhive) error {
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.Streams[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
-	stream.archive = &newArhive
-	if stream.verboseLevel > VERBOSE_NONE {
-		log.Info().Str("scope", SCOPE_STREAM).Str("event", "set_archive").Str("stream_id", streamID.String()).Str("dir", dir).Int64("ms_per_segment", msPerSegment).Msg("Add archive")
-	}
+	stream.archive = archiveStorage
 	return nil
 }
 

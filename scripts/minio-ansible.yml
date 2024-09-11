@@ -1,0 +1,165 @@
+
+# ansible-playbook minio-ansible.yml --ask-become-pass -i hosts
+
+- hosts: localhost
+  gather_facts: no
+  vars_prompt:
+  - name: target_host
+    prompt: Please enter the target host name
+    private: no
+  tasks:
+    - add_host:
+        name: "{{ target_host }}"
+        groups: dynamically_created_hosts
+
+# https://min.io/docs/minio/linux/operations/install-deploy-manage/deploy-minio-single-node-single-drive.html#minio-snsd
+- hosts: dynamically_created_hosts
+  remote_user: root
+  become: yes
+  become_user: root
+  become_method: sudo
+  vars:
+    install_folder: /tmp/minio_install
+    target_folder: /usr/local/bin
+    data_folder: /var/its_server/minio_storage
+    environment_file: /etc/default/minio
+    systemd_file: /etc/systemd/system/minio.service
+    linux_user: minio-user
+    minio_user: minio_secret_login
+    minio_password: minio_secret_password
+    minio_port: 29199
+    minio_console_port: 29001
+  tasks:
+    - name: Create temporary directory for Minio installation
+      ansible.builtin.file:
+        path: "{{install_folder}}"
+        state: directory
+    - name: Download Minio
+      get_url:
+        url: https://dl.min.io/server/minio/release/linux-amd64/minio
+        dest: "{{install_folder}}/minio"
+    - name: Change Minio binary permissions
+      command: chmod +x "{{install_folder}}/minio"
+    - name: Install Minio to /usr/local/bin
+      command: mv "{{install_folder}}/minio" "{{target_folder}}/minio"
+    - name: Remove temporary directory after Minio installation
+      file:
+        path: "{{install_folder}}"
+        state: absent
+    - name: Prepare folder for minio
+      ansible.builtin.file:
+        path: "{{data_folder}}"
+        state: directory
+
+    # https://blog.min.io/configuring-minio-with-systemd/
+    - name: Check that the environment file exists
+      stat:
+        path: "{{environment_file}}"
+      register: stat_environment_result
+
+    - name: Check that the service file exists
+      stat:
+        path: "{{systemd_file}}"
+      register: stat_service_result
+  
+    - name: Create environment file, if it doesn't exist already
+      file:
+        path: "{{environment_file}}"
+        state: touch
+      when: not stat_environment_result.stat.exists
+
+    - name: Create service file, if it doesn't exist already
+      file:
+        path: "{{systemd_file}}"
+        state: touch
+      when: not stat_service_result.stat.exists
+
+    - name: Prepare environment file, if file doesn't exist
+      copy:
+        dest: "{{environment_file}}"
+        content: |
+          # Volume to be used for MinIO server.
+          MINIO_VOLUMES="{{ data_folder }}"
+
+          # Use if you want to run MinIO on a custom port.
+          MINIO_OPTS="--address :{{ minio_port }} --console-address :{{ minio_console_port }}"
+
+          # Root user for the server.
+          MINIO_ROOT_USER={{ minio_user }}
+
+          # Root secret for the server.
+          MINIO_ROOT_PASSWORD={{ minio_password }}
+
+          # set this for MinIO to reload entries with 'mc admin service restart'
+          MINIO_CONFIG_ENV_FILE=/etc/default/minio
+      when: not stat_environment_result.stat.exists
+
+    - name: Prepare service file, if file doesn't exist
+      copy:
+        dest: "{{systemd_file}}"
+        content: |
+          [Unit]
+          Description=MinIO
+          Documentation=https://docs.min.io
+          Wants=network-online.target
+          After=network-online.target
+          AssertFileIsExecutable=/usr/local/bin/minio
+          AssertFileNotEmpty=/etc/default/minio
+
+          [Service]
+          Type=notify
+
+          WorkingDirectory=/usr/local/
+
+          User={{ linux_user }}
+          Group={{ linux_user }}
+          ProtectProc=invisible
+
+          EnvironmentFile=/etc/default/minio
+          ExecStartPre=/bin/bash -c "if [ -z \"${MINIO_VOLUMES}\" ]; then echo \"Variable MINIO_VOLUMES not set in /etc/default/minio\"; exit 1; fi"
+          ExecStart=/usr/local/bin/minio server $MINIO_OPTS $MINIO_VOLUMES
+
+          # Let systemd restart this service always
+          Restart=always
+
+          # Specifies the maximum file descriptor number that can be opened by this process
+          LimitNOFILE=65536
+
+          # Specifies the maximum number of threads this process can create
+          TasksMax=infinity
+
+          # Disable timeout logic and wait until process is stopped
+          TimeoutSec=infinity
+
+          SendSIGKILL=no
+
+          [Install]
+          WantedBy=multi-user.target
+      when: not stat_service_result.stat.exists
+
+    - name: Create Linux system group for Minio
+      group:
+        name: "{{ linux_user }}"
+        state: present
+
+    - name: Create Linux system user for Minio
+      user:
+        name: "{{ linux_user }}"
+        group: "{{ linux_user }}"
+        create_home: no
+        state: present
+
+    - name: Change ownership of data folder recursively for Minio user
+      file:
+        path: "{{ data_folder }}"
+        state: directory
+        owner: "{{ linux_user }}"
+        group: "{{ linux_user }}"
+        recurse: yes
+        
+    - name: Start running Minio systemd
+      become: true
+      service:
+        name: minio.service
+        state: started
+        enabled: true

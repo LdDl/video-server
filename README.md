@@ -80,6 +80,70 @@ App running at:
 ```
 Paste link to the browser and check if video loaded successfully.
 
+## Archive
+
+You can configure application to write MP4 chunks of custom duration (but not less than first keyframe duration) to the filesystem or [S3 MinIO](https://min.io/)
+
+- For storing archive to the filesystem. Point default directory for storing MP4 files and duration:
+  ```json
+  "archive": {
+      "enabled": true,
+      "directory": "./mp4",
+      "ms_per_file": 30000
+  }
+  ```
+  For each stream configuration you can override default directory and duration. Field "type" should have value "filesystem":
+  ```json
+  {
+    ///
+    // Some other single stream props...
+    ///
+    "archive": {
+        "enabled": true,
+        "ms_per_file": 20000,
+        "type": "filesystem",
+        "directory": "custom_folder"
+    }
+  }
+  ```
+- For storing archive to the S3 MinIO:
+  Modify configuration file to have both filesystem and minio configuration (filesystem will be picked for storing temporary files before moving it to the MinIO), e.g.:
+  ```json
+  "archive": {
+      "directory": "./mp4",
+      "ms_per_file": 30000,
+      "minio_settings": {
+          "host": "localhost",
+          "port": 29199,
+          "user": "minio_secret_login",
+          "password": "minio_secret_password",
+          "default_bucket": "archive_bucket",
+          "default_path": "/var/archive_data"
+      }
+  }
+  ```
+  For each stream configuration you can override default directory for temporary files, MinIO bucket and path in it and chunk duration. Field "type" should have value "minio":
+  ```json
+  {
+    ///
+    // Some other single stream props...
+    ///
+    "archive": {
+        "enabled": true,
+        "ms_per_file": 20000,
+        "type": "filesystem",
+        "directory": "custom_folder",
+        "type": "minio",
+        "minio_bucket": "vod-bucket",
+        "minio_path": "/var/archive_data_custom"
+    }
+  }
+  ```
+
+- If you want disable archive for specified stream, just set value of the field `enabled` to `false` in streams array. For disabling archive at all you can do the same but in the main configuration (where default values are set)
+
+- To install MinIO (in case if you want to store archive in S3) you can use [./docker-compose.yaml](docker-compose file) or [./scripts/minio-ansible.yml](Ansible script) for example of deployment workflows
+
 ## Dependencies
 GIN web-framework - [https://github.com/gin-gonic/gin](https://github.com/gin-gonic/gin). License is [MIT](https://github.com/gin-gonic/gin/blob/master/LICENSE)
 
