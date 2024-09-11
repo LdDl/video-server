@@ -9,11 +9,12 @@ import (
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
 
 // StartAPIServer starts server with API functionality
-func (app *Application) StartAPIServer() {
+func (app *Application) StartAPIServer() error {
 	log.Info().Str("scope", SCOPE_API_SERVER).Str("event", EVENT_API_PREPARE).Msg("Preparing to start API Server")
 	router := gin.New()
 
@@ -58,8 +59,9 @@ func (app *Application) StartAPIServer() {
 		if app.APICfg.Verbose > VERBOSE_NONE {
 			log.Error().Err(err).Str("scope", SCOPE_API_SERVER).Str("event", EVENT_API_START).Str("url", url).Msg("Can't start API server routers")
 		}
-		return
+		return errors.Wrap(err, "Can't start API")
 	}
+	return nil
 }
 
 type StreamsInfoShortenList struct {
