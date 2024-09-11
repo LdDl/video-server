@@ -11,10 +11,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	SCOPE_STREAM = "stream"
-)
-
 // StreamsStorage Map wrapper for map[uuid.UUID]*StreamConfiguration with mutex for concurrent usage
 type StreamsStorage struct {
 	sync.RWMutex

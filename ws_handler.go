@@ -15,7 +15,6 @@ var (
 	keyFramesTimeout = 10 * time.Second
 	deadlineTimeout  = 10 * time.Second
 	controlTimeout   = 10 * time.Second
-	SCOPE_WS_HANDLER = "ws_handler"
 )
 
 // wshandler is a websocket handler for user connection
