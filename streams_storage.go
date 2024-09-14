@@ -25,7 +25,11 @@ func NewStreamsStorageDefault() StreamsStorage {
 func (sm *StreamsStorage) GetStream(id uuid.UUID) (string, []StreamType) {
 	sm.Lock()
 	defer sm.Unlock()
-	return sm.Streams[id].URL, sm.Streams[id].SupportedOutputTypes
+	stream, ok := sm.Streams[id]
+	if !ok {
+		return "", []StreamType{}
+	}
+	return stream.URL, stream.SupportedOutputTypes
 }
 
 // getKeys returns all storage streams' keys as slice

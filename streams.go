@@ -33,6 +33,9 @@ func (app *Application) StartStream(streamID uuid.UUID) {
 
 func (app *Application) RunStream(ctx context.Context, streamID uuid.UUID) error {
 	url, supportedTypes := app.Streams.GetStream(streamID)
+	if url == "" {
+		return ErrStreamNotFound
+	}
 	hlsEnabled := typeExists(STREAM_TYPE_HLS, supportedTypes)
 	archiveEnabled, err := app.Streams.archiveEnabled(streamID)
 	if err != nil {
