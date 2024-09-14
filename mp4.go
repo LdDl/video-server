@@ -26,7 +26,6 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 	if err != nil {
 		return errors.Wrap(err, "Can't prepare bucket")
 	}
-
 	err = ensureDir(archive.dir)
 	if err != nil {
 		return errors.Wrap(err, "Can't create directory for mp4 temporary files")
@@ -49,12 +48,12 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 		}
 		tsMuxer := mp4.NewMuxer(outFile)
 		log.Info().Str("scope", "archive").Str("event", "archive_create_file").Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Create segment")
-
-		// Write header
 		codecData, err := app.getCodec(streamID)
 		if err != nil {
 			return errors.Wrap(err, streamID.String())
 		}
+		log.Info().Str("scope", "archive").Str("event", "archive_create_file").Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Write header")
+
 		err = tsMuxer.WriteHeader(codecData)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("Can't write header for mp4 muxer for stream %s", streamID))
@@ -85,6 +84,7 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 			segmentLength += packetLength
 			segmentCount++
 		}
+		log.Info().Str("scope", "archive").Str("event", "archive_create_file").Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Start segment loop")
 		// @todo Oh, I don't like GOTOs, but it is what it is.
 	segmentLoop:
 		for {
@@ -140,11 +140,16 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 			}
 			outSegmentName, err := archive.store.UploadFile(context.Background(), obj)
 			if err != nil {
-				log.Error().Err(err).Str("scope", "mp4").Str("event", "mp4_save_minio").Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Can't save segment")
+				log.Error().Err(err).Str("scope", "mp4").Str("event", "mp4_save_minio").Str("stream_id", streamID.String()).Str("segment_name", segmentName).Str("bucket", archive.bucket).Msg("Can't save segment")
 				return err
 			}
 			if segmentName != outSegmentName {
 				log.Error().Err(err).Str("scope", "mp4").Str("event", "mp4_save_minio").Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't validate segment")
+			}
+			err = os.Remove(segmentPath)
+			if err != nil {
+				log.Error().Err(err).Str("scope", "mp4").Str("event", "mp4_save_minio").Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Can't remove segment from temporary filesystem memory")
+				return err
 			}
 		}
 
@@ -154,7 +159,7 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 		}
 
 		lastSegmentTime = lastSegmentTime.Add(time.Since(st))
-		log.Info().Str("scope", "archive").Str("event", "archive_close_file").Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Close segment")
+		log.Info().Str("scope", "archive").Str("event", "archive_close_file").Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Int64("ms", archive.msPerSegment).Msg("Close segment")
 	}
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
 
@@ -21,8 +22,13 @@ func (app *Application) StartStreams() {
 }
 
 // StartStream starts single video stream
-func (app *Application) StartStream(k uuid.UUID) {
-	go app.RunStream(context.Background(), k)
+func (app *Application) StartStream(streamID uuid.UUID) {
+	go func() {
+		err := app.RunStream(context.Background(), streamID)
+		if err != nil {
+			log.Error().Err(err).Str("scope", "streaming").Str("event", "stream_run").Str("stream_id", streamID.String()).Msg("Error on stream runner")
+		}
+	}()
 }
 
 func (app *Application) RunStream(ctx context.Context, streamID uuid.UUID) error {
@@ -30,7 +36,7 @@ func (app *Application) RunStream(ctx context.Context, streamID uuid.UUID) error
 	hlsEnabled := typeExists(STREAM_TYPE_HLS, supportedTypes)
 	archiveEnabled, err := app.Streams.archiveEnabled(streamID)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Can't enable archive")
 	}
 	app.startLoop(ctx, streamID, url, hlsEnabled, archiveEnabled)
 	return nil

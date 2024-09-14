@@ -82,7 +82,8 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 		tmp.setCors(cfg.CorsConfig)
 	}
 	minioEnabled := false
-	for _, rtspStream := range cfg.RTSPStreams {
+	for rs := range cfg.RTSPStreams {
+		rtspStream := cfg.RTSPStreams[rs]
 		validUUID, err := uuid.Parse(rtspStream.GUID)
 		if err != nil {
 			log.Error().Err(err).Str("scope", "configuration").Str("stream_id", rtspStream.GUID).Msg("Not valid UUID")
@@ -220,7 +221,12 @@ func (app *Application) startMP4Cast(streamID uuid.UUID, stopCast chan bool) err
 	if !ok {
 		return ErrStreamNotFound
 	}
-	go app.startMP4(streamID, stream.mp4Chanel, stopCast)
+	go func() {
+		err := app.startMP4(streamID, stream.mp4Chanel, stopCast)
+		if err != nil {
+			log.Error().Err(err).Str("scope", "archive").Str("event", "archive_start_cast").Str("stream_id", streamID.String()).Msg("Error on cast start")
+		}
+	}()
 	return nil
 }
 
