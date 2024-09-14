@@ -17,8 +17,10 @@ const (
 )
 
 // runStream runs RTSP grabbing process
-func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, archiveEnabled bool) error {
-	log.Info().Str("scope", "streaming").Str("event", "stream_dialing").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Msg("Trying to dial")
+func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, archiveEnabled bool, streamVerboseLevel VerboseLevel) error {
+	if streamVerboseLevel > VERBOSE_NONE {
+		log.Info().Str("scope", "streaming").Str("event", "stream_dialing").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Msg("Trying to dial")
+	}
 	session, err := rtspv2.Dial(rtspv2.RTSPClientOptions{
 		URL:              url,
 		DisableAudio:     true,
@@ -31,9 +33,13 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 	}
 	defer session.Close()
 	if len(session.CodecData) != 0 {
-		log.Info().Str("scope", "streaming").Str("event", "stream_codec_met").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Any("codec_data", session.CodecData).Msg("Found codec. Adding this one")
+		if streamVerboseLevel > VERBOSE_NONE {
+			log.Info().Str("scope", "streaming").Str("event", "stream_codec_met").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Any("codec_data", session.CodecData).Msg("Found codec. Adding this one")
+		}
 		app.addCodec(streamID, session.CodecData)
-		log.Info().Str("scope", "streaming").Str("event", "stream_status_update").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Msg("Update stream status")
+		if streamVerboseLevel > VERBOSE_NONE {
+			log.Info().Str("scope", "streaming").Str("event", "stream_status_update").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Msg("Update stream status")
+		}
 		err = app.updateStreamStatus(streamID, true)
 		if err != nil {
 			return errors.Wrapf(err, "Can't update status for stream %s", streamID)
@@ -43,14 +49,18 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 	isAudioOnly := false
 	if len(session.CodecData) == 1 {
 		if session.CodecData[0].Type().IsAudio() {
-			log.Info().Str("scope", "streaming").Str("event", "stream_audio_met").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Msg("Only audio")
+			if streamVerboseLevel > VERBOSE_NONE {
+				log.Info().Str("scope", "streaming").Str("event", "stream_audio_met").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Msg("Only audio")
+			}
 			isAudioOnly = true
 		}
 	}
 
 	var stopHlsCast chan bool
 	if hlsEnabled {
-		log.Info().Str("scope", "streaming").Str("event", "stream_hls_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Need to start casting for HLS")
+		if streamVerboseLevel > VERBOSE_NONE {
+			log.Info().Str("scope", "streaming").Str("event", "stream_hls_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Need to start casting for HLS")
+		}
 		stopHlsCast = make(chan bool, 1)
 		err = app.startHlsCast(streamID, stopHlsCast)
 		if err != nil {
@@ -60,7 +70,9 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 
 	var stopMP4Cast chan bool
 	if archiveEnabled {
-		log.Info().Str("scope", "streaming").Str("event", "stream_mp4_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Need to start casting to MP4 archive")
+		if streamVerboseLevel > VERBOSE_NONE {
+			log.Info().Str("scope", "streaming").Str("event", "stream_mp4_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Need to start casting to MP4 archive")
+		}
 		archive := app.getStreamArchive(streamID)
 		if archive == nil {
 			log.Warn().Str("scope", "streaming").Str("event", "stream_mp4_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Empty archive configuration for the given stream")
@@ -82,14 +94,18 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 		case signals := <-session.Signals:
 			switch signals {
 			case rtspv2.SignalCodecUpdate:
-				log.Info().Str("scope", "streaming").Str("event", "stream_codec_update_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Any("codec_data", session.CodecData).Msg("Recieved update codec signal")
+				if streamVerboseLevel > VERBOSE_NONE {
+					log.Info().Str("scope", "streaming").Str("event", "stream_codec_update_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Any("codec_data", session.CodecData).Msg("Recieved update codec signal")
+				}
 				app.addCodec(streamID, session.CodecData)
 				err = app.updateStreamStatus(streamID, true)
 				if err != nil {
 					return errors.Wrapf(err, "Can't update status for stream %s", streamID)
 				}
 			case rtspv2.SignalStreamRTPStop:
-				log.Info().Str("scope", "streaming").Str("event", "stream_stop_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Recieved stop signal")
+				if streamVerboseLevel > VERBOSE_NONE {
+					log.Info().Str("scope", "streaming").Str("event", "stream_stop_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Recieved stop signal")
+				}
 				err = app.updateStreamStatus(streamID, false)
 				if err != nil {
 					errors.Wrapf(err, "Can't switch status to False for stream '%s'", url)
@@ -97,20 +113,30 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 				return errors.Wrapf(ErrStreamDisconnected, "URL is '%s'", url)
 			}
 		case packetAV := <-session.OutgoingPacketQueue:
-			// log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Recieved outgoing packet from queue")
+			if streamVerboseLevel > VERBOSE_ADD {
+				log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Recieved outgoing packet from queue")
+			}
 			if isAudioOnly || packetAV.IsKeyFrame {
-				// log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Need to reset ping for stream")
+				if streamVerboseLevel > VERBOSE_ADD {
+					log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Need to reset ping for stream")
+				}
 				pingStream.Reset(pingDurationRestart)
 			}
-			// log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Casting packet")
+			if streamVerboseLevel > VERBOSE_ADD {
+				log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Casting packet")
+			}
 			err = app.cast(streamID, *packetAV, hlsEnabled, archiveEnabled)
 			if err != nil {
 				if hlsEnabled {
-					log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Need to stop HLS cast")
+					if streamVerboseLevel > VERBOSE_NONE {
+						log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Need to stop HLS cast")
+					}
 					stopHlsCast <- true
 				}
 				if archiveEnabled {
-					log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Need to stop MP4 cast")
+					if streamVerboseLevel > VERBOSE_NONE {
+						log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Need to stop MP4 cast")
+					}
 					stopMP4Cast <- true
 				}
 				errStatus := app.updateStreamStatus(streamID, false)

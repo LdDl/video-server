@@ -53,6 +53,16 @@ func (streams *StreamsStorage) archiveEnabled(streamID uuid.UUID) (bool, error) 
 	return stream.archive != nil, nil
 }
 
+func (streams *StreamsStorage) getVerboseLevel(streamID uuid.UUID) VerboseLevel {
+	streams.RLock()
+	defer streams.RUnlock()
+	stream, ok := streams.Streams[streamID]
+	if !ok {
+		return VERBOSE_NONE
+	}
+	return stream.verboseLevel
+}
+
 func (streams *StreamsStorage) streamExists(streamID uuid.UUID) bool {
 	streams.RLock()
 	_, ok := streams.Streams[streamID]

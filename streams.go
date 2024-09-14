@@ -41,23 +41,30 @@ func (app *Application) RunStream(ctx context.Context, streamID uuid.UUID) error
 	if err != nil {
 		return errors.Wrap(err, "Can't enable archive")
 	}
-	app.startLoop(ctx, streamID, url, hlsEnabled, archiveEnabled)
+	streamVerboseLevel := app.Streams.getVerboseLevel(streamID)
+	app.startLoop(ctx, streamID, url, hlsEnabled, archiveEnabled, streamVerboseLevel)
 	return nil
 }
 
 // startLoop starts stream loop with dialing to certain RTSP
-func (app *Application) startLoop(ctx context.Context, streamID uuid.UUID, url string, hlsEnabled, archiveEnabled bool) {
+func (app *Application) startLoop(ctx context.Context, streamID uuid.UUID, url string, hlsEnabled, archiveEnabled bool, streamVerboseLevel VerboseLevel) {
 	select {
 	case <-ctx.Done():
-		log.Info().Str("scope", "streaming").Str("event", "stream_done").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Stream is done")
+		if streamVerboseLevel > VERBOSE_NONE {
+			log.Info().Str("scope", "streaming").Str("event", "stream_done").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Stream is done")
+		}
 		return
 	default:
-		log.Info().Str("scope", "streaming").Str("event", "stream_start").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Stream must be establishment")
-		err := app.runStream(streamID, url, hlsEnabled, archiveEnabled)
+		if streamVerboseLevel > VERBOSE_NONE {
+			log.Info().Str("scope", "streaming").Str("event", "stream_start").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Stream must be establishment")
+		}
+		err := app.runStream(streamID, url, hlsEnabled, archiveEnabled, streamVerboseLevel)
 		if err != nil {
 			log.Error().Err(err).Str("scope", "streaming").Str("event", "stream_restart").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Can't start stream")
 		}
-		log.Info().Str("scope", "streaming").Str("event", "stream_restart").Str("stream_id", streamID.String()).Str("stream_url", url).Any("restart_duration", restartStreamDuration).Msg("Stream must be re-establishment")
+		if streamVerboseLevel > VERBOSE_NONE {
+			log.Info().Str("scope", "streaming").Str("event", "stream_restart").Str("stream_id", streamID.String()).Str("stream_url", url).Any("restart_duration", restartStreamDuration).Msg("Stream must be re-establishment")
+		}
 		time.Sleep(restartStreamDuration)
 	}
 }
