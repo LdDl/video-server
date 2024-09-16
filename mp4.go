@@ -17,10 +17,10 @@ import (
 )
 
 func (app *Application) startMP4(archive *streamArhive, streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
-	var err error
 	if archive == nil {
-		return errors.Wrap(err, "Bad archive stream")
+		return ErrNullArchive
 	}
+	var err error
 	err = archive.store.MakeBucket(archive.bucket)
 	if err != nil {
 		return errors.Wrap(err, "Can't prepare bucket")

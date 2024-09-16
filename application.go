@@ -190,6 +190,9 @@ func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) err
 }
 
 func (app *Application) startMP4Cast(archive *streamArhive, streamID uuid.UUID, stopCast chan bool) error {
+	if archive == nil {
+		return ErrNullArchive
+	}
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	stream, ok := app.Streams.store[streamID]
