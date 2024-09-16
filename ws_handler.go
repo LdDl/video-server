@@ -145,14 +145,14 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		quitCh := make(chan bool)
 		rxPingCh := make(chan bool)
 
-		go func(q, p chan bool) {
+		go func(quit, ping chan bool) {
 			if verboseLevel > VERBOSE_SIMPLE {
 				log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Start loop in goroutine")
 			}
 			for {
 				msgType, data, err := conn.ReadMessage()
 				if err != nil {
-					q <- true
+					quit <- true
 					errReason := "Can't read message"
 					if verboseLevel > VERBOSE_NONE {
 						log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg(errReason)
@@ -165,7 +165,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 				}
 				if msgType == websocket.TextMessage && len(data) > 0 && string(data) == "ping" {
 					select {
-					case p <- true:
+					case ping <- true:
 						log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Int("message_type", msgType).Int("data_len", len(data)).Msg("Message has been sent")
 						// message sent
 					default:
