@@ -36,11 +36,11 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 		if streamVerboseLevel > VERBOSE_NONE {
 			log.Info().Str("scope", "streaming").Str("event", "stream_codec_met").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Any("codec_data", session.CodecData).Msg("Found codec. Adding this one")
 		}
-		app.addCodec(streamID, session.CodecData)
+		app.Streams.AddCodecForStream(streamID, session.CodecData)
 		if streamVerboseLevel > VERBOSE_NONE {
 			log.Info().Str("scope", "streaming").Str("event", "stream_status_update").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Msg("Update stream status")
 		}
-		err = app.updateStreamStatus(streamID, true)
+		err = app.Streams.UpdateStreamStatus(streamID, true)
 		if err != nil {
 			return errors.Wrapf(err, "Can't update status for stream %s", streamID)
 		}
@@ -75,12 +75,12 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 		if streamVerboseLevel > VERBOSE_NONE {
 			log.Info().Str("scope", "streaming").Str("event", "stream_mp4_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Need to start casting to MP4 archive")
 		}
-		archive := app.Streams.getStreamArchive(streamID)
+		archive := app.Streams.GetStreamArchiveStorage(streamID)
 		if archive == nil {
 			log.Warn().Str("scope", "streaming").Str("event", "stream_mp4_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Empty archive configuration for the given stream")
 		} else {
 			stopMP4Cast = make(chan bool, 1)
-			err = app.startMP4Cast(streamID, stopMP4Cast)
+			err = app.startMP4Cast(archive, streamID, stopMP4Cast)
 			if err != nil {
 				if streamVerboseLevel > VERBOSE_NONE {
 					log.Warn().Str("scope", "streaming").Str("event", "stream_mp4_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Can't start MP4 archive process")
@@ -101,8 +101,8 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 				if streamVerboseLevel > VERBOSE_NONE {
 					log.Info().Str("scope", "streaming").Str("event", "stream_codec_update_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Any("codec_data", session.CodecData).Msg("Recieved update codec signal")
 				}
-				app.addCodec(streamID, session.CodecData)
-				err = app.updateStreamStatus(streamID, true)
+				app.Streams.AddCodecForStream(streamID, session.CodecData)
+				err = app.Streams.UpdateStreamStatus(streamID, true)
 				if err != nil {
 					return errors.Wrapf(err, "Can't update status for stream %s", streamID)
 				}
@@ -110,7 +110,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 				if streamVerboseLevel > VERBOSE_NONE {
 					log.Info().Str("scope", "streaming").Str("event", "stream_stop_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Recieved stop signal")
 				}
-				err = app.updateStreamStatus(streamID, false)
+				err = app.Streams.UpdateStreamStatus(streamID, false)
 				if err != nil {
 					errors.Wrapf(err, "Can't switch status to False for stream '%s'", url)
 				}
@@ -129,7 +129,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 			if streamVerboseLevel > VERBOSE_ADD {
 				log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Casting packet")
 			}
-			err = app.cast(streamID, *packetAV, hlsEnabled, archiveEnabled)
+			err = app.Streams.CastPacket(streamID, *packetAV, hlsEnabled, archiveEnabled)
 			if err != nil {
 				if hlsEnabled {
 					if streamVerboseLevel > VERBOSE_NONE {
@@ -143,7 +143,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 					}
 					stopMP4Cast <- true
 				}
-				errStatus := app.updateStreamStatus(streamID, false)
+				errStatus := app.Streams.UpdateStreamStatus(streamID, false)
 				if errStatus != nil {
 					errors.Wrapf(errors.Wrapf(err, "Can't cast packet %s (%s)", streamID, url), "Can't switch status to False for stream '%s'", url)
 				}

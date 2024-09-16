@@ -103,8 +103,8 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 			outputTypes = append(outputTypes, typ)
 		}
 
-		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(rtspStream.URL, outputTypes)
-		tmp.Streams.Streams[validUUID].verboseLevel = NewVerboseLevelFrom(rtspStream.Verbose)
+		tmp.Streams.store[validUUID] = NewStreamConfiguration(rtspStream.URL, outputTypes)
+		tmp.Streams.store[validUUID].verboseLevel = NewVerboseLevelFrom(rtspStream.Verbose)
 		if rtspStream.Archive.Enabled && cfg.ArchiveCfg.Enabled {
 			if rtspStream.Archive.MsPerSegment == 0 {
 				return nil, fmt.Errorf("bad ms per segment archive stream")
@@ -150,7 +150,7 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 			default:
 				return nil, fmt.Errorf("unsupported archive type")
 			}
-			err = tmp.Streams.setArchiveStream(validUUID, &archiveStorage)
+			err = tmp.Streams.UpdateArchiveStorageForStream(validUUID, &archiveStorage)
 			if err != nil {
 				return nil, errors.Wrap(err, "can't set archive for given stream")
 			}
@@ -171,44 +171,21 @@ func (app *Application) setCors(cfg configuration.CORSConfiguration) {
 	}
 	app.CorsConfig.ExposeHeaders = cfg.ExposeHeaders
 	app.CorsConfig.AllowCredentials = cfg.AllowCredentials
-}
-
-func (app *Application) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled, archiveEnabled bool) error {
-	return app.Streams.cast(streamID, pck, hlsEnabled, archiveEnabled)
-}
-
-func (app *Application) streamExists(streamID uuid.UUID) bool {
-	return app.Streams.streamExists(streamID)
-}
-
-func (app *Application) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
-	return app.Streams.existsWithType(streamID, streamType)
-}
-
-func (app *Application) addCodec(streamID uuid.UUID, codecs []av.CodecData) {
-	app.Streams.addCodec(streamID, codecs)
-}
-
-func (app *Application) getCodec(streamID uuid.UUID) ([]av.CodecData, error) {
-	return app.Streams.getCodec(streamID)
-}
-
-func (app *Application) updateStreamStatus(streamID uuid.UUID, status bool) error {
-	return app.Streams.updateStreamStatus(streamID, status)
-}
-
-func (app *Application) addClient(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
-	return app.Streams.addClient(streamID)
-}
-
-func (app *Application) clientDelete(streamID, clientID uuid.UUID) {
-	app.Streams.deleteClient(streamID, clientID)
+	// See https://github.com/gofiber/fiber/security/advisories/GHSA-fmg4-x8pw-hjhg
+	if app.CorsConfig.AllowCredentials {
+		for _, v := range app.CorsConfig.AllowOrigins {
+			if v == "*" {
+				log.Warn().Str("scope", SCOPE_APP).Str("event", EVENT_APP_CORS_CONFIG).Msg("[CORS] Insecure setup, 'AllowCredentials' is set to true, and 'AllowOrigins' is set to a wildcard. Settings 'AllowCredentials' to be 'false'. See https://github.com/gofiber/fiber/security/advisories/GHSA-fmg4-x8pw-hjhg")
+				app.CorsConfig.AllowCredentials = false
+			}
+		}
+	}
 }
 
 func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
-	stream, ok := app.Streams.Streams[streamID]
+	stream, ok := app.Streams.store[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
@@ -221,18 +198,21 @@ func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) err
 	return nil
 }
 
-func (app *Application) startMP4Cast(streamID uuid.UUID, stopCast chan bool) error {
+func (app *Application) startMP4Cast(archive *streamArhive, streamID uuid.UUID, stopCast chan bool) error {
+	if archive == nil {
+		return ErrNullArchive
+	}
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
-	stream, ok := app.Streams.Streams[streamID]
+	stream, ok := app.Streams.store[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
-	go func(id uuid.UUID, mp4Chanel chan av.Packet, stop chan bool) {
-		err := app.startMP4(id, mp4Chanel, stop)
+	go func(arch *streamArhive, id uuid.UUID, mp4Chanel chan av.Packet, stop chan bool) {
+		err := app.startMP4(arch, id, mp4Chanel, stop)
 		if err != nil {
 			log.Error().Err(err).Str("scope", "archive").Str("event", "archive_start_cast").Str("stream_id", id.String()).Msg("Error on MP4 cast start")
 		}
-	}(streamID, stream.mp4Chanel, stopCast)
+	}(archive, streamID, stream.mp4Chanel, stopCast)
 	return nil
 }

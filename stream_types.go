@@ -16,9 +16,6 @@ func (iotaIdx StreamType) String() string {
 }
 
 var (
-	supportedInputStreamTypes = map[StreamType]struct{}{
-		STREAM_TYPE_RTSP: {},
-	}
 	supportedOutputStreamTypes = map[StreamType]struct{}{
 		STREAM_TYPE_HLS: {},
 		STREAM_TYPE_MSE: {},

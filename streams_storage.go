@@ -14,66 +14,49 @@ import (
 // StreamsStorage Map wrapper for map[uuid.UUID]*StreamConfiguration with mutex for concurrent usage
 type StreamsStorage struct {
 	sync.RWMutex
-	Streams map[uuid.UUID]*StreamConfiguration `json:"rtsp_streams"`
+	store map[uuid.UUID]*StreamConfiguration
 }
 
 // NewStreamsStorageDefault prepares new allocated storage
 func NewStreamsStorageDefault() StreamsStorage {
-	return StreamsStorage{Streams: make(map[uuid.UUID]*StreamConfiguration)}
+	return StreamsStorage{store: make(map[uuid.UUID]*StreamConfiguration)}
 }
 
-func (sm *StreamsStorage) GetStream(id uuid.UUID) (string, []StreamType) {
-	sm.Lock()
-	defer sm.Unlock()
-	stream, ok := sm.Streams[id]
+// GetStreamInfo returns stream URL and its supported output types
+func (streams *StreamsStorage) GetStreamInfo(streamID uuid.UUID) (string, []StreamType) {
+	streams.Lock()
+	defer streams.Unlock()
+	stream, ok := streams.store[streamID]
 	if !ok {
 		return "", []StreamType{}
 	}
 	return stream.URL, stream.SupportedOutputTypes
 }
 
-// getKeys returns all storage streams' keys as slice
-func (sm *StreamsStorage) getKeys() []uuid.UUID {
-	sm.Lock()
-	defer sm.Unlock()
-	keys := make([]uuid.UUID, 0, len(sm.Streams))
-	for k := range sm.Streams {
+// GetAllStreamsIDS returns all storage streams' keys as slice
+func (streams *StreamsStorage) GetAllStreamsIDS() []uuid.UUID {
+	streams.Lock()
+	defer streams.Unlock()
+	keys := make([]uuid.UUID, 0, len(streams.store))
+	for k := range streams.store {
 		keys = append(keys, k)
 	}
 	return keys
 }
 
-func (streams *StreamsStorage) archiveEnabled(streamID uuid.UUID) (bool, error) {
+// StreamExists checks whenever given stream ID exists in storage
+func (streams *StreamsStorage) StreamExists(streamID uuid.UUID) bool {
 	streams.RLock()
 	defer streams.RUnlock()
-	stream, ok := streams.Streams[streamID]
-	if !ok {
-		return false, ErrStreamNotFound
-	}
-	return stream.archive != nil, nil
-}
-
-func (streams *StreamsStorage) getVerboseLevel(streamID uuid.UUID) VerboseLevel {
-	streams.RLock()
-	defer streams.RUnlock()
-	stream, ok := streams.Streams[streamID]
-	if !ok {
-		return VERBOSE_NONE
-	}
-	return stream.verboseLevel
-}
-
-func (streams *StreamsStorage) streamExists(streamID uuid.UUID) bool {
-	streams.RLock()
-	defer streams.RUnlock()
-	_, ok := streams.Streams[streamID]
+	_, ok := streams.store[streamID]
 	return ok
 }
 
-func (streams *StreamsStorage) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
+// TypeExistsForStream checks whenever specific stream ID supports then given output stream type
+func (streams *StreamsStorage) TypeExistsForStream(streamID uuid.UUID, streamType StreamType) bool {
 	streams.Lock()
 	defer streams.Unlock()
-	stream, ok := streams.Streams[streamID]
+	stream, ok := streams.store[streamID]
 	if !ok {
 		return false
 	}
@@ -82,10 +65,11 @@ func (streams *StreamsStorage) existsWithType(streamID uuid.UUID, streamType Str
 	return ok && typeEnabled
 }
 
-func (streams *StreamsStorage) addCodec(streamID uuid.UUID, codecs []av.CodecData) {
+// AddCodecForStream appends new codecs data for the given stream
+func (streams *StreamsStorage) AddCodecForStream(streamID uuid.UUID, codecs []av.CodecData) {
 	streams.Lock()
 	defer streams.Unlock()
-	stream, ok := streams.Streams[streamID]
+	stream, ok := streams.store[streamID]
 	if !ok {
 		return
 	}
@@ -95,10 +79,11 @@ func (streams *StreamsStorage) addCodec(streamID uuid.UUID, codecs []av.CodecDat
 	}
 }
 
-func (streams *StreamsStorage) getCodec(streamID uuid.UUID) ([]av.CodecData, error) {
+// GetCodecsDataForStream returns COPY of codecs data for the given stream
+func (streams *StreamsStorage) GetCodecsDataForStream(streamID uuid.UUID) ([]av.CodecData, error) {
 	streams.Lock()
 	defer streams.Unlock()
-	stream, ok := streams.Streams[streamID]
+	stream, ok := streams.store[streamID]
 	if !ok {
 		return nil, ErrStreamNotFound
 	}
@@ -114,10 +99,11 @@ func (streams *StreamsStorage) getCodec(streamID uuid.UUID) ([]av.CodecData, err
 	return codecs, nil
 }
 
-func (streams *StreamsStorage) updateStreamStatus(streamID uuid.UUID, status bool) error {
+// UpdateStreamStatus sets new status value for the given stream
+func (streams *StreamsStorage) UpdateStreamStatus(streamID uuid.UUID, status bool) error {
 	streams.Lock()
 	defer streams.Unlock()
-	stream, ok := streams.Streams[streamID]
+	stream, ok := streams.store[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
@@ -128,10 +114,11 @@ func (streams *StreamsStorage) updateStreamStatus(streamID uuid.UUID, status boo
 	return nil
 }
 
-func (streams *StreamsStorage) addClient(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
+// AddViewer adds client to the given stream. Return newly client ID, buffered channel for stream on success
+func (streams *StreamsStorage) AddViewer(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
 	streams.Lock()
 	defer streams.Unlock()
-	stream, ok := streams.Streams[streamID]
+	stream, ok := streams.store[streamID]
 	if !ok {
 		return uuid.UUID{}, nil, ErrStreamNotFound
 	}
@@ -147,10 +134,11 @@ func (streams *StreamsStorage) addClient(streamID uuid.UUID) (uuid.UUID, chan av
 	return clientID, ch, nil
 }
 
-func (streams *StreamsStorage) deleteClient(streamID, clientID uuid.UUID) {
+// DeleteViewer removes given client from the stream
+func (streams *StreamsStorage) DeleteViewer(streamID, clientID uuid.UUID) {
 	streams.Lock()
 	defer streams.Unlock()
-	stream, ok := streams.Streams[streamID]
+	stream, ok := streams.store[streamID]
 	if !ok {
 		return
 	}
@@ -160,10 +148,11 @@ func (streams *StreamsStorage) deleteClient(streamID, clientID uuid.UUID) {
 	delete(stream.Clients, clientID)
 }
 
-func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled, archiveEnabled bool) error {
+// CastPacket cast AV Packet to viewers and possible to HLS/MP4 channels
+func (streams *StreamsStorage) CastPacket(streamID uuid.UUID, pck av.Packet, hlsEnabled, archiveEnabled bool) error {
 	streams.Lock()
 	defer streams.Unlock()
-	stream, ok := streams.Streams[streamID]
+	stream, ok := streams.store[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
@@ -184,10 +173,33 @@ func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnable
 	return nil
 }
 
-func (streams *StreamsStorage) setArchiveStream(streamID uuid.UUID, archiveStorage *streamArhive) error {
+// GetVerboseLevelForStream returst verbose level for the given stream
+func (streams *StreamsStorage) GetVerboseLevelForStream(streamID uuid.UUID) VerboseLevel {
+	streams.RLock()
+	defer streams.RUnlock()
+	stream, ok := streams.store[streamID]
+	if !ok {
+		return VERBOSE_NONE
+	}
+	return stream.verboseLevel
+}
+
+// IsArchiveEnabledForStream returns whenever archive has been enabled for stream
+func (streams *StreamsStorage) IsArchiveEnabledForStream(streamID uuid.UUID) (bool, error) {
+	streams.RLock()
+	defer streams.RUnlock()
+	stream, ok := streams.store[streamID]
+	if !ok {
+		return false, ErrStreamNotFound
+	}
+	return stream.archive != nil, nil
+}
+
+// UpdateArchiveStorageForStream updates archive storage configuration (it override existing one!)
+func (streams *StreamsStorage) UpdateArchiveStorageForStream(streamID uuid.UUID, archiveStorage *streamArhive) error {
 	streams.Lock()
 	defer streams.Unlock()
-	stream, ok := streams.Streams[streamID]
+	stream, ok := streams.store[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
@@ -195,10 +207,11 @@ func (streams *StreamsStorage) setArchiveStream(streamID uuid.UUID, archiveStora
 	return nil
 }
 
-func (streams *StreamsStorage) getStreamArchive(streamID uuid.UUID) *streamArhive {
+// GetStreamArchiveStorage returns pointer to the archive storage for the given stream
+func (streams *StreamsStorage) GetStreamArchiveStorage(streamID uuid.UUID) *streamArhive {
 	streams.Lock()
 	defer streams.Unlock()
-	stream, ok := streams.Streams[streamID]
+	stream, ok := streams.store[streamID]
 	if !ok {
 		return nil
 	}

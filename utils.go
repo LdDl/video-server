@@ -1,6 +1,7 @@
 package videoserver
 
 import (
+	"os"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -37,3 +38,12 @@ func readerCount(rw *sync.RWMutex) int64 {
 // func readerCount(rw *sync.RWMutex) int64 {
 // return reflect.ValueOf(rw).Elem().FieldByName("readerCount").Int()
 // }
+
+// ensureDir alias to 'mkdir -p'
+func ensureDir(dirName string) error {
+	err := os.MkdirAll(dirName, 0777)
+	if err == nil || os.IsExist(err) {
+		return nil
+	}
+	return err
+}

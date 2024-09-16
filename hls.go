@@ -47,7 +47,7 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 		tsMuxer := ts.NewMuxer(outFile)
 
 		// Write header
-		codecData, err := app.getCodec(streamID)
+		codecData, err := app.Streams.GetCodecsDataForStream(streamID)
 		if err != nil {
 			return errors.Wrap(err, streamID.String())
 		}
@@ -201,13 +201,4 @@ func (app *Application) removeOutdatedSegments(streamID uuid.UUID, playlist *m3u
 		}
 	}
 	return nil
-}
-
-// ensureDir alias to 'mkdir -p'
-func ensureDir(dirName string) error {
-	err := os.MkdirAll(dirName, 0777)
-	if err == nil || os.IsExist(err) {
-		return nil
-	}
-	return err
 }
