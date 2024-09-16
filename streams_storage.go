@@ -184,7 +184,8 @@ func (streams *StreamsStorage) GetVerboseLevelForStream(streamID uuid.UUID) Verb
 	return stream.verboseLevel
 }
 
-func (streams *StreamsStorage) archiveEnabledForStream(streamID uuid.UUID) (bool, error) {
+// IsArchiveEnabledForStream returns whenever archive has been enabled for stream
+func (streams *StreamsStorage) IsArchiveEnabledForStream(streamID uuid.UUID) (bool, error) {
 	streams.RLock()
 	defer streams.RUnlock()
 	stream, ok := streams.store[streamID]

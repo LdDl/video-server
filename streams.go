@@ -37,7 +37,7 @@ func (app *Application) RunStream(ctx context.Context, streamID uuid.UUID) error
 		return ErrStreamNotFound
 	}
 	hlsEnabled := typeExists(STREAM_TYPE_HLS, supportedTypes)
-	archiveEnabled, err := app.Streams.archiveEnabledForStream(streamID)
+	archiveEnabled, err := app.Streams.IsArchiveEnabledForStream(streamID)
 	if err != nil {
 		return errors.Wrap(err, "Can't enable archive")
 	}
