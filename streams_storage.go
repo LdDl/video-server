@@ -195,7 +195,7 @@ func (streams *StreamsStorage) setArchiveStream(streamID uuid.UUID, archiveStora
 	return nil
 }
 
-func (streams *StreamsStorage) getArchiveStream(streamID uuid.UUID) *streamArhive {
+func (streams *StreamsStorage) getStreamArchive(streamID uuid.UUID) *streamArhive {
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.Streams[streamID]

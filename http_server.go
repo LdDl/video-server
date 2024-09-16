@@ -78,7 +78,7 @@ func ListWrapper(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Cont
 		if verboseLevel > VERBOSE_SIMPLE {
 			log.Info().Str("scope", SCOPE_API_SERVER).Str("event", EVENT_API_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg("Call streams list")
 		}
-		allStreamsIDs := app.getStreamsIDs()
+		allStreamsIDs := app.Streams.getKeys()
 		ans := StreamsInfoShortenList{
 			Data: make([]StreamInfoShorten, len(allStreamsIDs)),
 		}

@@ -150,7 +150,7 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 			default:
 				return nil, fmt.Errorf("unsupported archive type")
 			}
-			err = tmp.SetStreamArchive(validUUID, &archiveStorage)
+			err = tmp.Streams.setArchiveStream(validUUID, &archiveStorage)
 			if err != nil {
 				return nil, errors.Wrap(err, "can't set archive for given stream")
 			}
@@ -235,16 +235,4 @@ func (app *Application) startMP4Cast(streamID uuid.UUID, stopCast chan bool) err
 		}
 	}(streamID, stream.mp4Chanel, stopCast)
 	return nil
-}
-
-func (app *Application) getStreamsIDs() []uuid.UUID {
-	return app.Streams.getKeys()
-}
-
-func (app *Application) SetStreamArchive(streamID uuid.UUID, archiveStorage *streamArhive) error {
-	return app.Streams.setArchiveStream(streamID, archiveStorage)
-}
-
-func (app *Application) getStreamArchive(streamID uuid.UUID) *streamArhive {
-	return app.Streams.getArchiveStream(streamID)
 }

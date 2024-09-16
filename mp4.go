@@ -18,7 +18,7 @@ import (
 
 func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
 	var err error
-	archive := app.getStreamArchive(streamID)
+	archive := app.Streams.getStreamArchive(streamID)
 	if archive == nil {
 		return errors.Wrap(err, "Bad archive stream")
 	}

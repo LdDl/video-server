@@ -75,7 +75,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 		if streamVerboseLevel > VERBOSE_NONE {
 			log.Info().Str("scope", "streaming").Str("event", "stream_mp4_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Need to start casting to MP4 archive")
 		}
-		archive := app.getStreamArchive(streamID)
+		archive := app.Streams.getStreamArchive(streamID)
 		if archive == nil {
 			log.Warn().Str("scope", "streaming").Str("event", "stream_mp4_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Empty archive configuration for the given stream")
 		} else {
