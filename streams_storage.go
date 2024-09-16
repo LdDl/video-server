@@ -44,26 +44,6 @@ func (streams *StreamsStorage) GetAllStreamsIDS() []uuid.UUID {
 	return keys
 }
 
-func (streams *StreamsStorage) archiveEnabledForStream(streamID uuid.UUID) (bool, error) {
-	streams.RLock()
-	defer streams.RUnlock()
-	stream, ok := streams.store[streamID]
-	if !ok {
-		return false, ErrStreamNotFound
-	}
-	return stream.archive != nil, nil
-}
-
-func (streams *StreamsStorage) getVerboseLevelForStream(streamID uuid.UUID) VerboseLevel {
-	streams.RLock()
-	defer streams.RUnlock()
-	stream, ok := streams.store[streamID]
-	if !ok {
-		return VERBOSE_NONE
-	}
-	return stream.verboseLevel
-}
-
 // StreamExists checks whenever given stream ID exists in storage
 func (streams *StreamsStorage) StreamExists(streamID uuid.UUID) bool {
 	streams.RLock()
@@ -168,7 +148,8 @@ func (streams *StreamsStorage) DeleteViewer(streamID, clientID uuid.UUID) {
 	delete(stream.Clients, clientID)
 }
 
-func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled, archiveEnabled bool) error {
+// CastPacket cast AV Packet to viewers and possible to HLS/MP4 channels
+func (streams *StreamsStorage) CastPacket(streamID uuid.UUID, pck av.Packet, hlsEnabled, archiveEnabled bool) error {
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
@@ -190,6 +171,26 @@ func (streams *StreamsStorage) cast(streamID uuid.UUID, pck av.Packet, hlsEnable
 		}
 	}
 	return nil
+}
+
+func (streams *StreamsStorage) getVerboseLevelForStream(streamID uuid.UUID) VerboseLevel {
+	streams.RLock()
+	defer streams.RUnlock()
+	stream, ok := streams.store[streamID]
+	if !ok {
+		return VERBOSE_NONE
+	}
+	return stream.verboseLevel
+}
+
+func (streams *StreamsStorage) archiveEnabledForStream(streamID uuid.UUID) (bool, error) {
+	streams.RLock()
+	defer streams.RUnlock()
+	stream, ok := streams.store[streamID]
+	if !ok {
+		return false, ErrStreamNotFound
+	}
+	return stream.archive != nil, nil
 }
 
 func (streams *StreamsStorage) setArchiveStream(streamID uuid.UUID, archiveStorage *streamArhive) error {

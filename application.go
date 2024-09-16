@@ -173,10 +173,6 @@ func (app *Application) setCors(cfg configuration.CORSConfiguration) {
 	app.CorsConfig.AllowCredentials = cfg.AllowCredentials
 }
 
-func (app *Application) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled, archiveEnabled bool) error {
-	return app.Streams.cast(streamID, pck, hlsEnabled, archiveEnabled)
-}
-
 func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()

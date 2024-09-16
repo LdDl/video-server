@@ -129,7 +129,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 			if streamVerboseLevel > VERBOSE_ADD {
 				log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Casting packet")
 			}
-			err = app.cast(streamID, *packetAV, hlsEnabled, archiveEnabled)
+			err = app.Streams.CastPacket(streamID, *packetAV, hlsEnabled, archiveEnabled)
 			if err != nil {
 				if hlsEnabled {
 					if streamVerboseLevel > VERBOSE_NONE {
