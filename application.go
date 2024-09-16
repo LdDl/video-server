@@ -150,7 +150,7 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 			default:
 				return nil, fmt.Errorf("unsupported archive type")
 			}
-			err = tmp.Streams.setArchiveStream(validUUID, &archiveStorage)
+			err = tmp.Streams.UpdateArchiveStorageForStream(validUUID, &archiveStorage)
 			if err != nil {
 				return nil, errors.Wrap(err, "can't set archive for given stream")
 			}

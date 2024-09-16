@@ -195,7 +195,8 @@ func (streams *StreamsStorage) IsArchiveEnabledForStream(streamID uuid.UUID) (bo
 	return stream.archive != nil, nil
 }
 
-func (streams *StreamsStorage) setArchiveStream(streamID uuid.UUID, archiveStorage *streamArhive) error {
+// UpdateArchiveStorageForStream updates archive storage configuration (it override existing one!)
+func (streams *StreamsStorage) UpdateArchiveStorageForStream(streamID uuid.UUID, archiveStorage *streamArhive) error {
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
