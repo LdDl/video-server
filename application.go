@@ -177,14 +177,6 @@ func (app *Application) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled, arch
 	return app.Streams.cast(streamID, pck, hlsEnabled, archiveEnabled)
 }
 
-func (app *Application) streamExists(streamID uuid.UUID) bool {
-	return app.Streams.streamExists(streamID)
-}
-
-func (app *Application) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
-	return app.Streams.existsWithType(streamID, streamType)
-}
-
 func (app *Application) addCodec(streamID uuid.UUID, codecs []av.CodecData) {
 	app.Streams.addCodec(streamID, codecs)
 }

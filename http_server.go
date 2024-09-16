@@ -78,7 +78,7 @@ func ListWrapper(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Cont
 		if verboseLevel > VERBOSE_SIMPLE {
 			log.Info().Str("scope", SCOPE_API_SERVER).Str("event", EVENT_API_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg("Call streams list")
 		}
-		allStreamsIDs := app.Streams.getKeys()
+		allStreamsIDs := app.Streams.GetAllStreamsIDS()
 		ans := StreamsInfoShortenList{
 			Data: make([]StreamInfoShorten, len(allStreamsIDs)),
 		}
@@ -123,7 +123,7 @@ func EnableCamera(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Con
 			ctx.JSON(http.StatusBadRequest, gin.H{"Error": errReason})
 			return
 		}
-		if exist := app.streamExists(postData.GUID); !exist {
+		if exist := app.Streams.StreamExists(postData.GUID); !exist {
 			outputTypes := make([]StreamType, 0, len(postData.OutputTypes))
 			for _, v := range postData.OutputTypes {
 				typ, ok := streamTypeExists(v)
@@ -169,7 +169,7 @@ func DisableCamera(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Co
 			ctx.JSON(http.StatusBadRequest, gin.H{"Error": errReason})
 			return
 		}
-		if exist := app.streamExists(postData.GUID); exist {
+		if exist := app.Streams.StreamExists(postData.GUID); exist {
 			app.Streams.Lock()
 			delete(app.Streams.store, postData.GUID)
 			app.Streams.Unlock()

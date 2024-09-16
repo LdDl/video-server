@@ -14,7 +14,7 @@ import (
 // StreamsStorage Map wrapper for map[uuid.UUID]*StreamConfiguration with mutex for concurrent usage
 type StreamsStorage struct {
 	sync.RWMutex
-	store map[uuid.UUID]*StreamConfiguration `json:"rtsp_streams"`
+	store map[uuid.UUID]*StreamConfiguration
 }
 
 // NewStreamsStorageDefault prepares new allocated storage
@@ -22,6 +22,7 @@ func NewStreamsStorageDefault() StreamsStorage {
 	return StreamsStorage{store: make(map[uuid.UUID]*StreamConfiguration)}
 }
 
+// GetStreamInfo returns stream URL and its supported output types
 func (streams *StreamsStorage) GetStreamInfo(streamID uuid.UUID) (string, []StreamType) {
 	streams.Lock()
 	defer streams.Unlock()
@@ -32,8 +33,8 @@ func (streams *StreamsStorage) GetStreamInfo(streamID uuid.UUID) (string, []Stre
 	return stream.URL, stream.SupportedOutputTypes
 }
 
-// getKeys returns all storage streams' keys as slice
-func (streams *StreamsStorage) getKeys() []uuid.UUID {
+// GetAllStreamsIDS returns all storage streams' keys as slice
+func (streams *StreamsStorage) GetAllStreamsIDS() []uuid.UUID {
 	streams.Lock()
 	defer streams.Unlock()
 	keys := make([]uuid.UUID, 0, len(streams.store))
@@ -43,7 +44,7 @@ func (streams *StreamsStorage) getKeys() []uuid.UUID {
 	return keys
 }
 
-func (streams *StreamsStorage) archiveEnabled(streamID uuid.UUID) (bool, error) {
+func (streams *StreamsStorage) archiveEnabledForStream(streamID uuid.UUID) (bool, error) {
 	streams.RLock()
 	defer streams.RUnlock()
 	stream, ok := streams.store[streamID]
@@ -53,7 +54,7 @@ func (streams *StreamsStorage) archiveEnabled(streamID uuid.UUID) (bool, error) 
 	return stream.archive != nil, nil
 }
 
-func (streams *StreamsStorage) getVerboseLevel(streamID uuid.UUID) VerboseLevel {
+func (streams *StreamsStorage) getVerboseLevelForStream(streamID uuid.UUID) VerboseLevel {
 	streams.RLock()
 	defer streams.RUnlock()
 	stream, ok := streams.store[streamID]
@@ -63,14 +64,16 @@ func (streams *StreamsStorage) getVerboseLevel(streamID uuid.UUID) VerboseLevel 
 	return stream.verboseLevel
 }
 
-func (streams *StreamsStorage) streamExists(streamID uuid.UUID) bool {
+// StreamExists checks whenever given stream ID exists in storage
+func (streams *StreamsStorage) StreamExists(streamID uuid.UUID) bool {
 	streams.RLock()
 	defer streams.RUnlock()
 	_, ok := streams.store[streamID]
 	return ok
 }
 
-func (streams *StreamsStorage) existsWithType(streamID uuid.UUID, streamType StreamType) bool {
+// TypeExistsForStream checks whenever specific stream ID supports then given output stream type
+func (streams *StreamsStorage) TypeExistsForStream(streamID uuid.UUID, streamType StreamType) bool {
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]

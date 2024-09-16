@@ -15,7 +15,7 @@ const (
 
 // StartStreams starts all video streams
 func (app *Application) StartStreams() {
-	streamsIDs := app.Streams.getKeys()
+	streamsIDs := app.Streams.GetAllStreamsIDS()
 	for i := range streamsIDs {
 		app.StartStream(streamsIDs[i])
 	}
@@ -37,11 +37,11 @@ func (app *Application) RunStream(ctx context.Context, streamID uuid.UUID) error
 		return ErrStreamNotFound
 	}
 	hlsEnabled := typeExists(STREAM_TYPE_HLS, supportedTypes)
-	archiveEnabled, err := app.Streams.archiveEnabled(streamID)
+	archiveEnabled, err := app.Streams.archiveEnabledForStream(streamID)
 	if err != nil {
 		return errors.Wrap(err, "Can't enable archive")
 	}
-	streamVerboseLevel := app.Streams.getVerboseLevel(streamID)
+	streamVerboseLevel := app.Streams.getVerboseLevelForStream(streamID)
 	app.startLoop(ctx, streamID, url, hlsEnabled, archiveEnabled, streamVerboseLevel)
 	return nil
 }

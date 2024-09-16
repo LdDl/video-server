@@ -48,7 +48,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		closeWSwithError(conn, 1011, errReason)
 		return
 	}
-	mseExists := app.existsWithType(streamID, STREAM_TYPE_MSE)
+	mseExists := app.Streams.TypeExistsForStream(streamID, STREAM_TYPE_MSE)
 	if verboseLevel > VERBOSE_SIMPLE {
 		log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Bool("mse_exists", mseExists).Msg("Validate stream type")
 	}
