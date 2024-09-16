@@ -196,7 +196,7 @@ func (streams *StreamsStorage) IsArchiveEnabledForStream(streamID uuid.UUID) (bo
 }
 
 // UpdateArchiveStorageForStream updates archive storage configuration (it override existing one!)
-func (streams *StreamsStorage) UpdateArchiveStorageForStream(streamID uuid.UUID, archiveStorage *streamArhive) error {
+func (streams *StreamsStorage) UpdateArchiveStorageForStream(streamID uuid.UUID, archiveStorage *StreamArchiveWrapper) error {
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
@@ -208,7 +208,7 @@ func (streams *StreamsStorage) UpdateArchiveStorageForStream(streamID uuid.UUID,
 }
 
 // GetStreamArchiveStorage returns pointer to the archive storage for the given stream
-func (streams *StreamsStorage) GetStreamArchiveStorage(streamID uuid.UUID) *streamArhive {
+func (streams *StreamsStorage) GetStreamArchiveStorage(streamID uuid.UUID) *StreamArchiveWrapper {
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]

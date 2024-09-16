@@ -1,7 +1,6 @@
 package videoserver
 
 import (
-	"github.com/LdDl/video-server/storage"
 	"github.com/deepch/vdk/av"
 	"github.com/google/uuid"
 )
@@ -16,15 +15,7 @@ type StreamConfiguration struct {
 	hlsChanel            chan av.Packet
 	mp4Chanel            chan av.Packet
 	verboseLevel         VerboseLevel
-	archive              *streamArhive
-}
-
-type streamArhive struct {
-	store        storage.ArchiveStorage
-	dir          string
-	bucket       string
-	bucketPath   string
-	msPerSegment int64
+	archive              *StreamArchiveWrapper
 }
 
 // NewStreamConfiguration returns default configuration

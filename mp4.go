@@ -16,7 +16,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (app *Application) startMP4(archive *streamArhive, streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
+func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
 	if archive == nil {
 		return ErrNullArchive
 	}
