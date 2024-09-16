@@ -173,7 +173,8 @@ func (streams *StreamsStorage) CastPacket(streamID uuid.UUID, pck av.Packet, hls
 	return nil
 }
 
-func (streams *StreamsStorage) getVerboseLevelForStream(streamID uuid.UUID) VerboseLevel {
+// GetVerboseLevelForStream returst verbose level for the given stream
+func (streams *StreamsStorage) GetVerboseLevelForStream(streamID uuid.UUID) VerboseLevel {
 	streams.RLock()
 	defer streams.RUnlock()
 	stream, ok := streams.store[streamID]

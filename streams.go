@@ -41,7 +41,7 @@ func (app *Application) RunStream(ctx context.Context, streamID uuid.UUID) error
 	if err != nil {
 		return errors.Wrap(err, "Can't enable archive")
 	}
-	streamVerboseLevel := app.Streams.getVerboseLevelForStream(streamID)
+	streamVerboseLevel := app.Streams.GetVerboseLevelForStream(streamID)
 	app.startLoop(ctx, streamID, url, hlsEnabled, archiveEnabled, streamVerboseLevel)
 	return nil
 }
