@@ -171,6 +171,15 @@ func (app *Application) setCors(cfg configuration.CORSConfiguration) {
 	}
 	app.CorsConfig.ExposeHeaders = cfg.ExposeHeaders
 	app.CorsConfig.AllowCredentials = cfg.AllowCredentials
+	// See https://github.com/gofiber/fiber/security/advisories/GHSA-fmg4-x8pw-hjhg
+	if app.CorsConfig.AllowCredentials {
+		for _, v := range app.CorsConfig.AllowOrigins {
+			if v == "*" {
+				log.Warn().Str("scope", SCOPE_APP).Str("event", EVENT_APP_CORS_CONFIG).Msg("[CORS] Insecure setup, 'AllowCredentials' is set to true, and 'AllowOrigins' is set to a wildcard. Settings 'AllowCredentials' to be 'false'. See https://github.com/gofiber/fiber/security/advisories/GHSA-fmg4-x8pw-hjhg")
+				app.CorsConfig.AllowCredentials = false
+			}
+		}
+	}
 }
 
 func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) error {
