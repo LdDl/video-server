@@ -118,11 +118,11 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 					return nil, errors.Wrap(err, "Can't create filesystem provider")
 				}
 				archiveStorage = StreamArchiveWrapper{
-					store:        fsStorage,
-					dir:          rtspStream.Archive.Directory,
-					bucket:       rtspStream.Archive.Directory,
-					bucketPath:   rtspStream.Archive.Directory,
-					msPerSegment: rtspStream.Archive.MsPerSegment,
+					store:         fsStorage,
+					filesystemDir: rtspStream.Archive.Directory,
+					bucket:        rtspStream.Archive.Directory,
+					bucketPath:    rtspStream.Archive.Directory,
+					msPerSegment:  rtspStream.Archive.MsPerSegment,
 				}
 			case storage.STORAGE_MINIO:
 				if !minioEnabled {
@@ -141,11 +141,11 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 					return nil, errors.Wrap(err, "Can't create MinIO provider")
 				}
 				archiveStorage = StreamArchiveWrapper{
-					store:        minioStorage,
-					dir:          rtspStream.Archive.Directory,
-					bucket:       rtspStream.Archive.MinioBucket,
-					bucketPath:   rtspStream.Archive.MinioPath,
-					msPerSegment: rtspStream.Archive.MsPerSegment,
+					store:         minioStorage,
+					filesystemDir: rtspStream.Archive.Directory,
+					bucket:        rtspStream.Archive.MinioBucket,
+					bucketPath:    rtspStream.Archive.MinioPath,
+					msPerSegment:  rtspStream.Archive.MsPerSegment,
 				}
 			default:
 				return nil, fmt.Errorf("unsupported archive type")

@@ -25,7 +25,7 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 	if err != nil {
 		return errors.Wrap(err, "Can't prepare bucket")
 	}
-	err = ensureDir(archive.dir)
+	err = ensureDir(archive.filesystemDir)
 	if err != nil {
 		return errors.Wrap(err, "Can't create directory for mp4 temporary files")
 	}
@@ -40,7 +40,7 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 		// Create new segment file
 		st := time.Now()
 		segmentName := fmt.Sprintf("%s_%d.mp4", streamID, lastSegmentTime.Unix())
-		segmentPath := filepath.Join(archive.dir, segmentName)
+		segmentPath := filepath.Join(archive.filesystemDir, segmentName)
 		outFile, err := os.Create(segmentPath)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("Can't create mp4-segment for stream %s", streamID))
