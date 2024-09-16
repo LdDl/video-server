@@ -20,7 +20,7 @@ var (
 // wshandler is a websocket handler for user connection
 func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Request, app *Application, verboseLevel VerboseLevel) {
 	var streamID, clientID uuid.UUID
-	var mseExists bool
+	var mseExists, clientAdded bool
 
 	streamIDSTR := r.FormValue("stream_id")
 	if verboseLevel > VERBOSE_SIMPLE {
@@ -39,7 +39,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		if verboseLevel > VERBOSE_SIMPLE {
 			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Msg("Connection has been closed")
 		}
-		if mseExists {
+		if mseExists && clientAdded {
 			app.Streams.DeleteViewer(streamID, clientID)
 			if verboseLevel > VERBOSE_SIMPLE {
 				log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Client has been removed")
@@ -80,6 +80,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 			closeWSwithError(conn, 1011, errReason)
 			return
 		}
+		clientAdded = true
 		if verboseLevel > VERBOSE_SIMPLE {
 			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Client has been added")
 		}
