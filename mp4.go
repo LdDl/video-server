@@ -16,12 +16,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
+func (app *Application) startMP4(archive *streamArhive, streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
 	var err error
-	archive := app.Streams.getStreamArchive(streamID)
-	if archive == nil {
-		return errors.Wrap(err, "Bad archive stream")
-	}
 	err = archive.store.MakeBucket(archive.bucket)
 	if err != nil {
 		return errors.Wrap(err, "Can't prepare bucket")

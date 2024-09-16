@@ -207,7 +207,8 @@ func (streams *StreamsStorage) UpdateArchiveStorageForStream(streamID uuid.UUID,
 	return nil
 }
 
-func (streams *StreamsStorage) getStreamArchive(streamID uuid.UUID) *streamArhive {
+// GetStreamArchiveStorage returns pointer to the archive storage for the given stream
+func (streams *StreamsStorage) GetStreamArchiveStorage(streamID uuid.UUID) *streamArhive {
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]

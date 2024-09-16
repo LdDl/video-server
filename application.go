@@ -189,18 +189,18 @@ func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) err
 	return nil
 }
 
-func (app *Application) startMP4Cast(streamID uuid.UUID, stopCast chan bool) error {
+func (app *Application) startMP4Cast(archive *streamArhive, streamID uuid.UUID, stopCast chan bool) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	stream, ok := app.Streams.store[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
-	go func(id uuid.UUID, mp4Chanel chan av.Packet, stop chan bool) {
-		err := app.startMP4(id, mp4Chanel, stop)
+	go func(arch *streamArhive, id uuid.UUID, mp4Chanel chan av.Packet, stop chan bool) {
+		err := app.startMP4(arch, id, mp4Chanel, stop)
 		if err != nil {
 			log.Error().Err(err).Str("scope", "archive").Str("event", "archive_start_cast").Str("stream_id", id.String()).Msg("Error on MP4 cast start")
 		}
-	}(streamID, stream.mp4Chanel, stopCast)
+	}(archive, streamID, stream.mp4Chanel, stopCast)
 	return nil
 }
