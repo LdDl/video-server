@@ -22,10 +22,10 @@ func NewStreamsStorageDefault() StreamsStorage {
 	return StreamsStorage{store: make(map[uuid.UUID]*StreamConfiguration)}
 }
 
-func (sm *StreamsStorage) GetStreamInfo(id uuid.UUID) (string, []StreamType) {
-	sm.Lock()
-	defer sm.Unlock()
-	stream, ok := sm.store[id]
+func (streams *StreamsStorage) GetStreamInfo(streamID uuid.UUID) (string, []StreamType) {
+	streams.Lock()
+	defer streams.Unlock()
+	stream, ok := streams.store[streamID]
 	if !ok {
 		return "", []StreamType{}
 	}
@@ -33,11 +33,11 @@ func (sm *StreamsStorage) GetStreamInfo(id uuid.UUID) (string, []StreamType) {
 }
 
 // getKeys returns all storage streams' keys as slice
-func (sm *StreamsStorage) getKeys() []uuid.UUID {
-	sm.Lock()
-	defer sm.Unlock()
-	keys := make([]uuid.UUID, 0, len(sm.store))
-	for k := range sm.store {
+func (streams *StreamsStorage) getKeys() []uuid.UUID {
+	streams.Lock()
+	defer streams.Unlock()
+	keys := make([]uuid.UUID, 0, len(streams.store))
+	for k := range streams.store {
 		keys = append(keys, k)
 	}
 	return keys
