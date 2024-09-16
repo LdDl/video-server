@@ -85,7 +85,8 @@ func (streams *StreamsStorage) TypeExistsForStream(streamID uuid.UUID, streamTyp
 	return ok && typeEnabled
 }
 
-func (streams *StreamsStorage) addCodec(streamID uuid.UUID, codecs []av.CodecData) {
+// AddCodecForStream appends new codecs data for the given stream
+func (streams *StreamsStorage) AddCodecForStream(streamID uuid.UUID, codecs []av.CodecData) {
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
