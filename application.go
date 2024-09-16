@@ -177,10 +177,6 @@ func (app *Application) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled, arch
 	return app.Streams.cast(streamID, pck, hlsEnabled, archiveEnabled)
 }
 
-func (app *Application) clientDelete(streamID, clientID uuid.UUID) {
-	app.Streams.deleteClient(streamID, clientID)
-}
-
 func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()

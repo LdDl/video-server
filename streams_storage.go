@@ -154,7 +154,8 @@ func (streams *StreamsStorage) AddViewer(streamID uuid.UUID) (uuid.UUID, chan av
 	return clientID, ch, nil
 }
 
-func (streams *StreamsStorage) deleteClient(streamID, clientID uuid.UUID) {
+// DeleteViewer removes given client from the stream
+func (streams *StreamsStorage) DeleteViewer(streamID, clientID uuid.UUID) {
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]

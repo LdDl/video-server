@@ -62,7 +62,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 			closeWSwithError(conn, 1011, errReason)
 			return
 		}
-		cuuid, ch, err := app.Streams.AddViewer(streamID)
+		clientID, ch, err := app.Streams.AddViewer(streamID)
 		if err != nil {
 			errReason := "Can't add client to the queue"
 			if verboseLevel > VERBOSE_NONE {
@@ -71,28 +71,28 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 			closeWSwithError(conn, 1011, errReason)
 			return
 		}
-		defer app.clientDelete(streamID, cuuid)
+		defer app.Streams.DeleteViewer(streamID, clientID)
 		if verboseLevel > VERBOSE_SIMPLE {
-			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Client has been added")
+			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Client has been added")
 		}
 
 		codecData, err := app.Streams.GetCodecsDataForStream(streamID)
 		if err != nil {
 			errReason := "Can't extract codec for stream"
 			if verboseLevel > VERBOSE_NONE {
-				log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg(errReason)
+				log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg(errReason)
 			}
 			closeWSwithError(conn, 1011, errReason)
 			return
 		}
 		if verboseLevel > VERBOSE_SIMPLE {
-			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Msg("Validate codecs")
+			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("codecs", codecData).Msg("Validate codecs")
 		}
 
 		if len(codecData) == 0 {
 			errReason := "No codec information"
 			if verboseLevel > VERBOSE_NONE {
-				log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg(errReason)
+				log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg(errReason)
 			}
 			closeWSwithError(conn, 1011, errReason)
 			return
@@ -102,43 +102,43 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		if err != nil {
 			errReason := "Can't write codec information to the header"
 			if verboseLevel > VERBOSE_NONE {
-				log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Msg(errReason)
+				log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("codecs", codecData).Msg(errReason)
 			}
 			closeWSwithError(conn, 1011, errReason)
 			return
 		}
 		if verboseLevel > VERBOSE_SIMPLE {
-			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Msg("Write header to muxer")
+			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("codecs", codecData).Msg("Write header to muxer")
 		}
 
 		meta, init := muxer.GetInit(codecData)
 		if verboseLevel > VERBOSE_SIMPLE {
-			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg("Get meta information")
+			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg("Get meta information")
 		}
 
 		err = conn.WriteMessage(websocket.BinaryMessage, append([]byte{9}, meta...))
 		if err != nil {
 			errReason := "Can't write meta information"
 			if verboseLevel > VERBOSE_NONE {
-				log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Str("meta", meta).Msg(errReason)
+				log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("codecs", codecData).Str("meta", meta).Msg(errReason)
 			}
 			closeWSwithError(conn, 1011, errReason)
 			return
 		}
 		if verboseLevel > VERBOSE_SIMPLE {
-			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg("Send meta information")
+			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg("Send meta information")
 		}
 		err = conn.WriteMessage(websocket.BinaryMessage, init)
 		if err != nil {
 			errReason := "Can't write initialization information"
 			if verboseLevel > VERBOSE_NONE {
-				log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg(errReason)
+				log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg(errReason)
 			}
 			closeWSwithError(conn, 1011, errReason)
 			return
 		}
 		if verboseLevel > VERBOSE_SIMPLE {
-			log.Info().Str("remote_addr", r.RemoteAddr).Str("event", EVENT_WS_UPGRADER).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg("Send initialization message")
+			log.Info().Str("remote_addr", r.RemoteAddr).Str("event", EVENT_WS_UPGRADER).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg("Send initialization message")
 		}
 
 		var start bool
@@ -147,7 +147,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 
 		go func(q, p chan bool) {
 			if verboseLevel > VERBOSE_SIMPLE {
-				log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Start loop in goroutine")
+				log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Start loop in goroutine")
 			}
 			for {
 				msgType, data, err := conn.ReadMessage()
@@ -155,22 +155,22 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 					q <- true
 					errReason := "Can't read message"
 					if verboseLevel > VERBOSE_NONE {
-						log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg(errReason)
+						log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg(errReason)
 					}
 					closeWSwithError(conn, 1011, errReason)
 					return
 				}
 				if verboseLevel > VERBOSE_SIMPLE {
-					log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Int("message_type", msgType).Int("data_len", len(data)).Msg("Read message in a loop")
+					log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Int("message_type", msgType).Int("data_len", len(data)).Msg("Read message in a loop")
 				}
 				if msgType == websocket.TextMessage && len(data) > 0 && string(data) == "ping" {
 					select {
 					case p <- true:
-						log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Int("message_type", msgType).Int("data_len", len(data)).Msg("Message has been sent")
+						log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Int("message_type", msgType).Int("data_len", len(data)).Msg("Message has been sent")
 						// message sent
 					default:
 						// message dropped
-						log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Int("message_type", msgType).Int("data_len", len(data)).Msg("Message has been dropped")
+						log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Int("message_type", msgType).Int("data_len", len(data)).Msg("Message has been dropped")
 					}
 				}
 			}
@@ -179,47 +179,47 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		noKeyFrames := time.NewTimer(keyFramesTimeout)
 
 		if verboseLevel > VERBOSE_SIMPLE {
-			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Start loop")
+			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Start loop")
 		}
 		for {
 			select {
 			case <-noKeyFrames.C:
 				if verboseLevel > VERBOSE_SIMPLE {
-					log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("No keyframes has been met")
+					log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("No keyframes has been met")
 				}
 				return
 			case <-quitCh:
 				if verboseLevel > VERBOSE_SIMPLE {
-					log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Quit")
+					log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Quit")
 				}
 				return
 			case <-rxPingCh:
 				if verboseLevel > VERBOSE_SIMPLE {
-					log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("'Ping' has been recieved")
+					log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("'Ping' has been recieved")
 				}
 				err := conn.WriteMessage(websocket.TextMessage, []byte("pong"))
 				if err != nil {
 					errReason := "Can't write PONG message"
 					if verboseLevel > VERBOSE_NONE {
-						log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg(errReason)
+						log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg(errReason)
 					}
 					closeWSwithError(conn, 1011, errReason)
 					return
 				}
 			case pck := <-ch:
 				if verboseLevel > VERBOSE_ADD {
-					log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Packet has been recieved from stream source")
+					log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Packet has been recieved from stream source")
 				}
 				if pck.IsKeyFrame {
 					if verboseLevel > VERBOSE_SIMPLE {
-						log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Packet is a keyframe")
+						log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Packet is a keyframe")
 					}
 					noKeyFrames.Reset(keyFramesTimeout)
 					start = true
 				}
 				if !start {
 					if verboseLevel > VERBOSE_ADD {
-						log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Stream has not been started")
+						log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Stream has not been started")
 					}
 					continue
 				}
@@ -227,23 +227,23 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 				if err != nil {
 					errReason := "Can't write packet to the muxer"
 					if verboseLevel > VERBOSE_NONE {
-						log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("packet_len", len(pck.Data)).Msg(errReason)
+						log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("packet_len", len(pck.Data)).Msg(errReason)
 					}
 					closeWSwithError(conn, 1011, errReason)
 					return
 				}
 				if verboseLevel > VERBOSE_ADD {
-					log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Bool("ready", ready).Int("buf_len", len(buf)).Msg("Write packet to the muxer")
+					log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Bool("ready", ready).Int("buf_len", len(buf)).Msg("Write packet to the muxer")
 				}
 				if ready {
 					if verboseLevel > VERBOSE_ADD {
-						log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Bool("ready", ready).Int("buf_len", len(buf)).Msg("Muxer is ready to write another packet")
+						log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Bool("ready", ready).Int("buf_len", len(buf)).Msg("Muxer is ready to write another packet")
 					}
 					err = conn.SetWriteDeadline(time.Now().Add(deadlineTimeout))
 					if err != nil {
 						errReason := "Can't set new deadline"
 						if verboseLevel > VERBOSE_NONE {
-							log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("packet_len", len(pck.Data)).Bool("ready", ready).Int("buf_len", len(buf)).Msg(errReason)
+							log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("packet_len", len(pck.Data)).Bool("ready", ready).Int("buf_len", len(buf)).Msg(errReason)
 						}
 						closeWSwithError(conn, 1011, errReason)
 						return
@@ -252,13 +252,13 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 					if err != nil {
 						errReason := "Can't write buffered message"
 						if verboseLevel > VERBOSE_NONE {
-							log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Any("packet_len", len(pck.Data)).Bool("ready", ready).Int("buf_len", len(buf)).Msg(errReason)
+							log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("packet_len", len(pck.Data)).Bool("ready", ready).Int("buf_len", len(buf)).Msg(errReason)
 						}
 						closeWSwithError(conn, 1011, errReason)
 						return
 					}
 					if verboseLevel > VERBOSE_ADD {
-						log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Bool("ready", ready).Int("buf_len", len(buf)).Msg("Write buffer to the client")
+						log.Info().Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Bool("ready", ready).Int("buf_len", len(buf)).Msg("Write buffer to the client")
 					}
 				}
 			}
