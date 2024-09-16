@@ -9,7 +9,8 @@
     "video": {
         "host": "localhost",
         "port": 8090,
-        "mode": "release"
+        "mode": "release",
+        "verbose": "v"
     },
     "hls": {
         "ms_per_segment": 10000,

@@ -36,9 +36,10 @@ type APIConfiguration struct {
 
 // VideoConfiguration is just copy of configuration.VideoConfiguration but with some not exported fields
 type VideoConfiguration struct {
-	Host string `json:"host"`
-	Port int32  `json:"port"`
-	Mode string `json:"-"`
+	Host    string       `json:"host"`
+	Port    int32        `json:"port"`
+	Mode    string       `json:"-"`
+	Verbose VerboseLevel `json:"-"`
 }
 
 // HLSInfo is an information about HLS parameters for server
@@ -67,8 +68,9 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 			Verbose: NewVerboseLevelFrom(cfg.APICfg.Verbose),
 		},
 		VideoServerCfg: VideoConfiguration{
-			Host: cfg.VideoServerCfg.Host,
-			Port: cfg.VideoServerCfg.Port,
+			Host:    cfg.VideoServerCfg.Host,
+			Port:    cfg.VideoServerCfg.Port,
+			Verbose: NewVerboseLevelFrom(cfg.VideoServerCfg.Verbose),
 		},
 		Streams: NewStreamsStorageDefault(),
 		HLS: HLSInfo{
