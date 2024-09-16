@@ -47,7 +47,7 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 		tsMuxer := ts.NewMuxer(outFile)
 
 		// Write header
-		codecData, err := app.getCodec(streamID)
+		codecData, err := app.Streams.GetCodecsDataForStream(streamID)
 		if err != nil {
 			return errors.Wrap(err, streamID.String())
 		}

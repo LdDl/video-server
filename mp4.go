@@ -48,7 +48,7 @@ func (app *Application) startMP4(streamID uuid.UUID, ch chan av.Packet, stopCast
 		}
 		tsMuxer := mp4.NewMuxer(outFile)
 		log.Info().Str("scope", "archive").Str("event", "archive_create_file").Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Create segment")
-		codecData, err := app.getCodec(streamID)
+		codecData, err := app.Streams.GetCodecsDataForStream(streamID)
 		if err != nil {
 			return errors.Wrap(err, streamID.String())
 		}

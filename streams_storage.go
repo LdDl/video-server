@@ -99,7 +99,8 @@ func (streams *StreamsStorage) AddCodecForStream(streamID uuid.UUID, codecs []av
 	}
 }
 
-func (streams *StreamsStorage) getCodec(streamID uuid.UUID) ([]av.CodecData, error) {
+// GetCodecsDataForStream returns COPY of codecs data for the given stream
+func (streams *StreamsStorage) GetCodecsDataForStream(streamID uuid.UUID) ([]av.CodecData, error) {
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]

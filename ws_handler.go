@@ -76,7 +76,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", cuuid.String()).Msg("Client has been added")
 		}
 
-		codecData, err := app.getCodec(streamID)
+		codecData, err := app.Streams.GetCodecsDataForStream(streamID)
 		if err != nil {
 			errReason := "Can't extract codec for stream"
 			if verboseLevel > VERBOSE_NONE {

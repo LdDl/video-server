@@ -177,10 +177,6 @@ func (app *Application) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled, arch
 	return app.Streams.cast(streamID, pck, hlsEnabled, archiveEnabled)
 }
 
-func (app *Application) getCodec(streamID uuid.UUID) ([]av.CodecData, error) {
-	return app.Streams.getCodec(streamID)
-}
-
 func (app *Application) updateStreamStatus(streamID uuid.UUID, status bool) error {
 	return app.Streams.updateStreamStatus(streamID, status)
 }
