@@ -35,11 +35,11 @@ func (sm *StreamsStorage) GetStream(id uuid.UUID) (string, []StreamType) {
 // getKeys returns all storage streams' keys as slice
 func (sm *StreamsStorage) getKeys() []uuid.UUID {
 	sm.Lock()
+	defer sm.Unlock()
 	keys := make([]uuid.UUID, 0, len(sm.Streams))
 	for k := range sm.Streams {
 		keys = append(keys, k)
 	}
-	sm.Unlock()
 	return keys
 }
 
@@ -65,8 +65,8 @@ func (streams *StreamsStorage) getVerboseLevel(streamID uuid.UUID) VerboseLevel 
 
 func (streams *StreamsStorage) streamExists(streamID uuid.UUID) bool {
 	streams.RLock()
+	defer streams.RUnlock()
 	_, ok := streams.Streams[streamID]
-	streams.RUnlock()
 	return ok
 }
 
