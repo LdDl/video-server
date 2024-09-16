@@ -23,12 +23,12 @@ func (app *Application) StartStreams() {
 
 // StartStream starts single video stream
 func (app *Application) StartStream(streamID uuid.UUID) {
-	go func() {
-		err := app.RunStream(context.Background(), streamID)
+	go func(id uuid.UUID) {
+		err := app.RunStream(context.Background(), id)
 		if err != nil {
-			log.Error().Err(err).Str("scope", "streaming").Str("event", "stream_run").Str("stream_id", streamID.String()).Msg("Error on stream runner")
+			log.Error().Err(err).Str("scope", "streaming").Str("event", "stream_run").Str("stream_id", id.String()).Msg("Error on stream runner")
 		}
-	}()
+	}(streamID)
 }
 
 func (app *Application) RunStream(ctx context.Context, streamID uuid.UUID) error {
