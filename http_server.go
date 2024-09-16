@@ -146,7 +146,7 @@ func EnableCamera(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Con
 				outputTypes = append(outputTypes, typ)
 			}
 			app.Streams.Lock()
-			app.Streams.Streams[postData.GUID] = NewStreamConfiguration(postData.URL, outputTypes)
+			app.Streams.store[postData.GUID] = NewStreamConfiguration(postData.URL, outputTypes)
 			app.Streams.Unlock()
 			app.StartStream(postData.GUID)
 		}
@@ -171,7 +171,7 @@ func DisableCamera(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Co
 		}
 		if exist := app.streamExists(postData.GUID); exist {
 			app.Streams.Lock()
-			delete(app.Streams.Streams, postData.GUID)
+			delete(app.Streams.store, postData.GUID)
 			app.Streams.Unlock()
 		}
 		ctx.JSON(200, app)

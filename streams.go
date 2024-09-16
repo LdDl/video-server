@@ -32,7 +32,7 @@ func (app *Application) StartStream(streamID uuid.UUID) {
 }
 
 func (app *Application) RunStream(ctx context.Context, streamID uuid.UUID) error {
-	url, supportedTypes := app.Streams.GetStream(streamID)
+	url, supportedTypes := app.Streams.GetStreamInfo(streamID)
 	if url == "" {
 		return ErrStreamNotFound
 	}

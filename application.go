@@ -103,8 +103,8 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 			outputTypes = append(outputTypes, typ)
 		}
 
-		tmp.Streams.Streams[validUUID] = NewStreamConfiguration(rtspStream.URL, outputTypes)
-		tmp.Streams.Streams[validUUID].verboseLevel = NewVerboseLevelFrom(rtspStream.Verbose)
+		tmp.Streams.store[validUUID] = NewStreamConfiguration(rtspStream.URL, outputTypes)
+		tmp.Streams.store[validUUID].verboseLevel = NewVerboseLevelFrom(rtspStream.Verbose)
 		if rtspStream.Archive.Enabled && cfg.ArchiveCfg.Enabled {
 			if rtspStream.Archive.MsPerSegment == 0 {
 				return nil, fmt.Errorf("bad ms per segment archive stream")
@@ -208,7 +208,7 @@ func (app *Application) clientDelete(streamID, clientID uuid.UUID) {
 func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
-	stream, ok := app.Streams.Streams[streamID]
+	stream, ok := app.Streams.store[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
@@ -224,7 +224,7 @@ func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) err
 func (app *Application) startMP4Cast(streamID uuid.UUID, stopCast chan bool) error {
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
-	stream, ok := app.Streams.Streams[streamID]
+	stream, ok := app.Streams.store[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
