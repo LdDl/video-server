@@ -134,7 +134,8 @@ func (streams *StreamsStorage) UpdateStreamStatus(streamID uuid.UUID, status boo
 	return nil
 }
 
-func (streams *StreamsStorage) addClient(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
+// AddViewer adds client to the given stream. Return newly client ID, buffered channel for stream on success
+func (streams *StreamsStorage) AddViewer(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]

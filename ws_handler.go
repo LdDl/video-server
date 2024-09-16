@@ -62,7 +62,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 			closeWSwithError(conn, 1011, errReason)
 			return
 		}
-		cuuid, ch, err := app.addClient(streamID)
+		cuuid, ch, err := app.Streams.AddViewer(streamID)
 		if err != nil {
 			errReason := "Can't add client to the queue"
 			if verboseLevel > VERBOSE_NONE {
