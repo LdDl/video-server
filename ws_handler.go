@@ -19,6 +19,9 @@ var (
 
 // wshandler is a websocket handler for user connection
 func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Request, app *Application, verboseLevel VerboseLevel) {
+	var streamID, clientID uuid.UUID
+	var mseExists bool
+
 	streamIDSTR := r.FormValue("stream_id")
 	if verboseLevel > VERBOSE_SIMPLE {
 		log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Msg("MSE Connected")
@@ -36,10 +39,16 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		if verboseLevel > VERBOSE_SIMPLE {
 			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Msg("Connection has been closed")
 		}
+		if mseExists {
+			app.Streams.DeleteViewer(streamID, clientID)
+			if verboseLevel > VERBOSE_SIMPLE {
+				log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Client has been removed")
+			}
+		}
 		conn.Close()
 	}()
 
-	streamID, err := uuid.Parse(streamIDSTR)
+	streamID, err = uuid.Parse(streamIDSTR)
 	if err != nil {
 		errReason := fmt.Sprintf("Not valid UUID: '%s'", streamIDSTR)
 		if verboseLevel > VERBOSE_NONE {
@@ -48,7 +57,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		closeWSwithError(conn, 1011, errReason)
 		return
 	}
-	mseExists := app.Streams.TypeExistsForStream(streamID, STREAM_TYPE_MSE)
+	mseExists = app.Streams.TypeExistsForStream(streamID, STREAM_TYPE_MSE)
 	if verboseLevel > VERBOSE_SIMPLE {
 		log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Bool("mse_exists", mseExists).Msg("Validate stream type")
 	}
@@ -71,7 +80,6 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 			closeWSwithError(conn, 1011, errReason)
 			return
 		}
-		defer app.Streams.DeleteViewer(streamID, clientID)
 		if verboseLevel > VERBOSE_SIMPLE {
 			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Client has been added")
 		}
