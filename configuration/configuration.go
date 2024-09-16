@@ -33,7 +33,8 @@ type VideoConfiguration struct {
 	Host string `json:"host"`
 	Port int32  `json:"port"`
 	// 'release' or 'debug' for GIN
-	Mode string `json:"mode"`
+	Mode    string `json:"mode"`
+	Verbose string `json:"verbose"`
 }
 
 // HLSConfiguration is a HLS configuration for every stream with provided "hls" type in 'output_types' field of 'rtsp_streams' objects

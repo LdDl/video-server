@@ -36,9 +36,10 @@ type APIConfiguration struct {
 
 // VideoConfiguration is just copy of configuration.VideoConfiguration but with some not exported fields
 type VideoConfiguration struct {
-	Host string `json:"host"`
-	Port int32  `json:"port"`
-	Mode string `json:"-"`
+	Host    string       `json:"host"`
+	Port    int32        `json:"port"`
+	Mode    string       `json:"-"`
+	Verbose VerboseLevel `json:"-"`
 }
 
 // HLSInfo is an information about HLS parameters for server
@@ -67,8 +68,9 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 			Verbose: NewVerboseLevelFrom(cfg.APICfg.Verbose),
 		},
 		VideoServerCfg: VideoConfiguration{
-			Host: cfg.VideoServerCfg.Host,
-			Port: cfg.VideoServerCfg.Port,
+			Host:    cfg.VideoServerCfg.Host,
+			Port:    cfg.VideoServerCfg.Port,
+			Verbose: NewVerboseLevelFrom(cfg.VideoServerCfg.Verbose),
 		},
 		Streams: NewStreamsStorageDefault(),
 		HLS: HLSInfo{
@@ -82,7 +84,8 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 		tmp.setCors(cfg.CorsConfig)
 	}
 	minioEnabled := false
-	for _, rtspStream := range cfg.RTSPStreams {
+	for rs := range cfg.RTSPStreams {
+		rtspStream := cfg.RTSPStreams[rs]
 		validUUID, err := uuid.Parse(rtspStream.GUID)
 		if err != nil {
 			log.Error().Err(err).Str("scope", "configuration").Str("stream_id", rtspStream.GUID).Msg("Not valid UUID")
@@ -147,7 +150,7 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 			default:
 				return nil, fmt.Errorf("unsupported archive type")
 			}
-			err = tmp.SetStreamArchive(validUUID, &archiveStorage)
+			err = tmp.Streams.setArchiveStream(validUUID, &archiveStorage)
 			if err != nil {
 				return nil, errors.Wrap(err, "can't set archive for given stream")
 			}
@@ -209,7 +212,12 @@ func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) err
 	if !ok {
 		return ErrStreamNotFound
 	}
-	go app.startHls(streamID, stream.hlsChanel, stopCast)
+	go func(id uuid.UUID, hlsChanel chan av.Packet, stop chan bool) {
+		err := app.startHls(id, hlsChanel, stop)
+		if err != nil {
+			log.Error().Err(err).Str("scope", "hls").Str("event", "hls_start_cast").Str("stream_id", id.String()).Msg("Error on HLS cast start")
+		}
+	}(streamID, stream.hlsChanel, stopCast)
 	return nil
 }
 
@@ -220,18 +228,11 @@ func (app *Application) startMP4Cast(streamID uuid.UUID, stopCast chan bool) err
 	if !ok {
 		return ErrStreamNotFound
 	}
-	go app.startMP4(streamID, stream.mp4Chanel, stopCast)
+	go func(id uuid.UUID, mp4Chanel chan av.Packet, stop chan bool) {
+		err := app.startMP4(id, mp4Chanel, stop)
+		if err != nil {
+			log.Error().Err(err).Str("scope", "archive").Str("event", "archive_start_cast").Str("stream_id", id.String()).Msg("Error on MP4 cast start")
+		}
+	}(streamID, stream.mp4Chanel, stopCast)
 	return nil
-}
-
-func (app *Application) getStreamsIDs() []uuid.UUID {
-	return app.Streams.getKeys()
-}
-
-func (app *Application) SetStreamArchive(streamID uuid.UUID, archiveStorage *streamArhive) error {
-	return app.Streams.setArchiveStream(streamID, archiveStorage)
-}
-
-func (app *Application) getStreamArchive(streamID uuid.UUID) *streamArhive {
-	return app.Streams.getArchiveStream(streamID)
 }

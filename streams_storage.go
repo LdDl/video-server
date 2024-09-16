@@ -25,17 +25,21 @@ func NewStreamsStorageDefault() StreamsStorage {
 func (sm *StreamsStorage) GetStream(id uuid.UUID) (string, []StreamType) {
 	sm.Lock()
 	defer sm.Unlock()
-	return sm.Streams[id].URL, sm.Streams[id].SupportedOutputTypes
+	stream, ok := sm.Streams[id]
+	if !ok {
+		return "", []StreamType{}
+	}
+	return stream.URL, stream.SupportedOutputTypes
 }
 
 // getKeys returns all storage streams' keys as slice
 func (sm *StreamsStorage) getKeys() []uuid.UUID {
 	sm.Lock()
+	defer sm.Unlock()
 	keys := make([]uuid.UUID, 0, len(sm.Streams))
 	for k := range sm.Streams {
 		keys = append(keys, k)
 	}
-	sm.Unlock()
 	return keys
 }
 
@@ -49,10 +53,20 @@ func (streams *StreamsStorage) archiveEnabled(streamID uuid.UUID) (bool, error) 
 	return stream.archive != nil, nil
 }
 
+func (streams *StreamsStorage) getVerboseLevel(streamID uuid.UUID) VerboseLevel {
+	streams.RLock()
+	defer streams.RUnlock()
+	stream, ok := streams.Streams[streamID]
+	if !ok {
+		return VERBOSE_NONE
+	}
+	return stream.verboseLevel
+}
+
 func (streams *StreamsStorage) streamExists(streamID uuid.UUID) bool {
 	streams.RLock()
+	defer streams.RUnlock()
 	_, ok := streams.Streams[streamID]
-	streams.RUnlock()
 	return ok
 }
 
@@ -181,7 +195,7 @@ func (streams *StreamsStorage) setArchiveStream(streamID uuid.UUID, archiveStora
 	return nil
 }
 
-func (streams *StreamsStorage) getArchiveStream(streamID uuid.UUID) *streamArhive {
+func (streams *StreamsStorage) getStreamArchive(streamID uuid.UUID) *streamArhive {
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.Streams[streamID]
