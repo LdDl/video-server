@@ -119,7 +119,8 @@ func (streams *StreamsStorage) GetCodecsDataForStream(streamID uuid.UUID) ([]av.
 	return codecs, nil
 }
 
-func (streams *StreamsStorage) updateStreamStatus(streamID uuid.UUID, status bool) error {
+// UpdateStreamStatus sets new status value for the given stream
+func (streams *StreamsStorage) UpdateStreamStatus(streamID uuid.UUID, status bool) error {
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]

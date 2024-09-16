@@ -177,10 +177,6 @@ func (app *Application) cast(streamID uuid.UUID, pck av.Packet, hlsEnabled, arch
 	return app.Streams.cast(streamID, pck, hlsEnabled, archiveEnabled)
 }
 
-func (app *Application) updateStreamStatus(streamID uuid.UUID, status bool) error {
-	return app.Streams.updateStreamStatus(streamID, status)
-}
-
 func (app *Application) addClient(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
 	return app.Streams.addClient(streamID)
 }
