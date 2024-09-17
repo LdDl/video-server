@@ -66,7 +66,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		if err != nil {
 			errReason := "Can't set deadline"
 			if verboseLevel > VERBOSE_NONE {
-				log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Msg(errReason)
+				log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", EVENT_WS_PING).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Msg(errReason)
 			}
 			closeWSwithError(conn, 1011, errReason)
 			return
@@ -210,7 +210,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 				if err != nil {
 					errReason := "Can't write PONG message"
 					if verboseLevel > VERBOSE_NONE {
-						log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg(errReason)
+						log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", EVENT_WS_PING).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("codecs", codecData).Str("meta", meta).Any("init", init).Msg(errReason)
 					}
 					closeWSwithError(conn, 1011, errReason)
 					return
@@ -236,7 +236,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 				if err != nil {
 					errReason := "Can't write packet to the muxer"
 					if verboseLevel > VERBOSE_NONE {
-						log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("packet_len", len(pck.Data)).Msg(errReason)
+						log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", EVENT_WS_PING).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("packet_len", len(pck.Data)).Msg(errReason)
 					}
 					closeWSwithError(conn, 1011, errReason)
 					return
@@ -252,7 +252,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 					if err != nil {
 						errReason := "Can't set new deadline"
 						if verboseLevel > VERBOSE_NONE {
-							log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("packet_len", len(pck.Data)).Bool("ready", ready).Int("buf_len", len(buf)).Msg(errReason)
+							log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", EVENT_WS_PING).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("packet_len", len(pck.Data)).Bool("ready", ready).Int("buf_len", len(buf)).Msg(errReason)
 						}
 						closeWSwithError(conn, 1011, errReason)
 						return
@@ -261,7 +261,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 					if err != nil {
 						errReason := "Can't write buffered message"
 						if verboseLevel > VERBOSE_NONE {
-							log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", "ping").Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("packet_len", len(pck.Data)).Bool("ready", ready).Int("buf_len", len(buf)).Msg(errReason)
+							log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("event", EVENT_WS_PING).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("packet_len", len(pck.Data)).Bool("ready", ready).Int("buf_len", len(buf)).Msg(errReason)
 						}
 						closeWSwithError(conn, 1011, errReason)
 						return

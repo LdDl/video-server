@@ -88,7 +88,7 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 		rtspStream := cfg.RTSPStreams[rs]
 		validUUID, err := uuid.Parse(rtspStream.GUID)
 		if err != nil {
-			log.Error().Err(err).Str("scope", "configuration").Str("stream_id", rtspStream.GUID).Msg("Not valid UUID")
+			log.Error().Err(err).Str("scope", SCOPE_CONFIGURATION).Str("stream_id", rtspStream.GUID).Msg("Not valid UUID")
 			continue
 		}
 		outputTypes := make([]StreamType, 0, len(rtspStream.OutputTypes))
@@ -192,7 +192,7 @@ func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) err
 	go func(id uuid.UUID, hlsChanel chan av.Packet, stop chan bool) {
 		err := app.startHls(id, hlsChanel, stop)
 		if err != nil {
-			log.Error().Err(err).Str("scope", "hls").Str("event", "hls_start_cast").Str("stream_id", id.String()).Msg("Error on HLS cast start")
+			log.Error().Err(err).Str("scope", SCOPE_HLS).Str("event", EVENT_HLS_START_CAST).Str("stream_id", id.String()).Msg("Error on HLS cast start")
 		}
 	}(streamID, stream.hlsChanel, stopCast)
 	return nil
@@ -211,7 +211,7 @@ func (app *Application) startMP4Cast(archive *StreamArchiveWrapper, streamID uui
 	go func(arch *StreamArchiveWrapper, id uuid.UUID, mp4Chanel chan av.Packet, stop chan bool, verbose VerboseLevel) {
 		err := app.startMP4(arch, id, mp4Chanel, stop, verbose)
 		if err != nil {
-			log.Error().Err(err).Str("scope", "archive").Str("event", "archive_start_cast").Str("stream_id", id.String()).Msg("Error on MP4 cast start")
+			log.Error().Err(err).Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_START_CAST).Str("stream_id", id.String()).Msg("Error on MP4 cast start")
 		}
 	}(archive, streamID, stream.mp4Chanel, stopCast, streamVerboseLevel)
 	return nil

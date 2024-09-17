@@ -64,7 +64,7 @@ func (app *Application) StartVideoServer() {
 	}
 	err := s.ListenAndServe()
 	if err != nil {
-		log.Error().Err(err).Str("scope", "video_server").Str("event", EVENT_WS_START).Str("url", url).Msg("Can't start video server routers")
+		log.Error().Err(err).Str("scope", SCOPE_WS_SERVER).Str("event", EVENT_WS_START).Str("url", url).Msg("Can't start video server routers")
 		return
 	}
 }
