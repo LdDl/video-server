@@ -6,6 +6,8 @@ const (
 	SCOPE_WS_HANDLER = "ws_handler"
 	SCOPE_API_SERVER = "api_server"
 	SCOPE_WS_SERVER  = "ws_server"
+	SCOPE_ARCHIVE    = "archive"
+	SCOPE_MP4        = "mp4"
 
 	EVENT_APP_CORS_CONFIG = "app_cors_config"
 
