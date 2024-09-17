@@ -19,7 +19,7 @@ const (
 // runStream runs RTSP grabbing process
 func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, archiveEnabled bool, streamVerboseLevel VerboseLevel) error {
 	if streamVerboseLevel > VERBOSE_NONE {
-		log.Info().Str("scope", "streaming").Str("event", "stream_dialing").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Msg("Trying to dial")
+		log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_DIAL).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Msg("Trying to dial")
 	}
 	session, err := rtspv2.Dial(rtspv2.RTSPClientOptions{
 		URL:              url,
@@ -34,11 +34,11 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 	defer session.Close()
 	if len(session.CodecData) != 0 {
 		if streamVerboseLevel > VERBOSE_NONE {
-			log.Info().Str("scope", "streaming").Str("event", "stream_codec_met").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Any("codec_data", session.CodecData).Msg("Found codec. Adding this one")
+			log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_CODEC_MET).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Any("codec_data", session.CodecData).Msg("Found codec. Adding this one")
 		}
 		app.Streams.AddCodecForStream(streamID, session.CodecData)
 		if streamVerboseLevel > VERBOSE_NONE {
-			log.Info().Str("scope", "streaming").Str("event", "stream_status_update").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Msg("Update stream status")
+			log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_STATUS_UPDATE).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Msg("Update stream status")
 		}
 		err = app.Streams.UpdateStreamStatus(streamID, true)
 		if err != nil {
@@ -50,7 +50,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 	if len(session.CodecData) == 1 {
 		if session.CodecData[0].Type().IsAudio() {
 			if streamVerboseLevel > VERBOSE_NONE {
-				log.Info().Str("scope", "streaming").Str("event", "stream_audio_met").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Msg("Only audio")
+				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_AUDIO_MET).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Msg("Only audio")
 			}
 			isAudioOnly = true
 		}
@@ -59,13 +59,13 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 	var stopHlsCast chan bool
 	if hlsEnabled {
 		if streamVerboseLevel > VERBOSE_NONE {
-			log.Info().Str("scope", "streaming").Str("event", "stream_hls_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Need to start casting for HLS")
+			log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_HLS_CAST).Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Need to start casting for HLS")
 		}
 		stopHlsCast = make(chan bool, 1)
 		err = app.startHlsCast(streamID, stopHlsCast)
 		if err != nil {
 			if streamVerboseLevel > VERBOSE_NONE {
-				log.Warn().Str("scope", "streaming").Str("event", "stream_hls_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Can't start HLS casting")
+				log.Warn().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_HLS_CAST).Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Can't start HLS casting")
 			}
 		}
 	}
@@ -73,17 +73,17 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 	var stopMP4Cast chan bool
 	if archiveEnabled {
 		if streamVerboseLevel > VERBOSE_NONE {
-			log.Info().Str("scope", "streaming").Str("event", "stream_mp4_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Need to start casting to MP4 archive")
+			log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_MP4_CAST).Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Need to start casting to MP4 archive")
 		}
 		archive := app.Streams.GetStreamArchiveStorage(streamID)
 		if archive == nil {
-			log.Warn().Str("scope", "streaming").Str("event", "stream_mp4_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Empty archive configuration for the given stream")
+			log.Warn().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_MP4_CAST).Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Empty archive configuration for the given stream")
 		} else {
 			stopMP4Cast = make(chan bool, 1)
-			err = app.startMP4Cast(archive, streamID, stopMP4Cast)
+			err = app.startMP4Cast(archive, streamID, stopMP4Cast, streamVerboseLevel)
 			if err != nil {
 				if streamVerboseLevel > VERBOSE_NONE {
-					log.Warn().Str("scope", "streaming").Str("event", "stream_mp4_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Can't start MP4 archive process")
+					log.Warn().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_MP4_CAST).Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Can't start MP4 archive process")
 				}
 			}
 		}
@@ -93,13 +93,13 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 	for {
 		select {
 		case <-pingStream.C:
-			log.Error().Err(ErrStreamHasNoVideo).Str("scope", "streaming").Str("event", "stream_exit_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Stream has no video")
+			log.Error().Err(ErrStreamHasNoVideo).Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_EXIT_SIGNAL).Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Stream has no video")
 			return errors.Wrapf(ErrStreamHasNoVideo, "URL is '%s'", url)
 		case signals := <-session.Signals:
 			switch signals {
 			case rtspv2.SignalCodecUpdate:
 				if streamVerboseLevel > VERBOSE_NONE {
-					log.Info().Str("scope", "streaming").Str("event", "stream_codec_update_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Any("codec_data", session.CodecData).Msg("Recieved update codec signal")
+					log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_CODEC_UPDATE_SIGNAL).Str("stream_id", streamID.String()).Str("stream_url", url).Any("codec_data", session.CodecData).Msg("Recieved update codec signal")
 				}
 				app.Streams.AddCodecForStream(streamID, session.CodecData)
 				err = app.Streams.UpdateStreamStatus(streamID, true)
@@ -108,7 +108,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 				}
 			case rtspv2.SignalStreamRTPStop:
 				if streamVerboseLevel > VERBOSE_NONE {
-					log.Info().Str("scope", "streaming").Str("event", "stream_stop_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Recieved stop signal")
+					log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_STOP_SIGNAL).Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Recieved stop signal")
 				}
 				err = app.Streams.UpdateStreamStatus(streamID, false)
 				if err != nil {
@@ -118,28 +118,28 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 			}
 		case packetAV := <-session.OutgoingPacketQueue:
 			if streamVerboseLevel > VERBOSE_ADD {
-				log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Recieved outgoing packet from queue")
+				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_PACKET_SIGNAL).Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Recieved outgoing packet from queue")
 			}
 			if isAudioOnly || packetAV.IsKeyFrame {
 				if streamVerboseLevel > VERBOSE_ADD {
-					log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Need to reset ping for stream")
+					log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_PACKET_SIGNAL).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Need to reset ping for stream")
 				}
 				pingStream.Reset(pingDurationRestart)
 			}
 			if streamVerboseLevel > VERBOSE_ADD {
-				log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Casting packet")
+				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_PACKET_SIGNAL).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Casting packet")
 			}
 			err = app.Streams.CastPacket(streamID, *packetAV, hlsEnabled, archiveEnabled)
 			if err != nil {
 				if hlsEnabled {
 					if streamVerboseLevel > VERBOSE_NONE {
-						log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Need to stop HLS cast")
+						log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_PACKET_SIGNAL).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Need to stop HLS cast")
 					}
 					stopHlsCast <- true
 				}
 				if archiveEnabled {
 					if streamVerboseLevel > VERBOSE_NONE {
-						log.Info().Str("scope", "streaming").Str("event", "stream_packet_signal").Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Need to stop MP4 cast")
+						log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_PACKET_SIGNAL).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("only_audio", isAudioOnly).Bool("is_keyframe", packetAV.IsKeyFrame).Msg("Need to stop MP4 cast")
 					}
 					stopMP4Cast <- true
 				}

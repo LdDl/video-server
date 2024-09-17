@@ -16,7 +16,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (app *Application) startMP4(archive *streamArhive, streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
+func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UUID, ch chan av.Packet, stopCast chan bool, streamVerboseLevel VerboseLevel) error {
 	if archive == nil {
 		return ErrNullArchive
 	}
@@ -25,7 +25,7 @@ func (app *Application) startMP4(archive *streamArhive, streamID uuid.UUID, ch c
 	if err != nil {
 		return errors.Wrap(err, "Can't prepare bucket")
 	}
-	err = ensureDir(archive.dir)
+	err = ensureDir(archive.filesystemDir)
 	if err != nil {
 		return errors.Wrap(err, "Can't create directory for mp4 temporary files")
 	}
@@ -40,18 +40,18 @@ func (app *Application) startMP4(archive *streamArhive, streamID uuid.UUID, ch c
 		// Create new segment file
 		st := time.Now()
 		segmentName := fmt.Sprintf("%s_%d.mp4", streamID, lastSegmentTime.Unix())
-		segmentPath := filepath.Join(archive.dir, segmentName)
+		segmentPath := filepath.Join(archive.filesystemDir, segmentName)
 		outFile, err := os.Create(segmentPath)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("Can't create mp4-segment for stream %s", streamID))
 		}
 		tsMuxer := mp4.NewMuxer(outFile)
-		log.Info().Str("scope", "archive").Str("event", "archive_create_file").Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Create segment")
+		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CREATE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Create segment")
 		codecData, err := app.Streams.GetCodecsDataForStream(streamID)
 		if err != nil {
 			return errors.Wrap(err, streamID.String())
 		}
-		log.Info().Str("scope", "archive").Str("event", "archive_create_file").Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Write header")
+		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CREATE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Write header")
 
 		err = tsMuxer.WriteHeader(codecData)
 		if err != nil {
@@ -83,7 +83,7 @@ func (app *Application) startMP4(archive *streamArhive, streamID uuid.UUID, ch c
 			segmentLength += packetLength
 			segmentCount++
 		}
-		log.Info().Str("scope", "archive").Str("event", "archive_create_file").Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Start segment loop")
+		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CREATE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Start segment loop")
 		// @todo Oh, I don't like GOTOs, but it is what it is.
 	segmentLoop:
 		for {
@@ -103,6 +103,9 @@ func (app *Application) startMP4(archive *streamArhive, streamID uuid.UUID, ch c
 					continue
 				}
 				if (pck.Idx == videoStreamIdx && pck.Time > lastPacketTime) || pck.Idx != videoStreamIdx {
+					if streamVerboseLevel > VERBOSE_ADD {
+						log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Writing to archive segment")
+					}
 					if err = tsMuxer.WritePacket(pck); err != nil {
 						return errors.Wrap(err, fmt.Sprintf("Can't write packet for TS muxer for stream %s (2)", streamID))
 					}
@@ -122,14 +125,14 @@ func (app *Application) startMP4(archive *streamArhive, streamID uuid.UUID, ch c
 			}
 		}
 		if err := tsMuxer.WriteTrailer(); err != nil {
-			log.Error().Err(err).Str("scope", "mp4").Str("event", "mp4_write_trail").Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't write trailing data for TS muxer")
+			log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE_TRAIL).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't write trailing data for TS muxer")
 			// @todo: handle?
 		}
 
 		if archive.store.Type() == storage.STORAGE_MINIO {
 			_, err = outFile.Seek(0, io.SeekStart)
 			if err != nil {
-				log.Error().Err(err).Str("scope", "mp4").Str("event", "mp4_save_minio").Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Can't seek to the start of file")
+				log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Can't seek to the start of file")
 				return err
 			}
 			obj := storage.ArchiveUnit{
@@ -139,26 +142,26 @@ func (app *Application) startMP4(archive *streamArhive, streamID uuid.UUID, ch c
 			}
 			outSegmentName, err := archive.store.UploadFile(context.Background(), obj)
 			if err != nil {
-				log.Error().Err(err).Str("scope", "mp4").Str("event", "mp4_save_minio").Str("stream_id", streamID.String()).Str("segment_name", segmentName).Str("bucket", archive.bucket).Msg("Can't save segment")
+				log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Str("bucket", archive.bucket).Msg("Can't save segment")
 				return err
 			}
 			if segmentName != outSegmentName {
-				log.Error().Err(err).Str("scope", "mp4").Str("event", "mp4_save_minio").Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't validate segment")
+				log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't validate segment")
 			}
 			err = os.Remove(segmentPath)
 			if err != nil {
-				log.Error().Err(err).Str("scope", "mp4").Str("event", "mp4_save_minio").Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Can't remove segment from temporary filesystem memory")
+				log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Can't remove segment from temporary filesystem memory")
 				return err
 			}
 		}
 
 		if err := outFile.Close(); err != nil {
-			log.Error().Err(err).Str("scope", "mp4").Str("event", "mp4_close").Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't close file")
+			log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_CLOSE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't close file")
 			// @todo: handle?
 		}
 
 		lastSegmentTime = lastSegmentTime.Add(time.Since(st))
-		log.Info().Str("scope", "archive").Str("event", "archive_close_file").Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Int64("ms", archive.msPerSegment).Msg("Close segment")
+		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CLOSE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Int64("ms", archive.msPerSegment).Msg("Close segment")
 	}
 	return nil
 }

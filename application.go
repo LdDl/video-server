@@ -88,7 +88,7 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 		rtspStream := cfg.RTSPStreams[rs]
 		validUUID, err := uuid.Parse(rtspStream.GUID)
 		if err != nil {
-			log.Error().Err(err).Str("scope", "configuration").Str("stream_id", rtspStream.GUID).Msg("Not valid UUID")
+			log.Error().Err(err).Str("scope", SCOPE_CONFIGURATION).Str("stream_id", rtspStream.GUID).Msg("Not valid UUID")
 			continue
 		}
 		outputTypes := make([]StreamType, 0, len(rtspStream.OutputTypes))
@@ -110,19 +110,19 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 				return nil, fmt.Errorf("bad ms per segment archive stream")
 			}
 			storageType := storage.NewStorageTypeFrom(rtspStream.Archive.TypeArchive)
-			var archiveStorage streamArhive
+			var archiveStorage StreamArchiveWrapper
 			switch storageType {
 			case storage.STORAGE_FILESYSTEM:
 				fsStorage, err := storage.NewFileSystemProvider(rtspStream.Archive.Directory)
 				if err != nil {
 					return nil, errors.Wrap(err, "Can't create filesystem provider")
 				}
-				archiveStorage = streamArhive{
-					store:        fsStorage,
-					dir:          rtspStream.Archive.Directory,
-					bucket:       rtspStream.Archive.Directory,
-					bucketPath:   rtspStream.Archive.Directory,
-					msPerSegment: rtspStream.Archive.MsPerSegment,
+				archiveStorage = StreamArchiveWrapper{
+					store:         fsStorage,
+					filesystemDir: rtspStream.Archive.Directory,
+					bucket:        rtspStream.Archive.Directory,
+					bucketPath:    rtspStream.Archive.Directory,
+					msPerSegment:  rtspStream.Archive.MsPerSegment,
 				}
 			case storage.STORAGE_MINIO:
 				if !minioEnabled {
@@ -140,12 +140,12 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 				if err != nil {
 					return nil, errors.Wrap(err, "Can't create MinIO provider")
 				}
-				archiveStorage = streamArhive{
-					store:        minioStorage,
-					dir:          rtspStream.Archive.Directory,
-					bucket:       rtspStream.Archive.MinioBucket,
-					bucketPath:   rtspStream.Archive.MinioPath,
-					msPerSegment: rtspStream.Archive.MsPerSegment,
+				archiveStorage = StreamArchiveWrapper{
+					store:         minioStorage,
+					filesystemDir: rtspStream.Archive.Directory,
+					bucket:        rtspStream.Archive.MinioBucket,
+					bucketPath:    rtspStream.Archive.MinioPath,
+					msPerSegment:  rtspStream.Archive.MsPerSegment,
 				}
 			default:
 				return nil, fmt.Errorf("unsupported archive type")
@@ -192,13 +192,13 @@ func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) err
 	go func(id uuid.UUID, hlsChanel chan av.Packet, stop chan bool) {
 		err := app.startHls(id, hlsChanel, stop)
 		if err != nil {
-			log.Error().Err(err).Str("scope", "hls").Str("event", "hls_start_cast").Str("stream_id", id.String()).Msg("Error on HLS cast start")
+			log.Error().Err(err).Str("scope", SCOPE_HLS).Str("event", EVENT_HLS_START_CAST).Str("stream_id", id.String()).Msg("Error on HLS cast start")
 		}
 	}(streamID, stream.hlsChanel, stopCast)
 	return nil
 }
 
-func (app *Application) startMP4Cast(archive *streamArhive, streamID uuid.UUID, stopCast chan bool) error {
+func (app *Application) startMP4Cast(archive *StreamArchiveWrapper, streamID uuid.UUID, stopCast chan bool, streamVerboseLevel VerboseLevel) error {
 	if archive == nil {
 		return ErrNullArchive
 	}
@@ -208,11 +208,11 @@ func (app *Application) startMP4Cast(archive *streamArhive, streamID uuid.UUID, 
 	if !ok {
 		return ErrStreamNotFound
 	}
-	go func(arch *streamArhive, id uuid.UUID, mp4Chanel chan av.Packet, stop chan bool) {
-		err := app.startMP4(arch, id, mp4Chanel, stop)
+	go func(arch *StreamArchiveWrapper, id uuid.UUID, mp4Chanel chan av.Packet, stop chan bool, verbose VerboseLevel) {
+		err := app.startMP4(arch, id, mp4Chanel, stop, verbose)
 		if err != nil {
-			log.Error().Err(err).Str("scope", "archive").Str("event", "archive_start_cast").Str("stream_id", id.String()).Msg("Error on MP4 cast start")
+			log.Error().Err(err).Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_START_CAST).Str("stream_id", id.String()).Msg("Error on MP4 cast start")
 		}
-	}(archive, streamID, stream.mp4Chanel, stopCast)
+	}(archive, streamID, stream.mp4Chanel, stopCast, streamVerboseLevel)
 	return nil
 }

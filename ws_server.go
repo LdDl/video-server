@@ -49,8 +49,8 @@ func (app *Application) StartVideoServer() {
 			Msg("CORS are enabled")
 		router.Use(cors.New(*app.CorsConfig))
 	}
-	router.GET("/ws/:stream_id", WebSocketWrapper(app, &wsUpgrader, app.VideoServerCfg.Verbose))
-	router.GET("/hls/:file", HLSWrapper(app, app.VideoServerCfg.Verbose))
+	router.GET("/ws/:stream_id", WebSocketWrapper(&app.Streams, &wsUpgrader, app.VideoServerCfg.Verbose))
+	router.GET("/hls/:file", HLSWrapper(&app.HLS, app.VideoServerCfg.Verbose))
 
 	url := fmt.Sprintf("%s:%d", app.VideoServerCfg.Host, app.VideoServerCfg.Port)
 	s := &http.Server{
@@ -64,41 +64,41 @@ func (app *Application) StartVideoServer() {
 	}
 	err := s.ListenAndServe()
 	if err != nil {
-		log.Error().Err(err).Str("scope", "video_server").Str("event", "video_server_start").Str("url", url).Msg("Can't start video server routers")
+		log.Error().Err(err).Str("scope", SCOPE_WS_SERVER).Str("event", EVENT_WS_START).Str("url", url).Msg("Can't start video server routers")
 		return
 	}
 }
 
 // WebSocketWrapper returns WS handler
-func WebSocketWrapper(app *Application, wsUpgrader *websocket.Upgrader, verboseLevel VerboseLevel) func(ctx *gin.Context) {
+func WebSocketWrapper(streamsStorage *StreamsStorage, wsUpgrader *websocket.Upgrader, verboseLevel VerboseLevel) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		if verboseLevel > VERBOSE_SIMPLE {
 			log.Info().Str("scope", SCOPE_WS_SERVER).Str("event", EVENT_WS_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg("Try to call ws upgrader")
 		}
-		wshandler(wsUpgrader, ctx.Writer, ctx.Request, app, verboseLevel)
+		wshandler(wsUpgrader, ctx.Writer, ctx.Request, streamsStorage, verboseLevel)
 	}
 }
 
 // HLSWrapper returns HLS handler (static files)
-func HLSWrapper(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Context) {
+func HLSWrapper(hlsConf *HLSInfo, verboseLevel VerboseLevel) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		if verboseLevel > VERBOSE_SIMPLE {
-			log.Info().Str("scope", SCOPE_WS_SERVER).Str("event", EVENT_WS_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Str("hls_dir", app.HLS.Directory).Msg("Call HLS")
+			log.Info().Str("scope", SCOPE_WS_SERVER).Str("event", EVENT_WS_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Str("hls_dir", hlsConf.Directory).Msg("Call HLS")
 		}
 		file := ctx.Param("file")
 		_, err := uuid.Parse(uuidRegExp.FindString(file))
 		if err != nil {
 			errReason := "Not valid UUId"
 			if verboseLevel > VERBOSE_NONE {
-				log.Error().Err(err).Str("scope", SCOPE_WS_SERVER).Str("event", EVENT_WS_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Str("hls_dir", app.HLS.Directory).Msg(errReason)
+				log.Error().Err(err).Str("scope", SCOPE_WS_SERVER).Str("event", EVENT_WS_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Str("hls_dir", hlsConf.Directory).Msg(errReason)
 			}
 			ctx.JSON(http.StatusBadRequest, gin.H{"Error": err.Error()})
 			return
 		}
 		ctx.Header("Cache-Control", "no-cache")
 		if verboseLevel > VERBOSE_SIMPLE {
-			log.Info().Str("scope", SCOPE_WS_SERVER).Str("event", EVENT_WS_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Str("hls_dir", app.HLS.Directory).Msg("Send file")
+			log.Info().Str("scope", SCOPE_WS_SERVER).Str("event", EVENT_WS_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Str("hls_dir", hlsConf.Directory).Msg("Send file")
 		}
-		ctx.FileFromFS(file, http.Dir(app.HLS.Directory))
+		ctx.FileFromFS(file, http.Dir(hlsConf.Directory))
 	}
 }

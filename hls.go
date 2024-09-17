@@ -24,7 +24,7 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 
 	// Create playlist for HLS streams
 	playlistFileName := filepath.Join(app.HLS.Directory, fmt.Sprintf("%s.m3u8", streamID))
-	log.Info().Str("scope", "hls").Str("event", "hls_playlist_prepare").Str("stream_id", streamID.String()).Str("filename", playlistFileName).Msg("Need to start HLS for the given stream")
+	log.Info().Str("scope", SCOPE_HLS).Str("event", EVENT_HLS_PLAYLIST_PREPARE).Str("stream_id", streamID.String()).Str("filename", playlistFileName).Msg("Need to start HLS for the given stream")
 	playlist, err := m3u8.NewMediaPlaylist(app.HLS.WindowSize, app.HLS.Capacity)
 	if err != nil {
 		return errors.Wrap(err, "Can't create new mediaplayer list")
@@ -120,13 +120,13 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 
 		err = tsMuxer.WriteTrailer()
 		if err != nil {
-			log.Error().Err(err).Str("scope", "hls").Str("event", "hls_write_trail").Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("out_filename", outFile.Name()).Msg("Can't write trailing data for TS muxer")
+			log.Error().Err(err).Str("scope", SCOPE_HLS).Str("event", EVENT_HLS_WRITE_TRAIL).Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("out_filename", outFile.Name()).Msg("Can't write trailing data for TS muxer")
 			// @todo: handle?
 		}
 
 		err = outFile.Close()
 		if err != nil {
-			log.Error().Err(err).Str("scope", "hls").Str("event", "hls_close").Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("out_filename", outFile.Name()).Msg("Can't close file")
+			log.Error().Err(err).Str("scope", SCOPE_HLS).Str("event", EVENT_HLS_CLOSE_FILE).Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("out_filename", outFile.Name()).Msg("Can't close file")
 			// @todo: handle?
 		}
 
@@ -134,15 +134,15 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 		playlist.Slide(segmentName, segmentLength.Seconds(), "")
 		playlistFile, err := os.Create(playlistFileName)
 		if err != nil {
-			log.Error().Err(err).Str("scope", "hls").Str("event", "hls_playlist_create").Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("out_filename", outFile.Name()).Msg("Can't create playlist")
+			log.Error().Err(err).Str("scope", SCOPE_HLS).Str("event", EVENT_HLS_PLAYLIST_CREATE).Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("out_filename", outFile.Name()).Msg("Can't create playlist")
 			// @todo: handle?
 		}
 		playlistFile.Write(playlist.Encode().Bytes())
 		playlistFile.Close()
-		log.Info().Str("scope", "hls").Str("event", "hls_playlist_restart").Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("out_filename", outFile.Name()).Msg("Playlist restart")
+		log.Info().Str("scope", SCOPE_HLS).Str("event", EVENT_HLS_PLAYLIST_RESTART).Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("out_filename", outFile.Name()).Msg("Playlist restart")
 		// Cleanup segments
 		if err := app.removeOutdatedSegments(streamID, playlist); err != nil {
-			log.Error().Err(err).Str("scope", "hls").Str("event", "hls_remove_outdated").Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("out_filename", outFile.Name()).Msg("Can't remove outdated segments")
+			log.Error().Err(err).Str("scope", SCOPE_HLS).Str("event", EVENT_HLS_REMOVE_OUTDATED).Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("out_filename", outFile.Name()).Msg("Can't remove outdated segments")
 			// @todo: handle?
 		}
 
@@ -166,7 +166,7 @@ func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast
 		for _, file := range filesToRemove {
 			if file != "" {
 				if err := os.Remove(filepath.Join(app.HLS.Directory, file)); err != nil {
-					log.Error().Err(err).Str("scope", "hls").Str("event", "hls_remove_chunk").Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("chunk_name", file).Msg("Can't remove file (defered)")
+					log.Error().Err(err).Str("scope", SCOPE_HLS).Str("event", EVENT_HLS_REMOVE_CHUNK).Str("stream_id", streamID.String()).Str("filename", playlistFileName).Str("chunk_name", file).Msg("Can't remove file (defered)")
 					// @todo: handle?
 				}
 			}
@@ -195,7 +195,7 @@ func (app *Application) removeOutdatedSegments(streamID uuid.UUID, playlist *m3u
 		// Check if file belongs to a playlist's segment
 		if _, ok := currentSegments[fileName]; !ok {
 			if err := os.Remove(segmentFile); err != nil {
-				log.Error().Err(err).Str("scope", "hls").Str("event", "hls_remove_outdated_segment").Str("stream_id", streamID.String()).Str("filename", playlist.String()).Str("segment", segmentFile).Msg("Can't remove outdated segment")
+				log.Error().Err(err).Str("scope", SCOPE_HLS).Str("event", EVENT_HLS_REMOVE_OUTDATED_SEGMENT).Str("stream_id", streamID.String()).Str("filename", playlist.String()).Str("segment", segmentFile).Msg("Can't remove outdated segment")
 				// @todo: handle?
 			}
 		}
