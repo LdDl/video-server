@@ -21,4 +21,11 @@ const (
 	EVENT_WS_CORS_ENABLE = "ws_server_cors_enable"
 	EVENT_WS_REQUEST     = "ws_request"
 	EVENT_WS_UPGRADER    = "ws_upgrader"
+
+	EVENT_ARCHIVE_CREATE_FILE = "archive_create_file"
+	EVENT_ARCHIVE_CLOSE_FILE  = "archive_close_file"
+	EVENT_MP4_WRITE           = "mp4_write"
+	EVENT_MP4_WRITE_TRAIL     = "mp4_write_trail"
+	EVENT_MP4_SAVE_MINIO      = "mp4_save_minio"
+	EVENT_MP4_CLOSE           = "mp4_close"
 )
