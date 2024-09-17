@@ -90,6 +90,9 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 			select {
 			case <-stopCast:
 				isConnected = false
+				if streamVerboseLevel > VERBOSE_NONE {
+					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_STOP).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Stop cast signal")
+				}
 				break segmentLoop
 			case pck := <-ch:
 				if streamVerboseLevel > VERBOSE_ADD {

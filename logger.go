@@ -61,6 +61,7 @@ const (
 	EVENT_ARCHIVE_CREATE_FILE = "archive_create_file"
 	EVENT_ARCHIVE_CLOSE_FILE  = "archive_close_file"
 	EVENT_CHAN_PACKET         = "mp4_chan_pck"
+	EVENT_CHAN_STOP           = "mp4_chan_stop"
 	EVENT_CHAN_KEYFRAME       = "mp4_chan_keyframe"
 	EVENT_SEGMENT_CUT         = "mp4_segment_cut"
 	EVENT_NO_START            = "mp4_no_start"
