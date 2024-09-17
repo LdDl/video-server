@@ -75,7 +75,7 @@ func (streams *StreamsStorage) AddCodecForStream(streamID uuid.UUID, codecs []av
 	}
 	stream.Codecs = codecs
 	if stream.verboseLevel > VERBOSE_SIMPLE {
-		log.Info().Str("scope", SCOPE_STREAM).Str("event", "codec_add").Str("stream_id", streamID.String()).Any("codec_data", codecs).Msg("Add codec")
+		log.Info().Str("scope", SCOPE_STREAM).Str("event", EVENT_STREAM_CODEC_ADD).Str("stream_id", streamID.String()).Any("codec_data", codecs).Msg("Add codec")
 	}
 }
 
@@ -109,7 +109,7 @@ func (streams *StreamsStorage) UpdateStreamStatus(streamID uuid.UUID, status boo
 	}
 	stream.Status = status
 	if stream.verboseLevel > VERBOSE_SIMPLE {
-		log.Info().Str("scope", SCOPE_STREAM).Str("event", "status_update").Str("stream_id", streamID.String()).Bool("status", status).Msg("Status update")
+		log.Info().Str("scope", SCOPE_STREAM).Str("event", EVENT_STREAM_STATUS_UPDATE).Str("stream_id", streamID.String()).Bool("status", status).Msg("Status update")
 	}
 	return nil
 }
@@ -127,7 +127,7 @@ func (streams *StreamsStorage) AddViewer(streamID uuid.UUID) (uuid.UUID, chan av
 		return uuid.UUID{}, nil, err
 	}
 	if stream.verboseLevel > VERBOSE_SIMPLE {
-		log.Info().Str("scope", SCOPE_STREAM).Str("event", "client_add").Str("stream_id", streamID.String()).Str("client_id", clientID.String()).Msg("Add client")
+		log.Info().Str("scope", SCOPE_STREAM).Str("event", EVENT_STREAM_CLIENT_ADD).Str("stream_id", streamID.String()).Str("client_id", clientID.String()).Msg("Add client")
 	}
 	ch := make(chan av.Packet, 100)
 	stream.Clients[clientID] = viewer{c: ch}
@@ -143,7 +143,7 @@ func (streams *StreamsStorage) DeleteViewer(streamID, clientID uuid.UUID) {
 		return
 	}
 	if stream.verboseLevel > VERBOSE_SIMPLE {
-		log.Info().Str("scope", SCOPE_STREAM).Str("event", "client_delete").Str("stream_id", streamID.String()).Str("client_id", clientID.String()).Msg("Delete client")
+		log.Info().Str("scope", SCOPE_STREAM).Str("event", EVENT_STREAM_CLIENT_DELETE).Str("stream_id", streamID.String()).Str("client_id", clientID.String()).Msg("Delete client")
 	}
 	delete(stream.Clients, clientID)
 }
@@ -157,7 +157,7 @@ func (streams *StreamsStorage) CastPacket(streamID uuid.UUID, pck av.Packet, hls
 		return ErrStreamNotFound
 	}
 	if stream.verboseLevel > VERBOSE_ADD {
-		log.Info().Str("scope", SCOPE_STREAM).Str("event", "cast").Str("stream_id", streamID.String()).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", stream.archive != nil).Int("clients_num", len(stream.Clients)).Msg("Cast packet")
+		log.Info().Str("scope", SCOPE_STREAM).Str("event", EVENT_STREAM_CAST_PACKET).Str("stream_id", streamID.String()).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", stream.archive != nil).Int("clients_num", len(stream.Clients)).Msg("Cast packet")
 	}
 	if hlsEnabled {
 		stream.hlsChanel <- pck
