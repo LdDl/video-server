@@ -16,7 +16,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
+func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UUID, ch chan av.Packet, stopCast chan bool, streamVerboseLevel VerboseLevel) error {
 	if archive == nil {
 		return ErrNullArchive
 	}
@@ -103,6 +103,9 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 					continue
 				}
 				if (pck.Idx == videoStreamIdx && pck.Time > lastPacketTime) || pck.Idx != videoStreamIdx {
+					if streamVerboseLevel > VERBOSE_ADD {
+						log.Info().Str("scope", "mp4").Str("event", "mp4_write").Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Writing to archive segment")
+					}
 					if err = tsMuxer.WritePacket(pck); err != nil {
 						return errors.Wrap(err, fmt.Sprintf("Can't write packet for TS muxer for stream %s (2)", streamID))
 					}

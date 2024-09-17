@@ -80,7 +80,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 			log.Warn().Str("scope", "streaming").Str("event", "stream_mp4_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Empty archive configuration for the given stream")
 		} else {
 			stopMP4Cast = make(chan bool, 1)
-			err = app.startMP4Cast(archive, streamID, stopMP4Cast)
+			err = app.startMP4Cast(archive, streamID, stopMP4Cast, streamVerboseLevel)
 			if err != nil {
 				if streamVerboseLevel > VERBOSE_NONE {
 					log.Warn().Str("scope", "streaming").Str("event", "stream_mp4_req").Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Can't start MP4 archive process")

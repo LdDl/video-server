@@ -198,7 +198,7 @@ func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan bool) err
 	return nil
 }
 
-func (app *Application) startMP4Cast(archive *StreamArchiveWrapper, streamID uuid.UUID, stopCast chan bool) error {
+func (app *Application) startMP4Cast(archive *StreamArchiveWrapper, streamID uuid.UUID, stopCast chan bool, streamVerboseLevel VerboseLevel) error {
 	if archive == nil {
 		return ErrNullArchive
 	}
@@ -208,11 +208,11 @@ func (app *Application) startMP4Cast(archive *StreamArchiveWrapper, streamID uui
 	if !ok {
 		return ErrStreamNotFound
 	}
-	go func(arch *StreamArchiveWrapper, id uuid.UUID, mp4Chanel chan av.Packet, stop chan bool) {
-		err := app.startMP4(arch, id, mp4Chanel, stop)
+	go func(arch *StreamArchiveWrapper, id uuid.UUID, mp4Chanel chan av.Packet, stop chan bool, verbose VerboseLevel) {
+		err := app.startMP4(arch, id, mp4Chanel, stop, verbose)
 		if err != nil {
 			log.Error().Err(err).Str("scope", "archive").Str("event", "archive_start_cast").Str("stream_id", id.String()).Msg("Error on MP4 cast start")
 		}
-	}(archive, streamID, stream.mp4Chanel, stopCast)
+	}(archive, streamID, stream.mp4Chanel, stopCast, streamVerboseLevel)
 	return nil
 }
