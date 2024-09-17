@@ -92,21 +92,34 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 				isConnected = false
 				break segmentLoop
 			case pck := <-ch:
+				if streamVerboseLevel > VERBOSE_ADD {
+					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_PACKET).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Recieved something in archive channel")
+				}
 				if pck.Idx == videoStreamIdx && pck.IsKeyFrame {
+					if streamVerboseLevel > VERBOSE_ADD {
+						log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_KEYFRAME).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Packet is a keyframe")
+					}
 					start = true
 					if segmentLength.Milliseconds() >= archive.msPerSegment {
+						if streamVerboseLevel > VERBOSE_ADD {
+							log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_SEGMENT_CUT).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Need to cust segment")
+						}
 						lastKeyFrame = pck
 						break segmentLoop
 					}
 				}
 				if !start {
+					if streamVerboseLevel > VERBOSE_ADD {
+						log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_NO_START).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Still no start")
+					}
 					continue
 				}
 				if (pck.Idx == videoStreamIdx && pck.Time > lastPacketTime) || pck.Idx != videoStreamIdx {
 					if streamVerboseLevel > VERBOSE_ADD {
 						log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Writing to archive segment")
 					}
-					if err = tsMuxer.WritePacket(pck); err != nil {
+					err = tsMuxer.WritePacket(pck)
+					if err != nil {
 						return errors.Wrap(err, fmt.Sprintf("Can't write packet for TS muxer for stream %s (2)", streamID))
 					}
 					if pck.Idx == videoStreamIdx {
