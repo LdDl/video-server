@@ -138,6 +138,9 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 				} else {
 					// fmt.Println("Current packet time < previous ")
 				}
+				if streamVerboseLevel > VERBOSE_ADD {
+					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_PACKET).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Wait other in archive channel")
+				}
 			}
 		}
 		if err := tsMuxer.WriteTrailer(); err != nil {
