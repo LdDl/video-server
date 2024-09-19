@@ -151,11 +151,11 @@ func (streams *StreamsStorage) DeleteViewer(streamID, clientID uuid.UUID) {
 // CastPacket cast AV Packet to viewers and possible to HLS/MP4 channels
 func (streams *StreamsStorage) CastPacket(streamID uuid.UUID, pck av.Packet, hlsEnabled, archiveEnabled bool) error {
 	streams.Lock()
-	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
 	if !ok {
 		return ErrStreamNotFound
 	}
+	streams.Unlock()
 	if stream.verboseLevel > VERBOSE_ADD {
 		log.Info().Str("scope", SCOPE_STREAM).Str("event", EVENT_STREAM_CAST_PACKET).Str("stream_id", streamID.String()).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", stream.archive != nil).Int("clients_num", len(stream.Clients)).Msg("Cast packet")
 	}
