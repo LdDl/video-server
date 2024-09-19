@@ -208,11 +208,12 @@ func (app *Application) startMP4Cast(archive *StreamArchiveWrapper, streamID uui
 	if !ok {
 		return ErrStreamNotFound
 	}
+	channel := stream.mp4Chanel
 	go func(arch *StreamArchiveWrapper, id uuid.UUID, mp4Chanel chan av.Packet, stop chan bool, verbose VerboseLevel) {
 		err := app.startMP4(arch, id, mp4Chanel, stop, verbose)
 		if err != nil {
 			log.Error().Err(err).Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_START_CAST).Str("stream_id", id.String()).Msg("Error on MP4 cast start")
 		}
-	}(archive, streamID, stream.mp4Chanel, stopCast, streamVerboseLevel)
+	}(archive, streamID, channel, stopCast, streamVerboseLevel)
 	return nil
 }
