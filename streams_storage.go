@@ -198,8 +198,8 @@ func (streams *StreamsStorage) GetVerboseLevelForStream(streamID uuid.UUID) Verb
 
 // IsArchiveEnabledForStream returns whenever archive has been enabled for stream
 func (streams *StreamsStorage) IsArchiveEnabledForStream(streamID uuid.UUID) (bool, error) {
-	streams.Lock()
-	defer streams.Unlock()
+	streams.RLock()
+	defer streams.RUnlock()
 	stream, ok := streams.store[streamID]
 	if !ok {
 		return false, ErrStreamNotFound
