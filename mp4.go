@@ -149,6 +149,9 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 		}
 
 		if archive.store.Type() == storage.STORAGE_MINIO {
+			if streamVerboseLevel > VERBOSE_ADD {
+				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Drop segment to minio")
+			}
 			_, err = outFile.Seek(0, io.SeekStart)
 			if err != nil {
 				log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Can't seek to the start of file")
@@ -174,13 +177,14 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 			}
 		}
 
+		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CLOSE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Int64("ms", archive.msPerSegment).Msg("Closing segment")
 		if err := outFile.Close(); err != nil {
 			log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_CLOSE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't close file")
 			// @todo: handle?
 		}
 
 		lastSegmentTime = lastSegmentTime.Add(time.Since(st))
-		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CLOSE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Int64("ms", archive.msPerSegment).Msg("Close segment")
+		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CLOSE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Int64("ms", archive.msPerSegment).Msg("Closed segment")
 	}
 	return nil
 }
