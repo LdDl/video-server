@@ -46,8 +46,8 @@ func (streams *StreamsStorage) GetAllStreamsIDS() []uuid.UUID {
 
 // StreamExists checks whenever given stream ID exists in storage
 func (streams *StreamsStorage) StreamExists(streamID uuid.UUID) bool {
-	streams.Lock()
-	defer streams.Unlock()
+	streams.RLock()
+	defer streams.RUnlock()
 	_, ok := streams.store[streamID]
 	return ok
 }
@@ -187,8 +187,8 @@ func (streams *StreamsStorage) CastPacket(streamID uuid.UUID, pck av.Packet, hls
 
 // GetVerboseLevelForStream returst verbose level for the given stream
 func (streams *StreamsStorage) GetVerboseLevelForStream(streamID uuid.UUID) VerboseLevel {
-	streams.Lock()
-	defer streams.Unlock()
+	streams.RLock()
+	defer streams.RUnlock()
 	stream, ok := streams.store[streamID]
 	if !ok {
 		return VERBOSE_NONE
