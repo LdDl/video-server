@@ -209,8 +209,8 @@ func (streams *StreamsStorage) IsArchiveEnabledForStream(streamID uuid.UUID) (bo
 
 // UpdateArchiveStorageForStream updates archive storage configuration (it override existing one!)
 func (streams *StreamsStorage) UpdateArchiveStorageForStream(streamID uuid.UUID, archiveStorage *StreamArchiveWrapper) error {
-	streams.RLock()
-	defer streams.RUnlock()
+	streams.Lock()
+	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
 	if !ok {
 		return ErrStreamNotFound
