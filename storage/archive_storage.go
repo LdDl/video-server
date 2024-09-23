@@ -9,6 +9,7 @@ type ArchiveUnit struct {
 	Payload     io.Reader
 	Bucket      string
 	SegmentName string
+	FileName    string
 }
 
 type ArchiveStorage interface {

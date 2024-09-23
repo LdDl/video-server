@@ -3,7 +3,6 @@ package videoserver
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -105,7 +104,7 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 					start = true
 					if segmentLength.Milliseconds() >= archive.msPerSegment {
 						if streamVerboseLevel > VERBOSE_ADD {
-							log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_SEGMENT_CUT).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Need to cust segment")
+							log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_SEGMENT_CUT).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Need to cut segment")
 						}
 						lastKeyFrame = pck
 						break segmentLoop
@@ -148,43 +147,61 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 			// @todo: handle?
 		}
 
-		if archive.store.Type() == storage.STORAGE_MINIO {
-			if streamVerboseLevel > VERBOSE_ADD {
-				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Drop segment to minio")
-			}
-			_, err = outFile.Seek(0, io.SeekStart)
-			if err != nil {
-				log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Can't seek to the start of file")
-				return err
-			}
-			obj := storage.ArchiveUnit{
-				Payload:     outFile,
-				SegmentName: segmentName,
-				Bucket:      archive.bucket,
-			}
-			outSegmentName, err := archive.store.UploadFile(context.Background(), obj)
-			if err != nil {
-				log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Str("bucket", archive.bucket).Msg("Can't save segment")
-				return err
-			}
-			if segmentName != outSegmentName {
-				log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't validate segment")
-			}
-			err = os.Remove(segmentPath)
-			if err != nil {
-				log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Can't remove segment from temporary filesystem memory")
-				return err
-			}
-		}
-
 		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CLOSE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Int64("ms", archive.msPerSegment).Msg("Closing segment")
 		if err := outFile.Close(); err != nil {
 			log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_CLOSE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't close file")
 			// @todo: handle?
 		}
 
+		if archive.store.Type() == storage.STORAGE_MINIO {
+			if streamVerboseLevel > VERBOSE_ADD {
+				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Drop segment to minio")
+			}
+			// _, err = outFile.Seek(0, io.SeekStart)
+			// if err != nil {
+			// 	log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Can't seek to the start of file")
+			// 	return err
+			// }
+			// if streamVerboseLevel > VERBOSE_ADD {
+			// 	log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Done seek to start of segment file")
+			// }
+			go func() {
+				st := time.Now()
+				outSegmentName, err := UploadToMinio(archive.store, segmentName, archive.bucket, segmentPath)
+				if streamVerboseLevel > VERBOSE_ADD {
+					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Uploaded segment file")
+				}
+				elapsed := time.Since(st)
+				if err != nil {
+					log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("elapsed", elapsed).Msg("Can't upload segment to MinIO")
+				}
+				if segmentName != outSegmentName {
+					log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Dur("elapsed", elapsed).Msg("Can't validate segment")
+				}
+				if streamVerboseLevel > VERBOSE_ADD {
+					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("elapsed", elapsed).Msg("Saved to MinIO")
+				}
+			}()
+		}
+
 		lastSegmentTime = lastSegmentTime.Add(time.Since(st))
 		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CLOSE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Int64("ms", archive.msPerSegment).Msg("Closed segment")
 	}
 	return nil
+}
+
+func UploadToMinio(minioStorage storage.ArchiveStorage, segmentName, bucket, sourceFileName string) (string, error) {
+	obj := storage.ArchiveUnit{
+		// Payload:     outFile,
+		SegmentName: segmentName,
+		Bucket:      bucket,
+		FileName:    sourceFileName,
+	}
+	ctx := context.Background()
+	outSegmentName, err := minioStorage.UploadFile(ctx, obj)
+	if err != nil {
+		return "", err
+	}
+	err = os.Remove(sourceFileName)
+	return outSegmentName, err
 }

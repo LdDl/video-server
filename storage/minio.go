@@ -50,25 +50,36 @@ func (m *MinioProvider) MakeBucket(bucket string) error {
 	return nil
 }
 
+// UploadFile loads file to MinIO. Do not provide FileName field in ArchiveUnit object if you want to use Payload bytes; otherwise file will be loaded from filesystem by FileName field
 func (m *MinioProvider) UploadFile(ctx context.Context, object ArchiveUnit) (string, error) {
 	fname := fmt.Sprintf("%s/%s", m.Path, object.SegmentName)
-
-	buf := &bytes.Buffer{}
-
-	size, err := io.Copy(buf, object.Payload)
-	if err != nil {
-		return "", err
-	}
 	bucket := m.DefaultBucket
 	if object.Bucket != "" {
 		bucket = object.Bucket
 	}
-	_, err = m.client.PutObject(
+	if object.FileName == "" {
+		buf := &bytes.Buffer{}
+		size, err := io.Copy(buf, object.Payload)
+		if err != nil {
+			return "", err
+		}
+		_, err = m.client.PutObject(
+			ctx,
+			bucket,
+			fname,
+			buf,
+			size,
+			minio.PutObjectOptions{
+				ContentType: "application/octet-stream",
+			},
+		)
+		return object.SegmentName, err
+	}
+	_, err := m.client.FPutObject(
 		ctx,
 		bucket,
 		fname,
-		buf,
-		size,
+		object.FileName,
 		minio.PutObjectOptions{
 			ContentType: "application/octet-stream",
 		},
