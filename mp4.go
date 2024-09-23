@@ -157,14 +157,6 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 			if streamVerboseLevel > VERBOSE_ADD {
 				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Drop segment to minio")
 			}
-			// _, err = outFile.Seek(0, io.SeekStart)
-			// if err != nil {
-			// 	log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Can't seek to the start of file")
-			// 	return err
-			// }
-			// if streamVerboseLevel > VERBOSE_ADD {
-			// 	log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Done seek to start of segment file")
-			// }
 			go func() {
 				st := time.Now()
 				outSegmentName, err := UploadToMinio(archive.store, segmentName, archive.bucket, segmentPath)
@@ -192,7 +184,6 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 
 func UploadToMinio(minioStorage storage.ArchiveStorage, segmentName, bucket, sourceFileName string) (string, error) {
 	obj := storage.ArchiveUnit{
-		// Payload:     outFile,
 		SegmentName: segmentName,
 		Bucket:      bucket,
 		FileName:    sourceFileName,

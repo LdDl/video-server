@@ -1,10 +1,8 @@
 package storage
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/lifecycle"
@@ -56,24 +54,6 @@ func (m *MinioProvider) UploadFile(ctx context.Context, object ArchiveUnit) (str
 	bucket := m.DefaultBucket
 	if object.Bucket != "" {
 		bucket = object.Bucket
-	}
-	if object.FileName == "" {
-		buf := &bytes.Buffer{}
-		size, err := io.Copy(buf, object.Payload)
-		if err != nil {
-			return "", err
-		}
-		_, err = m.client.PutObject(
-			ctx,
-			bucket,
-			fname,
-			buf,
-			size,
-			minio.PutObjectOptions{
-				ContentType: "application/octet-stream",
-			},
-		)
-		return object.SegmentName, err
 	}
 	_, err := m.client.FPutObject(
 		ctx,
