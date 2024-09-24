@@ -16,7 +16,7 @@ import (
 )
 
 // startHls starts routine to create m3u8 playlists
-func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast chan bool) error {
+func (app *Application) startHls(streamID uuid.UUID, ch chan av.Packet, stopCast chan StopSignal) error {
 	err := ensureDir(app.HLS.Directory)
 	if err != nil {
 		return errors.Wrap(err, "Can't create directory for HLS temporary files")

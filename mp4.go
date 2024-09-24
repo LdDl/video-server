@@ -15,7 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UUID, ch chan av.Packet, stopCast chan bool, streamVerboseLevel VerboseLevel) error {
+func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UUID, ch chan av.Packet, stopCast chan StopSignal, streamVerboseLevel VerboseLevel) error {
 	if archive == nil {
 		return ErrNullArchive
 	}
@@ -143,15 +143,15 @@ func processingMP4(
 	msPerSegment int64,
 	tsMuxer *mp4.Muxer,
 	ch chan av.Packet,
-	stopCast chan bool,
+	stopCast chan StopSignal,
 	streamVerboseLevel VerboseLevel,
 ) (av.Packet, time.Duration, bool, error) {
 	for {
 		select {
-		case <-stopCast:
+		case sig := <-stopCast:
 			isConnected = false
 			if streamVerboseLevel > VERBOSE_NONE {
-				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_STOP).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Stop cast signal")
+				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_STOP).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Any("stop_signal", sig).Msg("Stop cast signal")
 			}
 			return lastKeyFrame, lastPacketTime, isConnected, nil
 		case pck := <-ch:
