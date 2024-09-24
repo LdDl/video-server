@@ -17,18 +17,13 @@ const (
 func (app *Application) StartStreams() {
 	streamsIDs := app.Streams.GetAllStreamsIDS()
 	for i := range streamsIDs {
-		app.StartStream(streamsIDs[i])
+		go func(id uuid.UUID) {
+			err := app.RunStream(context.Background(), id)
+			if err != nil {
+				log.Error().Err(err).Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_RUN).Str("stream_id", id.String()).Msg("Error on stream runner")
+			}
+		}(streamsIDs[i])
 	}
-}
-
-// StartStream starts single video stream
-func (app *Application) StartStream(streamID uuid.UUID) {
-	go func(id uuid.UUID) {
-		err := app.RunStream(context.Background(), id)
-		if err != nil {
-			log.Error().Err(err).Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_RUN).Str("stream_id", id.String()).Msg("Error on stream runner")
-		}
-	}(streamID)
 }
 
 func (app *Application) RunStream(ctx context.Context, streamID uuid.UUID) error {
