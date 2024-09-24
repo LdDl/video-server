@@ -36,7 +36,10 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 		if streamVerboseLevel > VERBOSE_NONE {
 			log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_CODEC_MET).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Any("codec_data", session.CodecData).Msg("Found codec. Adding this one")
 		}
-		app.Streams.AddCodecForStream(streamID, session.CodecData)
+		err = app.Streams.AddCodecForStream(streamID, session.CodecData)
+		if err != nil {
+			return errors.Wrapf(err, "Can't update codec data for stream %s on empty codecs", streamID)
+		}
 		if streamVerboseLevel > VERBOSE_NONE {
 			log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_STATUS_UPDATE).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Msg("Update stream status")
 		}
@@ -101,7 +104,10 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 				if streamVerboseLevel > VERBOSE_NONE {
 					log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_CODEC_UPDATE_SIGNAL).Str("stream_id", streamID.String()).Str("stream_url", url).Any("codec_data", session.CodecData).Msg("Recieved update codec signal")
 				}
-				app.Streams.AddCodecForStream(streamID, session.CodecData)
+				err = app.Streams.AddCodecForStream(streamID, session.CodecData)
+				if err != nil {
+					return errors.Wrapf(err, "Can't update codec data for stream %s on codecs update signal", streamID)
+				}
 				err = app.Streams.UpdateStreamStatus(streamID, true)
 				if err != nil {
 					return errors.Wrapf(err, "Can't update status for stream %s after codecs update", streamID)
