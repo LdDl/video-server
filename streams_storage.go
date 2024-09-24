@@ -153,6 +153,7 @@ func (streams *StreamsStorage) CastPacket(streamID uuid.UUID, pck av.Packet, hls
 	streams.Lock()
 	stream, ok := streams.store[streamID]
 	if !ok {
+		streams.Unlock()
 		return ErrStreamNotFound
 	}
 	streams.Unlock()
