@@ -42,7 +42,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 		}
 		err = app.Streams.UpdateStreamStatus(streamID, true)
 		if err != nil {
-			return errors.Wrapf(err, "Can't update status for stream %s", streamID)
+			return errors.Wrapf(err, "Can't update status for stream %s on empty codecs", streamID)
 		}
 	}
 
@@ -104,7 +104,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 				app.Streams.AddCodecForStream(streamID, session.CodecData)
 				err = app.Streams.UpdateStreamStatus(streamID, true)
 				if err != nil {
-					return errors.Wrapf(err, "Can't update status for stream %s", streamID)
+					return errors.Wrapf(err, "Can't update status for stream %s after codecs update", streamID)
 				}
 			case rtspv2.SignalStreamRTPStop:
 				if streamVerboseLevel > VERBOSE_NONE {
@@ -112,7 +112,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 				}
 				err = app.Streams.UpdateStreamStatus(streamID, false)
 				if err != nil {
-					errors.Wrapf(err, "Can't switch status to False for stream '%s'", url)
+					return errors.Wrapf(err, "Can't update status for stream %s after RTP stops", streamID)
 				}
 				return errors.Wrapf(ErrStreamDisconnected, "URL is '%s'", url)
 			}
@@ -145,7 +145,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 				}
 				errStatus := app.Streams.UpdateStreamStatus(streamID, false)
 				if errStatus != nil {
-					errors.Wrapf(errors.Wrapf(err, "Can't cast packet %s (%s)", streamID, url), "Can't switch status to False for stream '%s'", url)
+					return errors.Wrapf(err, "Can't update status for stream %s after casting", streamID)
 				}
 				return errors.Wrapf(err, "Can't cast packet %s (%s)", streamID, url)
 			}
