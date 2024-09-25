@@ -22,6 +22,7 @@ const (
 	STOP_SIGNAL_ERR = StopSignal(iota)
 	STOP_SIGNAL_NO_VIDEO
 	STOP_SIGNAL_DISCONNECT
+	STOP_SIGNAL_STOP_DIAL
 )
 
 // runStream runs RTSP grabbing process
@@ -41,7 +42,18 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 	if err != nil {
 		return errors.Wrapf(err, "Can't connect to stream '%s'", url)
 	}
-	defer session.Close()
+	defer func() {
+		if streamVerboseLevel > VERBOSE_NONE {
+			log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_DIAL).Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Closing connection")
+		}
+		if hlsEnabled {
+			stopHlsCast <- STOP_SIGNAL_STOP_DIAL
+		}
+		if archiveEnabled {
+			stopMP4Cast <- STOP_SIGNAL_STOP_DIAL
+		}
+		session.Close()
+	}()
 
 	if len(session.CodecData) != 0 {
 		if streamVerboseLevel > VERBOSE_NONE {

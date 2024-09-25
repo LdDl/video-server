@@ -164,7 +164,7 @@ func processingMP4(
 				}
 				start = true
 				if segmentLength.Milliseconds() >= msPerSegment {
-					if streamVerboseLevel > VERBOSE_ADD {
+					if streamVerboseLevel > VERBOSE_NONE {
 						log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_SEGMENT_CUT).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Need to cut segment")
 					}
 					lastKeyFrame = pck
