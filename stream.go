@@ -28,6 +28,12 @@ const (
 // runStream runs RTSP grabbing process
 func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, archiveEnabled bool, streamVerboseLevel VerboseLevel) error {
 	var stopHlsCast, stopMP4Cast chan StopSignal
+	if hlsEnabled {
+		stopHlsCast = make(chan StopSignal, 1)
+	}
+	if archiveEnabled {
+		stopMP4Cast = make(chan StopSignal, 1)
+	}
 
 	if streamVerboseLevel > VERBOSE_NONE {
 		log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_DIAL).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Msg("Trying to dial")
@@ -86,7 +92,6 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 		if streamVerboseLevel > VERBOSE_NONE {
 			log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_HLS_CAST).Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Need to start casting for HLS")
 		}
-		stopHlsCast = make(chan StopSignal, 1)
 		err = app.startHlsCast(streamID, stopHlsCast)
 		if err != nil {
 			if streamVerboseLevel > VERBOSE_NONE {
@@ -103,7 +108,6 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 		if archive == nil {
 			log.Warn().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_MP4_CAST).Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Empty archive configuration for the given stream")
 		} else {
-			stopMP4Cast = make(chan StopSignal, 1)
 			err = app.startMP4Cast(archive, streamID, stopMP4Cast, streamVerboseLevel)
 			if err != nil {
 				if streamVerboseLevel > VERBOSE_NONE {
