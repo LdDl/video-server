@@ -50,7 +50,7 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 			if fileClosed {
 				return
 			}
-			log.Warn().Str("scope", SCOPE_APP).Str("event", EVENT_MP4_CLOSE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("File has not been closed in right order")
+			log.Warn().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_MP4_CLOSE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("File has not been closed in right order")
 			if err := file.Close(); err != nil {
 				log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_CLOSE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't close file")
 				// @todo: handle?
