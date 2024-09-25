@@ -183,6 +183,9 @@ func (app *Application) setCors(cfg configuration.CORSConfiguration) {
 }
 
 func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan StopSignal) error {
+	if RWMutexLocked(&app.Streams.RWMutex) {
+		log.Warn().Str("fn", "startHlsCast").Str("stream_id", streamID.String()).Msg("Locked already")
+	}
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	stream, ok := app.Streams.store[streamID]
@@ -201,6 +204,9 @@ func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan StopSigna
 func (app *Application) startMP4Cast(archive *StreamArchiveWrapper, streamID uuid.UUID, stopCast chan StopSignal, streamVerboseLevel VerboseLevel) error {
 	if archive == nil {
 		return ErrNullArchive
+	}
+	if RWMutexLocked(&app.Streams.RWMutex) {
+		log.Warn().Str("fn", "startMP4Cast").Str("stream_id", streamID.String()).Msg("Locked already")
 	}
 	app.Streams.Lock()
 	defer app.Streams.Unlock()

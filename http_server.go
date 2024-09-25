@@ -145,6 +145,9 @@ func EnableCamera(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Con
 				}
 				outputTypes = append(outputTypes, typ)
 			}
+			if RWMutexLocked(&app.Streams.RWMutex) {
+				log.Warn().Str("fn", "EnableCamera").Str("stream_id", postData.GUID.String()).Msg("RLocked already")
+			}
 			app.Streams.Lock()
 			app.Streams.store[postData.GUID] = NewStreamConfiguration(postData.URL, outputTypes)
 			app.Streams.Unlock()
@@ -170,6 +173,9 @@ func DisableCamera(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Co
 			return
 		}
 		if exist := app.Streams.StreamExists(postData.GUID); exist {
+			if RWMutexLocked(&app.Streams.RWMutex) {
+				log.Warn().Str("fn", "DisableCamera").Str("stream_id", postData.GUID.String()).Msg("RLocked already")
+			}
 			app.Streams.Lock()
 			delete(app.Streams.store, postData.GUID)
 			app.Streams.Unlock()

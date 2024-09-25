@@ -24,6 +24,9 @@ func NewStreamsStorageDefault() StreamsStorage {
 
 // GetStreamInfo returns stream URL and its supported output types
 func (streams *StreamsStorage) GetStreamInfo(streamID uuid.UUID) (string, []StreamType) {
+	if RWMutexLocked(&streams.RWMutex) {
+		log.Warn().Str("fn", "GetStreamInfo").Str("stream_id", streamID.String()).Msg("Locked already")
+	}
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
@@ -35,6 +38,9 @@ func (streams *StreamsStorage) GetStreamInfo(streamID uuid.UUID) (string, []Stre
 
 // GetAllStreamsIDS returns all storage streams' keys as slice
 func (streams *StreamsStorage) GetAllStreamsIDS() []uuid.UUID {
+	if RWMutexLocked(&streams.RWMutex) {
+		log.Warn().Str("fn", "GetAllStreamsIDS").Msg("Locked already")
+	}
 	streams.Lock()
 	defer streams.Unlock()
 	keys := make([]uuid.UUID, 0, len(streams.store))
@@ -46,6 +52,9 @@ func (streams *StreamsStorage) GetAllStreamsIDS() []uuid.UUID {
 
 // StreamExists checks whenever given stream ID exists in storage
 func (streams *StreamsStorage) StreamExists(streamID uuid.UUID) bool {
+	if RWMutexRLocked(&streams.RWMutex) {
+		log.Warn().Str("fn", "StreamExists").Str("stream_id", streamID.String()).Msg("RLocked already")
+	}
 	streams.RLock()
 	defer streams.RUnlock()
 	_, ok := streams.store[streamID]
@@ -54,6 +63,9 @@ func (streams *StreamsStorage) StreamExists(streamID uuid.UUID) bool {
 
 // TypeExistsForStream checks whenever specific stream ID supports then given output stream type
 func (streams *StreamsStorage) TypeExistsForStream(streamID uuid.UUID, streamType StreamType) bool {
+	if RWMutexLocked(&streams.RWMutex) {
+		log.Warn().Str("fn", "TypeExistsForStream").Str("stream_id", streamID.String()).Msg("Locked already")
+	}
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
@@ -67,6 +79,9 @@ func (streams *StreamsStorage) TypeExistsForStream(streamID uuid.UUID, streamTyp
 
 // AddCodecForStream appends new codecs data for the given stream
 func (streams *StreamsStorage) AddCodecForStream(streamID uuid.UUID, codecs []av.CodecData) error {
+	if RWMutexLocked(&streams.RWMutex) {
+		log.Warn().Str("fn", "AddCodecForStream").Str("stream_id", streamID.String()).Msg("Locked already")
+	}
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
@@ -82,6 +97,9 @@ func (streams *StreamsStorage) AddCodecForStream(streamID uuid.UUID, codecs []av
 
 // GetCodecsDataForStream returns COPY of codecs data for the given stream
 func (streams *StreamsStorage) GetCodecsDataForStream(streamID uuid.UUID) ([]av.CodecData, error) {
+	if RWMutexLocked(&streams.RWMutex) {
+		log.Warn().Str("fn", "GetCodecsDataForStream").Str("stream_id", streamID.String()).Msg("Locked already")
+	}
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
@@ -102,6 +120,9 @@ func (streams *StreamsStorage) GetCodecsDataForStream(streamID uuid.UUID) ([]av.
 
 // UpdateStreamStatus sets new status value for the given stream
 func (streams *StreamsStorage) UpdateStreamStatus(streamID uuid.UUID, status bool) error {
+	if RWMutexLocked(&streams.RWMutex) {
+		log.Warn().Str("fn", "UpdateStreamStatus").Str("stream_id", streamID.String()).Msg("Locked already")
+	}
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
@@ -117,6 +138,9 @@ func (streams *StreamsStorage) UpdateStreamStatus(streamID uuid.UUID, status boo
 
 // AddViewer adds client to the given stream. Return newly client ID, buffered channel for stream on success
 func (streams *StreamsStorage) AddViewer(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
+	if RWMutexLocked(&streams.RWMutex) {
+		log.Warn().Str("fn", "AddViewer").Str("stream_id", streamID.String()).Msg("Locked already")
+	}
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
@@ -137,6 +161,9 @@ func (streams *StreamsStorage) AddViewer(streamID uuid.UUID) (uuid.UUID, chan av
 
 // DeleteViewer removes given client from the stream
 func (streams *StreamsStorage) DeleteViewer(streamID, clientID uuid.UUID) {
+	if RWMutexLocked(&streams.RWMutex) {
+		log.Warn().Str("fn", "DeleteViewer").Str("stream_id", streamID.String()).Msg("Locked already")
+	}
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
@@ -151,6 +178,9 @@ func (streams *StreamsStorage) DeleteViewer(streamID, clientID uuid.UUID) {
 
 // CastPacket cast AV Packet to viewers and possible to HLS/MP4 channels
 func (streams *StreamsStorage) CastPacket(streamID uuid.UUID, pck av.Packet, hlsEnabled, archiveEnabled bool) error {
+	if RWMutexLocked(&streams.RWMutex) {
+		log.Warn().Str("fn", "CastPacket").Str("stream_id", streamID.String()).Msg("Locked already")
+	}
 	streams.Lock()
 	stream, ok := streams.store[streamID]
 	if !ok {
@@ -189,6 +219,9 @@ func (streams *StreamsStorage) CastPacket(streamID uuid.UUID, pck av.Packet, hls
 
 // GetVerboseLevelForStream returst verbose level for the given stream
 func (streams *StreamsStorage) GetVerboseLevelForStream(streamID uuid.UUID) VerboseLevel {
+	if RWMutexRLocked(&streams.RWMutex) {
+		log.Warn().Str("fn", "GetVerboseLevelForStream").Str("stream_id", streamID.String()).Msg("RLocked already")
+	}
 	streams.RLock()
 	defer streams.RUnlock()
 	stream, ok := streams.store[streamID]
@@ -200,6 +233,9 @@ func (streams *StreamsStorage) GetVerboseLevelForStream(streamID uuid.UUID) Verb
 
 // IsArchiveEnabledForStream returns whenever archive has been enabled for stream
 func (streams *StreamsStorage) IsArchiveEnabledForStream(streamID uuid.UUID) (bool, error) {
+	if RWMutexRLocked(&streams.RWMutex) {
+		log.Warn().Str("fn", "IsArchiveEnabledForStream").Str("stream_id", streamID.String()).Msg("RLocked already")
+	}
 	streams.RLock()
 	defer streams.RUnlock()
 	stream, ok := streams.store[streamID]
@@ -211,6 +247,9 @@ func (streams *StreamsStorage) IsArchiveEnabledForStream(streamID uuid.UUID) (bo
 
 // UpdateArchiveStorageForStream updates archive storage configuration (it override existing one!)
 func (streams *StreamsStorage) UpdateArchiveStorageForStream(streamID uuid.UUID, archiveStorage *StreamArchiveWrapper) error {
+	if RWMutexLocked(&streams.RWMutex) {
+		log.Warn().Str("fn", "UpdateArchiveStorageForStream").Str("stream_id", streamID.String()).Msg("Locked already")
+	}
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
@@ -223,6 +262,9 @@ func (streams *StreamsStorage) UpdateArchiveStorageForStream(streamID uuid.UUID,
 
 // GetStreamArchiveStorage returns pointer to the archive storage for the given stream
 func (streams *StreamsStorage) GetStreamArchiveStorage(streamID uuid.UUID) *StreamArchiveWrapper {
+	if RWMutexLocked(&streams.RWMutex) {
+		log.Warn().Str("fn", "GetStreamArchiveStorage").Str("stream_id", streamID.String()).Msg("Locked already")
+	}
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
