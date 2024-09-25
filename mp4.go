@@ -44,6 +44,19 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("Can't create mp4-segment for stream %s", streamID))
 		}
+
+		fileClosed := false
+		defer func(file *os.File) {
+			if fileClosed {
+				return
+			}
+			log.Warn().Str("scope", SCOPE_APP).Str("event", EVENT_MP4_CLOSE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("File has not been closed in right order")
+			if err := file.Close(); err != nil {
+				log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_CLOSE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't close file")
+				// @todo: handle?
+			}
+		}(outFile)
+
 		tsMuxer := mp4.NewMuxer(outFile)
 		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CREATE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Create segment")
 		codecData, err := app.Streams.GetCodecsDataForStream(streamID)
@@ -95,6 +108,7 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 		}
 
 		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CLOSE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Int64("ms", archive.msPerSegment).Msg("Closing segment")
+		fileClosed = true
 		if err := outFile.Close(); err != nil {
 			log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_CLOSE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't close file")
 			// @todo: handle?
