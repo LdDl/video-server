@@ -29,7 +29,7 @@ var (
 )
 
 func init() {
-	zerolog.TimeFieldFormat = time.RFC3339
+	zerolog.TimeFieldFormat = time.RFC3339Nano
 	zerolog.DurationFieldUnit = time.Second
 }
 
