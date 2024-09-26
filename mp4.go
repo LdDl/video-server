@@ -204,6 +204,9 @@ func processingMP4(
 					packetLength = pck.Time - lastPacketTime
 					lastPacketTime = pck.Time
 					if packetLength.Milliseconds() > msPerSegment { // If comment this you get [0; keyframe time] interval for the very first video file
+						if streamVerboseLevel > VERBOSE_NONE {
+							log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Very first interval")
+						}
 						continue
 					}
 					segmentLength += packetLength
@@ -211,7 +214,7 @@ func processingMP4(
 				segmentCount++
 			} else {
 				if streamVerboseLevel > VERBOSE_ADD {
-					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Msg("Current packet time < previous")
+					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Msg("Current packet time < previous")
 				}
 			}
 			if streamVerboseLevel > VERBOSE_ADD {
