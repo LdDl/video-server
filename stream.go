@@ -158,6 +158,8 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 					return errors.Wrapf(err, "Can't update status for stream %s after RTP stops", streamID)
 				}
 				return errors.Wrapf(ErrStreamDisconnected, "URL is '%s'", url)
+			default:
+				log.Info().Str("warn", SCOPE_STREAMING).Str("event", EVENT_STREAMING_UNKNOWN_SIGNAL).Str("stream_id", streamID.String()).Str("stream_url", url).Int("signal", signals).Msg("Other signal")
 			}
 		case packetAV := <-session.OutgoingPacketQueue:
 			if streamVerboseLevel > VERBOSE_ADD {
