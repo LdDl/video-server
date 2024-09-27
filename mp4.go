@@ -15,6 +15,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	maxFailureDuration = 3 * time.Second
+)
+
+var (
+	ErrTimeFailure = fmt.Errorf("bad packet times")
+)
+
 func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UUID, ch chan av.Packet, stopCast chan StopSignal, streamVerboseLevel VerboseLevel) error {
 	if archive == nil {
 		return ErrNullArchive
@@ -40,6 +48,7 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 		st := time.Now()
 		segmentName := fmt.Sprintf("%s_%d.mp4", streamID, lastSegmentTime.Unix())
 		segmentPath := filepath.Join(archive.filesystemDir, segmentName)
+
 		outFile, err := os.Create(segmentPath)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("Can't create mp4-segment for stream %s", streamID))
@@ -82,6 +91,7 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 		packetLength := time.Duration(0)
 		segmentCount := 0
 		start := false
+		failureDuration := time.Duration(0)
 
 		// Write lastKeyFrame if exist
 		if lastKeyFrame.IsKeyFrame {
@@ -97,9 +107,9 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 		}
 		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CREATE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Start segment loop")
 
-		lastKeyFrame, lastPacketTime, isConnected, err = processingMP4(streamID, segmentName, isConnected, start, videoStreamIdx, segmentCount, segmentLength, lastKeyFrame, lastPacketTime, packetLength, archive.msPerSegment, tsMuxer, ch, stopCast, streamVerboseLevel)
+		lastKeyFrame, lastPacketTime, isConnected, failureDuration, err = processingMP4(streamID, segmentName, isConnected, start, videoStreamIdx, segmentCount, segmentLength, lastKeyFrame, lastPacketTime, packetLength, archive.msPerSegment, tsMuxer, ch, stopCast, failureDuration, streamVerboseLevel)
 		if err != nil {
-			log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't process mp4 channel")
+			log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Dur("failure_dur", failureDuration).Msg("Can't process mp4 channel")
 		}
 
 		if err := tsMuxer.WriteTrailer(); err != nil {
@@ -158,8 +168,9 @@ func processingMP4(
 	tsMuxer *mp4.Muxer,
 	ch chan av.Packet,
 	stopCast chan StopSignal,
+	failureDuration time.Duration,
 	streamVerboseLevel VerboseLevel,
-) (av.Packet, time.Duration, bool, error) {
+) (av.Packet, time.Duration, bool, time.Duration, error) {
 	for {
 		select {
 		case sig := <-stopCast:
@@ -167,7 +178,7 @@ func processingMP4(
 			if streamVerboseLevel > VERBOSE_NONE {
 				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_STOP).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Any("stop_signal", sig).Dur("prev_pck_time", lastPacketTime).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Stop cast signal")
 			}
-			return lastKeyFrame, lastPacketTime, isConnected, nil
+			return lastKeyFrame, lastPacketTime, isConnected, failureDuration, nil
 		case pck := <-ch:
 			if streamVerboseLevel > VERBOSE_ADD {
 				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_PACKET).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Recieved something in archive channel")
@@ -182,7 +193,7 @@ func processingMP4(
 						log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_SEGMENT_CUT).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Need to cut segment")
 					}
 					lastKeyFrame = pck
-					return lastKeyFrame, lastPacketTime, isConnected, nil
+					return lastKeyFrame, lastPacketTime, isConnected, failureDuration, nil
 				}
 			}
 			if !start {
@@ -192,12 +203,13 @@ func processingMP4(
 				continue
 			}
 			if (pck.Idx == videoStreamIdx && pck.Time > lastPacketTime) || pck.Idx != videoStreamIdx {
+				failureDuration = time.Duration(0)
 				if streamVerboseLevel > VERBOSE_ADD {
 					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Writing to archive segment")
 				}
 				err := tsMuxer.WritePacket(pck)
 				if err != nil {
-					return lastKeyFrame, lastPacketTime, isConnected, errors.Wrap(err, fmt.Sprintf("Can't write packet for TS muxer for stream %s (2)", streamID))
+					return lastKeyFrame, lastPacketTime, isConnected, failureDuration, errors.Wrap(err, fmt.Sprintf("Can't write packet for TS muxer for stream %s (2)", streamID))
 				}
 				if pck.Idx == videoStreamIdx {
 					// Evaluate segment length
@@ -214,18 +226,20 @@ func processingMP4(
 				segmentCount++
 			} else {
 				if streamVerboseLevel > VERBOSE_NONE {
-					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Current packet time < previous")
+					log.Warn().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Dur("failure_dur", failureDuration).Msg("Current packet time < previous")
 				}
-				// Override lastpackat time anyways
-				// @todo: consider to refactor code to properly change lastPacketTime
-				lastPacketTime = pck.Time
+				failureDuration += pck.Duration
+				if failureDuration > maxFailureDuration {
+					return lastKeyFrame, lastPacketTime, isConnected, failureDuration, ErrTimeFailure
+				}
+				continue
 			}
 			if streamVerboseLevel > VERBOSE_ADD {
 				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_PACKET).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Wait other in archive channel")
 			}
 		}
 	}
-	return lastKeyFrame, lastPacketTime, isConnected, nil
+	return lastKeyFrame, lastPacketTime, isConnected, failureDuration, nil
 }
 
 func UploadToMinio(minioStorage storage.ArchiveStorage, segmentName, bucket, sourceFileName string) (string, error) {
