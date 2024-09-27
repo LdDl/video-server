@@ -165,21 +165,21 @@ func processingMP4(
 		case sig := <-stopCast:
 			isConnected = false
 			if streamVerboseLevel > VERBOSE_NONE {
-				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_STOP).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Any("stop_signal", sig).Msg("Stop cast signal")
+				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_STOP).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Any("stop_signal", sig).Dur("prev_pck_time", lastPacketTime).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Stop cast signal")
 			}
 			return lastKeyFrame, lastPacketTime, isConnected, nil
 		case pck := <-ch:
 			if streamVerboseLevel > VERBOSE_ADD {
-				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_PACKET).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Recieved something in archive channel")
+				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_PACKET).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Recieved something in archive channel")
 			}
 			if pck.Idx == videoStreamIdx && pck.IsKeyFrame {
 				if streamVerboseLevel > VERBOSE_ADD {
-					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_KEYFRAME).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Packet is a keyframe")
+					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_KEYFRAME).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Packet is a keyframe")
 				}
 				start = true
 				if segmentLength.Milliseconds() >= msPerSegment {
 					if streamVerboseLevel > VERBOSE_NONE {
-						log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_SEGMENT_CUT).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Need to cut segment")
+						log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_SEGMENT_CUT).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Need to cut segment")
 					}
 					lastKeyFrame = pck
 					return lastKeyFrame, lastPacketTime, isConnected, nil
@@ -187,13 +187,13 @@ func processingMP4(
 			}
 			if !start {
 				if streamVerboseLevel > VERBOSE_ADD {
-					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_NO_START).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Still no start")
+					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_NO_START).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Still no start")
 				}
 				continue
 			}
 			if (pck.Idx == videoStreamIdx && pck.Time > lastPacketTime) || pck.Idx != videoStreamIdx {
 				if streamVerboseLevel > VERBOSE_ADD {
-					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Writing to archive segment")
+					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Writing to archive segment")
 				}
 				err := tsMuxer.WritePacket(pck)
 				if err != nil {
@@ -205,7 +205,7 @@ func processingMP4(
 					lastPacketTime = pck.Time
 					if packetLength.Milliseconds() > msPerSegment { // If comment this you get [0; keyframe time] interval for the very first video file
 						if streamVerboseLevel > VERBOSE_NONE {
-							log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Very first interval")
+							log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Very first interval")
 						}
 						continue
 					}
@@ -213,12 +213,15 @@ func processingMP4(
 				}
 				segmentCount++
 			} else {
-				if streamVerboseLevel > VERBOSE_ADD {
-					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Msg("Current packet time < previous")
+				if streamVerboseLevel > VERBOSE_NONE {
+					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Current packet time < previous")
 				}
+				// Override lastpackat time anyways
+				// @todo: consider to refactor code to properly change lastPacketTime
+				lastPacketTime = pck.Time
 			}
 			if streamVerboseLevel > VERBOSE_ADD {
-				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_PACKET).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Wait other in archive channel")
+				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_PACKET).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Wait other in archive channel")
 			}
 		}
 	}
