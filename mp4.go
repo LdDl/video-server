@@ -232,7 +232,6 @@ func processingMP4(
 				if failureDuration > maxFailureDuration {
 					return lastKeyFrame, lastPacketTime, isConnected, failureDuration, ErrTimeFailure
 				}
-				continue
 			}
 			if streamVerboseLevel > VERBOSE_ADD {
 				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_PACKET).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Wait other in archive channel")
