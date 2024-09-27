@@ -10,9 +10,6 @@ func (app *Application) startMP4Cast(archive *StreamArchiveWrapper, streamID uui
 	if archive == nil {
 		return ErrNullArchive
 	}
-	if RWMutexLocked(&app.Streams.RWMutex) {
-		log.Warn().Str("fn", "startMP4Cast").Str("stream_id", streamID.String()).Msg("Locked already")
-	}
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	stream, ok := app.Streams.store[streamID]

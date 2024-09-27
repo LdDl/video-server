@@ -7,9 +7,6 @@ import (
 )
 
 func (app *Application) startHlsCast(streamID uuid.UUID, stopCast chan StopSignal) error {
-	if RWMutexLocked(&app.Streams.RWMutex) {
-		log.Warn().Str("fn", "startHlsCast").Str("stream_id", streamID.String()).Msg("Locked already")
-	}
 	app.Streams.Lock()
 	defer app.Streams.Unlock()
 	stream, ok := app.Streams.store[streamID]
