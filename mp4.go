@@ -107,9 +107,10 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 		}
 		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CREATE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Start segment loop")
 
-		lastKeyFrame, lastPacketTime, isConnected, failureDuration, err = processingMP4(streamID, segmentName, isConnected, start, videoStreamIdx, segmentCount, segmentLength, lastKeyFrame, lastPacketTime, packetLength, archive.msPerSegment, tsMuxer, ch, stopCast, failureDuration, streamVerboseLevel)
-		if err != nil {
-			log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Dur("failure_dur", failureDuration).Msg("Can't process mp4 channel")
+		var errProccessing error
+		lastKeyFrame, lastPacketTime, isConnected, failureDuration, errProccessing = processingMP4(streamID, segmentName, isConnected, start, videoStreamIdx, segmentCount, segmentLength, lastKeyFrame, lastPacketTime, packetLength, archive.msPerSegment, tsMuxer, ch, stopCast, failureDuration, streamVerboseLevel)
+		if errProccessing != nil {
+			log.Error().Err(errProccessing).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Dur("failure_dur", failureDuration).Msg("Can't process mp4 channel")
 		}
 
 		if err := tsMuxer.WriteTrailer(); err != nil {
@@ -149,6 +150,9 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 
 		lastSegmentTime = lastSegmentTime.Add(time.Since(st))
 		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CLOSE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Int64("ms", archive.msPerSegment).Msg("Closed segment")
+		if failureDuration > maxFailureDuration && errProccessing != nil {
+			return errors.Wrap(errProccessing, "Max duration failure exceed")
+		}
 	}
 	return nil
 }

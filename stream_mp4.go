@@ -6,7 +6,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (app *Application) startMP4Cast(archive *StreamArchiveWrapper, streamID uuid.UUID, stopCast chan StopSignal, streamVerboseLevel VerboseLevel) error {
+func (app *Application) startMP4Cast(archive *StreamArchiveWrapper, streamID uuid.UUID, stopCast chan StopSignal, errorSignal chan error, streamVerboseLevel VerboseLevel) error {
 	if archive == nil {
 		return ErrNullArchive
 	}
@@ -22,6 +22,7 @@ func (app *Application) startMP4Cast(archive *StreamArchiveWrapper, streamID uui
 		if err != nil {
 			log.Error().Err(err).Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_START_CAST).Str("stream_id", id.String()).Msg("Error on MP4 cast start")
 		}
+		errorSignal <- err
 	}(archive, streamID, channel, stopCast, streamVerboseLevel)
 	return nil
 }
