@@ -28,6 +28,7 @@ const (
 	EVENT_STREAMING_STATUS_UPDATE       = "streaming_status_update"
 	EVENT_STREAMING_PACKET_SIGNAL       = "streaming_packet_signal"
 	EVENT_STREAMING_STOP_SIGNAL         = "streaming_stop_signal"
+	EVENT_STREAMING_UNKNOWN_SIGNAL      = "streaming_unknown_signal"
 	EVENT_STREAMING_CODEC_UPDATE_SIGNAL = "streaming_codec_update_signal"
 	EVENT_STREAMING_EXIT_SIGNAL         = "streaming_codec_exit_signal"
 	EVENT_STREAMING_CODEC_MET           = "streaming_codec_met"

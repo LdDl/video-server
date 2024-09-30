@@ -3,7 +3,6 @@ package videoserver
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -16,7 +15,15 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UUID, ch chan av.Packet, stopCast chan bool, streamVerboseLevel VerboseLevel) error {
+const (
+	maxFailureDuration = 3 * time.Second
+)
+
+var (
+	ErrTimeFailure = fmt.Errorf("bad packet times")
+)
+
+func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UUID, ch chan av.Packet, stopCast chan StopSignal, streamVerboseLevel VerboseLevel) error {
 	if archive == nil {
 		return ErrNullArchive
 	}
@@ -41,10 +48,24 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 		st := time.Now()
 		segmentName := fmt.Sprintf("%s_%d.mp4", streamID, lastSegmentTime.Unix())
 		segmentPath := filepath.Join(archive.filesystemDir, segmentName)
+
 		outFile, err := os.Create(segmentPath)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("Can't create mp4-segment for stream %s", streamID))
 		}
+
+		fileClosed := false
+		defer func(file *os.File) {
+			if fileClosed {
+				return
+			}
+			log.Warn().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_MP4_CLOSE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("File has not been closed in right order")
+			if err := file.Close(); err != nil {
+				log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_CLOSE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't close file")
+				// @todo: handle?
+			}
+		}(outFile)
+
 		tsMuxer := mp4.NewMuxer(outFile)
 		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CREATE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Create segment")
 		codecData, err := app.Streams.GetCodecsDataForStream(streamID)
@@ -70,6 +91,7 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 		packetLength := time.Duration(0)
 		segmentCount := 0
 		start := false
+		failureDuration := time.Duration(0)
 
 		// Write lastKeyFrame if exist
 		if lastKeyFrame.IsKeyFrame {
@@ -84,103 +106,156 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 			segmentCount++
 		}
 		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CREATE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Start segment loop")
-		// @todo Oh, I don't like GOTOs, but it is what it is.
-	segmentLoop:
-		for {
-			select {
-			case <-stopCast:
-				isConnected = false
-				if streamVerboseLevel > VERBOSE_NONE {
-					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_STOP).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Stop cast signal")
-				}
-				break segmentLoop
-			case pck := <-ch:
-				if streamVerboseLevel > VERBOSE_ADD {
-					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_PACKET).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Recieved something in archive channel")
-				}
-				if pck.Idx == videoStreamIdx && pck.IsKeyFrame {
-					if streamVerboseLevel > VERBOSE_ADD {
-						log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_KEYFRAME).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Packet is a keyframe")
-					}
-					start = true
-					if segmentLength.Milliseconds() >= archive.msPerSegment {
-						if streamVerboseLevel > VERBOSE_ADD {
-							log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_SEGMENT_CUT).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Need to cust segment")
-						}
-						lastKeyFrame = pck
-						break segmentLoop
-					}
-				}
-				if !start {
-					if streamVerboseLevel > VERBOSE_ADD {
-						log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_NO_START).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Still no start")
-					}
-					continue
-				}
-				if (pck.Idx == videoStreamIdx && pck.Time > lastPacketTime) || pck.Idx != videoStreamIdx {
-					if streamVerboseLevel > VERBOSE_ADD {
-						log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Writing to archive segment")
-					}
-					err = tsMuxer.WritePacket(pck)
-					if err != nil {
-						return errors.Wrap(err, fmt.Sprintf("Can't write packet for TS muxer for stream %s (2)", streamID))
-					}
-					if pck.Idx == videoStreamIdx {
-						// Evaluate segment length
-						packetLength = pck.Time - lastPacketTime
-						lastPacketTime = pck.Time
-						if packetLength.Milliseconds() > archive.msPerSegment { // If comment this you get [0; keyframe time] interval for the very first video file
-							continue
-						}
-						segmentLength += packetLength
-					}
-					segmentCount++
-				} else {
-					// fmt.Println("Current packet time < previous ")
-				}
-				if streamVerboseLevel > VERBOSE_ADD {
-					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_PACKET).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Wait other in archive channel")
-				}
-			}
+
+		var errProccessing error
+		lastKeyFrame, lastPacketTime, isConnected, failureDuration, errProccessing = processingMP4(streamID, segmentName, isConnected, start, videoStreamIdx, segmentCount, segmentLength, lastKeyFrame, lastPacketTime, packetLength, archive.msPerSegment, tsMuxer, ch, stopCast, failureDuration, streamVerboseLevel)
+		if errProccessing != nil {
+			log.Error().Err(errProccessing).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Dur("failure_dur", failureDuration).Msg("Can't process mp4 channel")
 		}
+
 		if err := tsMuxer.WriteTrailer(); err != nil {
 			log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE_TRAIL).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't write trailing data for TS muxer")
 			// @todo: handle?
 		}
 
-		if archive.store.Type() == storage.STORAGE_MINIO {
-			_, err = outFile.Seek(0, io.SeekStart)
-			if err != nil {
-				log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Can't seek to the start of file")
-				return err
-			}
-			obj := storage.ArchiveUnit{
-				Payload:     outFile,
-				SegmentName: segmentName,
-				Bucket:      archive.bucket,
-			}
-			outSegmentName, err := archive.store.UploadFile(context.Background(), obj)
-			if err != nil {
-				log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Str("bucket", archive.bucket).Msg("Can't save segment")
-				return err
-			}
-			if segmentName != outSegmentName {
-				log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't validate segment")
-			}
-			err = os.Remove(segmentPath)
-			if err != nil {
-				log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Can't remove segment from temporary filesystem memory")
-				return err
-			}
-		}
-
+		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CLOSE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Int64("ms", archive.msPerSegment).Msg("Closing segment")
+		fileClosed = true
 		if err := outFile.Close(); err != nil {
 			log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_CLOSE).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Msg("Can't close file")
 			// @todo: handle?
 		}
 
+		if archive.store.Type() == storage.STORAGE_MINIO {
+			if streamVerboseLevel > VERBOSE_ADD {
+				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Drop segment to minio")
+			}
+			go func() {
+				st := time.Now()
+				outSegmentName, err := UploadToMinio(archive.store, segmentName, archive.bucket, segmentPath)
+				if streamVerboseLevel > VERBOSE_ADD {
+					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Msg("Uploaded segment file")
+				}
+				elapsed := time.Since(st)
+				if err != nil {
+					log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("elapsed", elapsed).Msg("Can't upload segment to MinIO")
+				}
+				if segmentName != outSegmentName {
+					log.Error().Err(err).Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("out_filename", outFile.Name()).Dur("elapsed", elapsed).Msg("Can't validate segment")
+				}
+				if streamVerboseLevel > VERBOSE_ADD {
+					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_SAVE_MINIO).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("elapsed", elapsed).Msg("Saved to MinIO")
+				}
+			}()
+		}
+
 		lastSegmentTime = lastSegmentTime.Add(time.Since(st))
-		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CLOSE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Int64("ms", archive.msPerSegment).Msg("Close segment")
+		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CLOSE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Int64("ms", archive.msPerSegment).Msg("Closed segment")
+		if failureDuration > maxFailureDuration && errProccessing != nil {
+			return errors.Wrap(errProccessing, "Max duration failure exceed")
+		}
 	}
 	return nil
+}
+
+func processingMP4(
+	streamID uuid.UUID,
+	segmentName string,
+	isConnected,
+	start bool,
+	videoStreamIdx int8,
+	segmentCount int,
+	segmentLength time.Duration,
+	lastKeyFrame av.Packet,
+	lastPacketTime time.Duration,
+	packetLength time.Duration,
+	msPerSegment int64,
+	tsMuxer *mp4.Muxer,
+	ch chan av.Packet,
+	stopCast chan StopSignal,
+	failureDuration time.Duration,
+	streamVerboseLevel VerboseLevel,
+) (av.Packet, time.Duration, bool, time.Duration, error) {
+	for {
+		select {
+		case sig := <-stopCast:
+			isConnected = false
+			if streamVerboseLevel > VERBOSE_NONE {
+				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_STOP).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Any("stop_signal", sig).Dur("prev_pck_time", lastPacketTime).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Stop cast signal")
+			}
+			return lastKeyFrame, lastPacketTime, isConnected, failureDuration, nil
+		case pck := <-ch:
+			if streamVerboseLevel > VERBOSE_ADD {
+				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_PACKET).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Recieved something in archive channel")
+			}
+			if pck.Idx == videoStreamIdx && pck.IsKeyFrame {
+				if streamVerboseLevel > VERBOSE_ADD {
+					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_KEYFRAME).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Packet is a keyframe")
+				}
+				start = true
+				if segmentLength.Milliseconds() >= msPerSegment {
+					if streamVerboseLevel > VERBOSE_NONE {
+						log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_SEGMENT_CUT).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Need to cut segment")
+					}
+					lastKeyFrame = pck
+					return lastKeyFrame, lastPacketTime, isConnected, failureDuration, nil
+				}
+			}
+			if !start {
+				if streamVerboseLevel > VERBOSE_ADD {
+					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_NO_START).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Still no start")
+				}
+				continue
+			}
+			if (pck.Idx == videoStreamIdx && pck.Time > lastPacketTime) || pck.Idx != videoStreamIdx {
+				failureDuration = time.Duration(0)
+				if streamVerboseLevel > VERBOSE_ADD {
+					log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Writing to archive segment")
+				}
+				err := tsMuxer.WritePacket(pck)
+				if err != nil {
+					return lastKeyFrame, lastPacketTime, isConnected, failureDuration, errors.Wrap(err, fmt.Sprintf("Can't write packet for TS muxer for stream %s (2)", streamID))
+				}
+				if pck.Idx == videoStreamIdx {
+					// Evaluate segment length
+					packetLength = pck.Time - lastPacketTime
+					lastPacketTime = pck.Time
+					if packetLength.Milliseconds() > msPerSegment { // If comment this you get [0; keyframe time] interval for the very first video file
+						if streamVerboseLevel > VERBOSE_NONE {
+							log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Very first interval")
+						}
+						continue
+					}
+					segmentLength += packetLength
+				}
+				segmentCount++
+			} else {
+				if streamVerboseLevel > VERBOSE_NONE {
+					log.Warn().Str("scope", SCOPE_MP4).Str("event", EVENT_MP4_WRITE).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Dur("failure_dur", failureDuration).Msg("Current packet time < previous")
+				}
+				failureDuration += pck.Duration
+				if failureDuration > maxFailureDuration {
+					return lastKeyFrame, lastPacketTime, isConnected, failureDuration, ErrTimeFailure
+				}
+			}
+			if streamVerboseLevel > VERBOSE_ADD {
+				log.Info().Str("scope", SCOPE_MP4).Str("event", EVENT_CHAN_PACKET).Str("stream_id", streamID.String()).Str("segment_name", segmentName).Dur("pck_time", pck.Time).Dur("prev_pck_time", lastPacketTime).Dur("pck_dur", pck.Duration).Int8("pck_idx", pck.Idx).Int8("stream_idx", videoStreamIdx).Int("segment_count", segmentCount).Dur("segment_len", segmentLength).Msg("Wait other in archive channel")
+			}
+		}
+	}
+	return lastKeyFrame, lastPacketTime, isConnected, failureDuration, nil
+}
+
+func UploadToMinio(minioStorage storage.ArchiveStorage, segmentName, bucket, sourceFileName string) (string, error) {
+	obj := storage.ArchiveUnit{
+		SegmentName: segmentName,
+		Bucket:      bucket,
+		FileName:    sourceFileName,
+	}
+	ctx := context.Background()
+	outSegmentName, err := minioStorage.UploadFile(ctx, obj)
+	if err != nil {
+		return "", err
+	}
+	err = os.Remove(sourceFileName)
+	return outSegmentName, err
 }

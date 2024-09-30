@@ -66,17 +66,18 @@ func (streams *StreamsStorage) TypeExistsForStream(streamID uuid.UUID, streamTyp
 }
 
 // AddCodecForStream appends new codecs data for the given stream
-func (streams *StreamsStorage) AddCodecForStream(streamID uuid.UUID, codecs []av.CodecData) {
+func (streams *StreamsStorage) AddCodecForStream(streamID uuid.UUID, codecs []av.CodecData) error {
 	streams.Lock()
 	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
 	if !ok {
-		return
+		return ErrStreamNotFound
 	}
 	stream.Codecs = codecs
 	if stream.verboseLevel > VERBOSE_SIMPLE {
 		log.Info().Str("scope", SCOPE_STREAM).Str("event", EVENT_STREAM_CODEC_ADD).Str("stream_id", streamID.String()).Any("codec_data", codecs).Msg("Add codec")
 	}
+	return nil
 }
 
 // GetCodecsDataForStream returns COPY of codecs data for the given stream
@@ -151,11 +152,12 @@ func (streams *StreamsStorage) DeleteViewer(streamID, clientID uuid.UUID) {
 // CastPacket cast AV Packet to viewers and possible to HLS/MP4 channels
 func (streams *StreamsStorage) CastPacket(streamID uuid.UUID, pck av.Packet, hlsEnabled, archiveEnabled bool) error {
 	streams.Lock()
-	defer streams.Unlock()
 	stream, ok := streams.store[streamID]
 	if !ok {
+		streams.Unlock()
 		return ErrStreamNotFound
 	}
+	streams.Unlock()
 	if stream.verboseLevel > VERBOSE_ADD {
 		log.Info().Str("scope", SCOPE_STREAM).Str("event", EVENT_STREAM_CAST_PACKET).Str("stream_id", streamID.String()).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", stream.archive != nil).Int("clients_num", len(stream.Clients)).Msg("Cast packet")
 	}
