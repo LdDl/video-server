@@ -187,6 +187,31 @@ func PrepareConfigurationTOML(fname string) (*Configuration, error) {
 					continue
 				}
 			}
+			// Default common settings for archive
+			if singleStream.Archive.MsPerSegment <= 0 {
+				if cfg.ArchiveCfg.MsPerSegment > 0 {
+					singleStream.Archive.MsPerSegment = cfg.ArchiveCfg.MsPerSegment
+				} else {
+					singleStream.Archive.MsPerSegment = 30
+				}
+			}
+
+			// Default filesystem settigs
+			if singleStream.Archive.Directory == "" {
+				if cfg.ArchiveCfg.Directory != "" {
+					singleStream.Archive.Directory = cfg.ArchiveCfg.Directory
+				} else {
+					singleStream.Archive.Directory = "./mp4"
+				}
+			}
+
+			// Default minio settings
+			if singleStream.Archive.MinioBucket == "" {
+				singleStream.Archive.MinioBucket = cfg.ArchiveCfg.Minio.DefaultBucket
+			}
+			if singleStream.Archive.MinioPath == "" {
+				singleStream.Archive.MinioPath = cfg.ArchiveCfg.Minio.DefaultPath
+			}
 			cfg.RTSPStreams = append(cfg.RTSPStreams, singleStream)
 		}
 	}

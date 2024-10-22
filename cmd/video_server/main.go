@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"runtime"
@@ -53,7 +54,8 @@ func main() {
 		log.Error().Err(err).Str("scope", videoserver.SCOPE_CONFIGURATION).Msg("Could not prepare application configuration")
 		return
 	}
-
+	fmt.Println(appCfg)
+	return
 	app, err := videoserver.NewApplication(appCfg)
 	if err != nil {
 		log.Error().Err(err).Str("scope", videoserver.SCOPE_CONFIGURATION).Msg("Could not prepare application")
