@@ -7,29 +7,29 @@ import (
 	"github.com/pkg/errors"
 )
 
-func PrepareConfiguration(confName *string) (*Configuration, error) {
+func PrepareConfiguration(confName string) (*Configuration, error) {
 	var err error
-	if confName == nil || *confName == "" {
+	if confName == "" {
 		errReason := "Empty file name"
 		return nil, errors.Wrap(err, errReason)
 	}
 
-	fileNames := strings.Split(*confName, ".")
+	fileNames := strings.Split(confName, ".")
 	if len(fileNames) != 2 {
-		errReason := fmt.Sprintf("Bad file name '%s'", *confName)
+		errReason := fmt.Sprintf("Bad file name '%s'", confName)
 		return nil, errors.Wrap(err, errReason)
 	}
 	fileFormat := fileNames[1]
 
 	switch fileFormat {
 	case "json":
-		mainCfg, err := PrepareConfigurationJSON(*confName)
+		mainCfg, err := PrepareConfigurationJSON(confName)
 		if err != nil {
 			return nil, err
 		}
 		return mainCfg, nil
 	case "toml":
-		mainCfg, err := PrepareConfigurationTOML(*confName)
+		mainCfg, err := PrepareConfigurationTOML(confName)
 		if err != nil {
 			return nil, err
 		}
