@@ -20,7 +20,7 @@ import (
 var (
 	cpuprofile          = flag.String("cpuprofile", "", "write cpu profile to `file`")
 	memprofile          = flag.String("memprofile", "", "write memory profile to `file`")
-	conf                = flag.String("conf", "conf.json", "Path to configuration JSON-file")
+	conf                = flag.String("conf", "conf.toml", "Path to configuration either TOML-file or JSON-file")
 	EVENT_CPU           = "cpu_profile"
 	EVENT_MEMORY        = "memory_profile"
 	EVENT_APP_START     = "app_start"
