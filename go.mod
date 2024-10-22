@@ -5,6 +5,7 @@ go 1.21.0
 toolchain go1.22.5
 
 require (
+	github.com/BurntSushi/toml v1.4.0
 	github.com/deepch/vdk v0.0.27
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-contrib/pprof v1.5.0
