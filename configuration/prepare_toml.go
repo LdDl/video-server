@@ -79,6 +79,27 @@ func PrepareConfigurationTOML(fname string) (*Configuration, error) {
 				cfg.ArchiveCfg.Directory = v.(string)
 			case "ms_per_file":
 				cfg.ArchiveCfg.MsPerSegment = v.(int64)
+			case "minio_settings":
+				cfg.ArchiveCfg.Minio = MinioSettings{}
+				settings := v.(map[string]any)
+				for sk, sv := range settings {
+					switch sk {
+					case "host":
+						cfg.ArchiveCfg.Minio.Host = sv.(string)
+					case "port":
+						cfg.ArchiveCfg.Minio.Port = int32(sv.(int64))
+					case "user":
+						cfg.ArchiveCfg.Minio.User = sv.(string)
+					case "password":
+						cfg.ArchiveCfg.Minio.Password = sv.(string)
+					case "default_bucket":
+						cfg.ArchiveCfg.Minio.DefaultBucket = sv.(string)
+					case "default_path":
+						cfg.ArchiveCfg.Minio.DefaultPath = sv.(string)
+					default:
+						continue
+					}
+				}
 			default:
 				continue
 			}
