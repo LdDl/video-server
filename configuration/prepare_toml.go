@@ -154,6 +154,10 @@ func PrepareConfigurationTOML(fname string) (*Configuration, error) {
 							singleStream.Archive.TypeArchive = av.(string)
 						case "directory":
 							singleStream.Archive.Directory = av.(string)
+						case "minio_bucket":
+							singleStream.Archive.MinioBucket = av.(string)
+						case "minio_path":
+							singleStream.Archive.MinioPath = av.(string)
 						default:
 							continue
 						}
