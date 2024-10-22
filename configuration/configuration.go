@@ -105,8 +105,7 @@ const (
 	defaultHlsWindowSize   = 5
 )
 
-// PrepareConfiguration
-func PrepareConfiguration(fname string) (*Configuration, error) {
+func PrepareConfigurationJSON(fname string) (*Configuration, error) {
 	configFile, err := os.ReadFile(fname)
 	if err != nil {
 		return nil, err

@@ -48,11 +48,12 @@ func main() {
 		}
 		defer pprof.StopCPUProfile()
 	}
-	appCfg, err := configuration.PrepareConfiguration(*conf)
+	appCfg, err := configuration.PrepareConfiguration(conf)
 	if err != nil {
 		log.Error().Err(err).Str("scope", videoserver.SCOPE_CONFIGURATION).Msg("Could not prepare application configuration")
 		return
 	}
+
 	app, err := videoserver.NewApplication(appCfg)
 	if err != nil {
 		log.Error().Err(err).Str("scope", videoserver.SCOPE_CONFIGURATION).Msg("Could not prepare application")
