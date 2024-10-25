@@ -52,19 +52,19 @@ func (app *Application) startLoop(ctx context.Context, streamID uuid.UUID, url s
 		select {
 		case <-ctx.Done():
 			if streamVerboseLevel > VERBOSE_NONE {
-				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_DONE).Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Stream is done")
+				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_DONE).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", archiveEnabled).Msg("Stream is done")
 			}
 			return
 		default:
 			if streamVerboseLevel > VERBOSE_NONE {
-				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_START).Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Stream must be establishment")
+				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_START).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", archiveEnabled).Msg("Stream must be establishment")
 			}
 			err := app.runStream(streamID, url, hlsEnabled, archiveEnabled, streamVerboseLevel)
 			if err != nil {
-				log.Error().Err(err).Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_RESTART).Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Can't start stream")
+				log.Error().Err(err).Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_RESTART).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", archiveEnabled).Msg("Can't start stream")
 			}
 			if streamVerboseLevel > VERBOSE_NONE {
-				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_RESTART).Str("stream_id", streamID.String()).Str("stream_url", url).Dur("restart_duration", restartStreamDuration).Msg("Stream must be re-establishment")
+				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_RESTART).Str("stream_id", streamID.String()).Str("stream_url", url).Dur("restart_duration", restartStreamDuration).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", archiveEnabled).Msg("Stream must be re-establishment")
 			}
 		}
 		time.Sleep(restartStreamDuration)
