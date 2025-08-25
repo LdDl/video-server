@@ -16,7 +16,11 @@ func PrepareConfiguration(confName string) (*Configuration, error) {
 
 	fileNames := strings.Split(confName, ".")
 	if len(fileNames) != 2 {
+		// @bug: fix cases when we have multiple dots in file name
+		// e.g. "conf.json.backup"
+		// or ""./cmd/conf.toml"
 		errReason := fmt.Sprintf("Bad file name '%s'", confName)
+		err := fmt.Errorf(errReason)
 		return nil, errors.Wrap(err, errReason)
 	}
 	fileFormat := fileNames[1]

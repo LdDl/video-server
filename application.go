@@ -104,6 +104,7 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 
 		tmp.Streams.store[validUUID] = NewStreamConfiguration(rtspStream.URL, outputTypes)
 		tmp.Streams.store[validUUID].verboseLevel = NewVerboseLevelFrom(rtspStream.Verbose)
+		tmp.Streams.store[validUUID].streamType = STREAM_TYPE_RTSP
 		if rtspStream.Archive.Enabled && cfg.ArchiveCfg.Enabled {
 			if rtspStream.Archive.MsPerSegment == 0 {
 				return nil, fmt.Errorf("bad ms per segment archive stream")
@@ -154,6 +155,33 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 				return nil, errors.Wrap(err, "can't set archive for given stream")
 			}
 		}
+	}
+
+	for lf := range cfg.LocalFiles {
+		localFile := cfg.LocalFiles[lf]
+		validUUID, err := uuid.Parse(localFile.GUID)
+		if err != nil {
+			log.Error().Err(err).Str("scope", SCOPE_CONFIGURATION).Str("stream_id", localFile.GUID).Msg("Not valid UUID for local file")
+			continue
+		}
+		outputTypes := make([]StreamType, 0, len(localFile.OutputTypes))
+		for _, v := range localFile.OutputTypes {
+			typ, ok := streamTypeExists(v)
+			if !ok {
+				return nil, errors.Wrapf(ErrStreamTypeNotExists, "Type: '%s'", v)
+			}
+			if _, ok := supportedOutputStreamTypes[typ]; !ok {
+				return nil, errors.Wrapf(ErrStreamTypeNotSupported, "Type: '%s'", v)
+			}
+			outputTypes = append(outputTypes, typ)
+		}
+
+		// Create stream configuration for local file
+		streamConfig := NewStreamConfiguration(localFile.File, outputTypes)
+		streamConfig.verboseLevel = NewVerboseLevelFrom(localFile.Verbose)
+		streamConfig.streamType = STREAM_TYPE_LOCAL_FILE
+		streamConfig.loop = localFile.Loop
+		tmp.Streams.store[validUUID] = streamConfig
 	}
 	return &tmp, nil
 }

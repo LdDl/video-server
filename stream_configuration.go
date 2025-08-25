@@ -16,6 +16,8 @@ type StreamConfiguration struct {
 	mp4Chanel            chan av.Packet
 	verboseLevel         VerboseLevel
 	archive              *StreamArchiveWrapper
+	streamType           StreamType
+	loop                 bool
 }
 
 // NewStreamConfiguration returns default configuration
