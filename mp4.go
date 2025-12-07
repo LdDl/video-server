@@ -9,7 +9,6 @@ import (
 
 	"github.com/LdDl/video-server/storage"
 	"github.com/deepch/vdk/av"
-	"github.com/deepch/vdk/format/mp4"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -66,7 +65,7 @@ func (app *Application) startMP4(archive *StreamArchiveWrapper, streamID uuid.UU
 			}
 		}(outFile)
 
-		tsMuxer := mp4.NewMuxer(outFile)
+		tsMuxer := NewMP4ffMuxer(outFile)
 		log.Info().Str("scope", SCOPE_ARCHIVE).Str("event", EVENT_ARCHIVE_CREATE_FILE).Str("stream_id", streamID.String()).Str("segment_path", segmentPath).Msg("Create segment")
 		codecData, err := app.Streams.GetCodecsDataForStream(streamID)
 		if err != nil {
@@ -169,7 +168,7 @@ func processingMP4(
 	lastPacketTime time.Duration,
 	packetLength time.Duration,
 	msPerSegment int64,
-	tsMuxer *mp4.Muxer,
+	tsMuxer *MP4ffMuxer,
 	ch chan av.Packet,
 	stopCast chan StopSignal,
 	failureDuration time.Duration,
