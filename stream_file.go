@@ -109,14 +109,18 @@ func (app *Application) runLocalFileStream(streamID uuid.UUID, filePath string, 
 
 	// Playback loop
 	playbackLoop := true
+
+	// Track cumulative time offset for looping (MSE needs continuous timestamps)
+	var timeOffset time.Duration
+	var lastPacketTime time.Duration
+
+	// Track real-time pacing across entire playback (not per-loop)
+	var globalStartTime time.Time
+	globalFirstPacket := true
+
 	for playbackLoop {
 		// Reset demuxer to start for looping
 		demuxer.SeekToStart()
-
-		// Track playback timing
-		var startTime time.Time
-		var firstPacketTime time.Duration
-		firstPacket := true
 
 		pingStream := time.NewTimer(pingDuration)
 
@@ -153,16 +157,19 @@ func (app *Application) runLocalFileStream(streamID uuid.UUID, filePath string, 
 					return errors.Wrapf(err, "Error reading packet from file '%s'", filePath)
 				}
 
+				// Apply time offset for looping (makes timestamps continuous)
+				originalTime := packet.Time
+				packet.Time = packet.Time + timeOffset
+				lastPacketTime = packet.Time
+
 				// Real-time pacing: wait until it's time to deliver this packet
-				if firstPacket {
-					startTime = time.Now()
-					firstPacketTime = packet.Time
-					firstPacket = false
+				if globalFirstPacket {
+					globalStartTime = time.Now()
+					globalFirstPacket = false
 				} else {
-					// Calculate how long we should wait
-					elapsed := time.Since(startTime)
-					packetOffset := packet.Time - firstPacketTime
-					waitTime := packetOffset - elapsed
+					// Calculate how long we should wait based on packet timestamp
+					elapsed := time.Since(globalStartTime)
+					waitTime := packet.Time - elapsed
 
 					if waitTime > 0 {
 						time.Sleep(waitTime)
@@ -178,7 +185,7 @@ func (app *Application) runLocalFileStream(streamID uuid.UUID, filePath string, 
 				}
 
 				if streamVerboseLevel > VERBOSE_ADD {
-					log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_PACKET_SIGNAL).Str("stream_id", streamID.String()).Str("file_path", filePath).Bool("is_keyframe", packet.IsKeyFrame).Dur("packet_time", packet.Time).Msg("Casting packet")
+					log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_PACKET_SIGNAL).Str("stream_id", streamID.String()).Str("file_path", filePath).Bool("is_keyframe", packet.IsKeyFrame).Dur("original_time", originalTime).Dur("adjusted_time", packet.Time).Msg("Casting packet")
 				}
 
 				// Cast packet to all outputs
@@ -199,10 +206,12 @@ func (app *Application) runLocalFileStream(streamID uuid.UUID, filePath string, 
 			}
 		}
 
-		// Small delay between loop iterations to prevent CPU spinning
+		// Update time offset for next loop iteration
 		if loop {
+			// Add small gap to ensure clean transition
+			timeOffset = lastPacketTime + 100*time.Millisecond
 			if streamVerboseLevel > VERBOSE_NONE {
-				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_LOOP).Str("stream_id", streamID.String()).Str("file_path", filePath).Msg("Restarting playback (loop enabled)")
+				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_LOOP).Str("stream_id", streamID.String()).Str("file_path", filePath).Dur("new_time_offset", timeOffset).Msg("Restarting playback (loop enabled)")
 			}
 			time.Sleep(100 * time.Millisecond)
 		}

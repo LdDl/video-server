@@ -208,6 +208,10 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 
 		noKeyFrames := time.NewTimer(keyFramesTimeout)
 
+		// Per-client timestamp normalization: first packet starts at 0
+		var timeOffset time.Duration
+		var timeOffsetSet bool
+
 		if verboseLevel > VERBOSE_SIMPLE {
 			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Start loop")
 		}
@@ -253,7 +257,20 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 					}
 					continue
 				}
-				ready, buf, err := muxer.WritePacket(pck, false)
+
+				// Normalize timestamps: first packet for this client starts at 0
+				if !timeOffsetSet {
+					timeOffset = pck.Time
+					timeOffsetSet = true
+					if verboseLevel > VERBOSE_SIMPLE {
+						log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Dur("time_offset", timeOffset).Msg("Set client time offset")
+					}
+				}
+				// Create a copy of the packet with normalized time
+				normalizedPck := pck
+				normalizedPck.Time = pck.Time - timeOffset
+
+				ready, buf, err := muxer.WritePacket(normalizedPck, false)
 				if err != nil {
 					errReason := "Can't write packet to the muxer"
 					if verboseLevel > VERBOSE_NONE {
