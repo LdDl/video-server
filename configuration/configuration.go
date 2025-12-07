@@ -104,4 +104,6 @@ type LocalFileConfiguration struct {
 	OutputTypes []string `json:"output_types" toml:"output_types"`
 	Loop        bool     `json:"loop" toml:"loop"`
 	Verbose     string   `json:"verbose" toml:"verbose"`
+	// NOTE: Archiving a local file is mostly useless since the source is already a file.
+	Archive StreamArchiveConfiguration `json:"archive" toml:"archive"`
 }

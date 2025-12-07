@@ -182,6 +182,60 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 		streamConfig.streamType = STREAM_TYPE_LOCAL_FILE
 		streamConfig.loop = localFile.Loop
 		tmp.Streams.store[validUUID] = streamConfig
+
+		// Set up archive if enabled
+		// NOTE: Archiving a local file is mostly useless since the source is already a file.
+		// This exists mainly for API consistency with RTSP streams.
+		if localFile.Archive.Enabled && cfg.ArchiveCfg.Enabled {
+			if localFile.Archive.MsPerSegment == 0 {
+				return nil, fmt.Errorf("bad ms per segment for local file archive stream")
+			}
+			storageType := storage.NewStorageTypeFrom(localFile.Archive.TypeArchive)
+			var archiveStorage StreamArchiveWrapper
+			switch storageType {
+			case storage.STORAGE_FILESYSTEM:
+				fsStorage, err := storage.NewFileSystemProvider(localFile.Archive.Directory)
+				if err != nil {
+					return nil, errors.Wrap(err, "Can't create filesystem provider for local file")
+				}
+				archiveStorage = StreamArchiveWrapper{
+					store:         fsStorage,
+					filesystemDir: localFile.Archive.Directory,
+					bucket:        localFile.Archive.Directory,
+					bucketPath:    localFile.Archive.Directory,
+					msPerSegment:  localFile.Archive.MsPerSegment,
+				}
+			case storage.STORAGE_MINIO:
+				if !minioEnabled {
+					client, err := minio.New(fmt.Sprintf("%s:%d", cfg.ArchiveCfg.Minio.Host, cfg.ArchiveCfg.Minio.Port), &minio.Options{
+						Creds:  credentials.NewStaticV4(cfg.ArchiveCfg.Minio.User, cfg.ArchiveCfg.Minio.Password, ""),
+						Secure: false,
+					})
+					if err != nil {
+						return nil, errors.Wrap(err, "Can't connect to MinIO instance for local file")
+					}
+					tmp.minioClient = client
+					minioEnabled = true
+				}
+				minioStorage, err := storage.NewMinioProvider(tmp.minioClient, localFile.Archive.MinioBucket, localFile.Archive.MinioPath)
+				if err != nil {
+					return nil, errors.Wrap(err, "Can't create MinIO provider for local file")
+				}
+				archiveStorage = StreamArchiveWrapper{
+					store:         minioStorage,
+					filesystemDir: localFile.Archive.Directory,
+					bucket:        localFile.Archive.MinioBucket,
+					bucketPath:    localFile.Archive.MinioPath,
+					msPerSegment:  localFile.Archive.MsPerSegment,
+				}
+			default:
+				return nil, fmt.Errorf("unsupported archive type for local file")
+			}
+			err = tmp.Streams.UpdateArchiveStorageForStream(validUUID, &archiveStorage)
+			if err != nil {
+				return nil, errors.Wrap(err, "can't set archive for local file stream")
+			}
+		}
 	}
 	return &tmp, nil
 }
