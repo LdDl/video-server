@@ -35,6 +35,9 @@ const (
 	EVENT_STREAMING_AUDIO_MET           = "streaming_audio_met"
 	EVENT_STREAMING_HLS_CAST            = "streaming_hls_cast"
 	EVENT_STREAMING_MP4_CAST            = "streaming_mp4_cast"
+	EVENT_STREAMING_EOF                 = "streaming_eof"
+	EVENT_STREAMING_LOOP                = "streaming_loop"
+	EVENT_STREAMING_COMPLETE            = "streaming_complete"
 
 	EVENT_API_PREPARE     = "api_server_prepare"
 	EVENT_API_START       = "api_server_start"

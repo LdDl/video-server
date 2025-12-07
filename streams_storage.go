@@ -165,13 +165,19 @@ func (streams *StreamsStorage) CastPacket(streamID uuid.UUID, pck av.Packet, hls
 		if stream.verboseLevel > VERBOSE_ADD {
 			log.Info().Str("scope", SCOPE_STREAM).Str("event", EVENT_STREAM_CAST_PACKET).Str("stream_id", streamID.String()).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", stream.archive != nil).Int("clients_num", len(stream.Clients)).Msg("Cast packet to HLS")
 		}
-		stream.hlsChanel <- pck
+		// Non-blocking send to prevent blocking MSE clients
+		if len(stream.hlsChanel) < cap(stream.hlsChanel) {
+			stream.hlsChanel <- pck
+		}
 	}
 	if archiveEnabled {
 		if stream.verboseLevel > VERBOSE_ADD {
 			log.Info().Str("scope", SCOPE_STREAM).Str("event", EVENT_STREAM_CAST_PACKET).Str("stream_id", streamID.String()).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", stream.archive != nil).Int("clients_num", len(stream.Clients)).Msg("Cast packet to MP4")
 		}
-		stream.mp4Chanel <- pck
+		// Non-blocking send to prevent blocking MSE clients
+		if len(stream.mp4Chanel) < cap(stream.mp4Chanel) {
+			stream.mp4Chanel <- pck
+		}
 	}
 	if stream.verboseLevel > VERBOSE_ADD {
 		log.Info().Str("scope", SCOPE_STREAM).Str("event", EVENT_STREAM_CAST_PACKET).Str("stream_id", streamID.String()).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", stream.archive != nil).Int("clients_num", len(stream.Clients)).Msg("Cast packet to viewers")
