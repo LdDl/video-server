@@ -35,12 +35,32 @@
                 queue: [],
                 ws: null,
                 sourceBuffer: null,
+                statusInterval: null,
             };
         },
         mounted() {
             this.initialize()
+            // Safety net: auto-seek to buffer start and auto-play
+            this.statusInterval = setInterval(() => {
+                const video = this.$refs["livestream"];
+                if (video && this.sourceBuffer && this.sourceBuffer.buffered.length > 0) {
+                    const bufferStart = this.sourceBuffer.buffered.start(0);
+                    const bufferEnd = this.sourceBuffer.buffered.end(0);
+                    // If currentTime is before buffer start, seek to buffer start
+                    if (video.currentTime < bufferStart) {
+                        video.currentTime = bufferStart + 0.1;
+                    }
+                    // Auto-play if paused and we have data
+                    if (video.paused && bufferEnd - bufferStart > 0.5) {
+                        video.play().catch(() => {});
+                    }
+                }
+            }, 1000);
         },
         beforeDestroy() {
+            if (this.statusInterval) {
+                clearInterval(this.statusInterval);
+            }
             this.stop()
         },
         methods: {

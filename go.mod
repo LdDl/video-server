@@ -19,6 +19,7 @@ require (
 )
 
 require (
+	github.com/Eyevinn/mp4ff v0.50.0 // indirect
 	github.com/bytedance/sonic v1.12.2 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect

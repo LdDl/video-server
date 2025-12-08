@@ -9,10 +9,11 @@ const (
 	STREAM_TYPE_RTSP
 	STREAM_TYPE_HLS
 	STREAM_TYPE_MSE
+	STREAM_TYPE_LOCAL_FILE
 )
 
 func (iotaIdx StreamType) String() string {
-	return [...]string{"undefined", "rtsp", "hls", "mse"}[iotaIdx]
+	return [5]string{"undefined", "rtsp", "hls", "mse", "local_file"}[iotaIdx]
 }
 
 var (
@@ -21,9 +22,10 @@ var (
 		STREAM_TYPE_MSE: {},
 	}
 	supportedStreamTypes = map[string]StreamType{
-		"rtsp": STREAM_TYPE_RTSP,
-		"hls":  STREAM_TYPE_HLS,
-		"mse":  STREAM_TYPE_MSE,
+		"rtsp":       STREAM_TYPE_RTSP,
+		"hls":        STREAM_TYPE_HLS,
+		"mse":        STREAM_TYPE_MSE,
+		"local_file": STREAM_TYPE_LOCAL_FILE,
 	}
 )
 

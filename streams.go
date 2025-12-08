@@ -48,24 +48,42 @@ func (app *Application) RunStream(ctx context.Context, streamID uuid.UUID) error
 
 // startLoop starts stream loop with dialing to certain RTSP
 func (app *Application) startLoop(ctx context.Context, streamID uuid.UUID, url string, hlsEnabled, archiveEnabled bool, streamVerboseLevel VerboseLevel) {
+	app.Streams.Lock()
+	stream, exists := app.Streams.store[streamID]
+	app.Streams.Unlock()
+	if !exists {
+		log.Error().Str("scope", SCOPE_STREAMING).Str("stream_id", streamID.String()).Msg("Stream not found")
+		return
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			if streamVerboseLevel > VERBOSE_NONE {
-				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_DONE).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", archiveEnabled).Msg("Stream is done")
+				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_DONE).Str("stream_id", streamID.String()).Str("stream_type", stream.streamType.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", archiveEnabled).Msg("Stream is done")
 			}
 			return
 		default:
 			if streamVerboseLevel > VERBOSE_NONE {
-				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_START).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", archiveEnabled).Msg("Stream must be establishment")
+				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_START).Str("stream_id", streamID.String()).Str("stream_type", stream.streamType.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", archiveEnabled).Msg("Stream must be establishment")
 			}
-			err := app.runStream(streamID, url, hlsEnabled, archiveEnabled, streamVerboseLevel)
+
+			var err error
+			switch stream.streamType {
+			case STREAM_TYPE_RTSP:
+				err = app.runStream(streamID, url, hlsEnabled, archiveEnabled, streamVerboseLevel)
+			case STREAM_TYPE_LOCAL_FILE:
+				err = app.runLocalFileStream(streamID, url, stream.loop, hlsEnabled, archiveEnabled, streamVerboseLevel)
+			default:
+				log.Error().Str("scope", SCOPE_STREAMING).Str("stream_id", streamID.String()).Str("stream_type", stream.streamType.String()).Msg("Unknown stream type")
+				return
+			}
 			if err != nil {
-				log.Error().Err(err).Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_RESTART).Str("stream_id", streamID.String()).Str("stream_url", url).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", archiveEnabled).Msg("Can't start stream")
+				if streamVerboseLevel > VERBOSE_NONE {
+					log.Error().Err(err).Str("scope", SCOPE_STREAMING).Str("stream_id", streamID.String()).Str("stream_type", stream.streamType.String()).Msg("Stream error")
+				}
 			}
-			if streamVerboseLevel > VERBOSE_NONE {
-				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_RESTART).Str("stream_id", streamID.String()).Str("stream_url", url).Dur("restart_duration", restartStreamDuration).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", archiveEnabled).Msg("Stream must be re-establishment")
-			}
+			time.Sleep(time.Second * 2) // Use explicit duration
 		}
 		time.Sleep(restartStreamDuration)
 	}

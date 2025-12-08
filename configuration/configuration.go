@@ -14,6 +14,7 @@ type Configuration struct {
 	ArchiveCfg     ArchiveConfiguration        `json:"archive" toml:"archive"`
 	CorsConfig     CORSConfiguration           `json:"cors" toml:"cors"`
 	RTSPStreams    []SingleStreamConfiguration `json:"rtsp_streams" toml:"rtsp_streams"`
+	LocalFiles     []LocalFileConfiguration    `json:"local_files" toml:"local_files"`
 }
 
 // APIConfiguration is needed for configuring REST API part
@@ -94,4 +95,15 @@ type StreamArchiveConfiguration struct {
 	TypeArchive  string `json:"type" toml:"type"`
 	MinioBucket  string `json:"minio_bucket" toml:"minio_bucket"`
 	MinioPath    string `json:"minio_path" toml:"minio_path"`
+}
+
+// LocalFileConfiguration is needed for configuring local file streams
+type LocalFileConfiguration struct {
+	GUID        string   `json:"guid" toml:"guid"`
+	File        string   `json:"file" toml:"file"`
+	OutputTypes []string `json:"output_types" toml:"output_types"`
+	Loop        bool     `json:"loop" toml:"loop"`
+	Verbose     string   `json:"verbose" toml:"verbose"`
+	// NOTE: Archiving a local file is mostly useless since the source is already a file.
+	Archive StreamArchiveConfiguration `json:"archive" toml:"archive"`
 }

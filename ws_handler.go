@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/deepch/vdk/av"
 	"github.com/deepch/vdk/format/mp4f"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -85,26 +86,46 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Client has been added")
 		}
 
-		codecData, err := streamsStorage.GetCodecsDataForStream(streamID)
-		if err != nil {
-			errReason := "Can't extract codec for stream"
-			if verboseLevel > VERBOSE_NONE {
-				log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg(errReason)
+		// Wait for codec data to become available (with timeout)
+		// This is needed because local file streams may not have loaded codecs yet
+		codecWaitTimeout := 10 * time.Second
+		codecCheckInterval := 100 * time.Millisecond
+		codecWaitStart := time.Now()
+		var codecData []av.CodecData
+
+		for {
+			var codecErr error
+			codecData, codecErr = streamsStorage.GetCodecsDataForStream(streamID)
+			if codecErr != nil {
+				errReason := "Can't extract codec for stream"
+				if verboseLevel > VERBOSE_NONE {
+					log.Error().Err(codecErr).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg(errReason)
+				}
+				closeWSwithError(conn, 1011, errReason)
+				return
 			}
-			closeWSwithError(conn, 1011, errReason)
-			return
-		}
-		if verboseLevel > VERBOSE_SIMPLE {
-			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("codecs", codecData).Msg("Validate codecs")
+
+			if len(codecData) > 0 {
+				break // Codecs are available
+			}
+
+			if time.Since(codecWaitStart) > codecWaitTimeout {
+				errReason := "Timeout waiting for codec information"
+				if verboseLevel > VERBOSE_NONE {
+					log.Error().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg(errReason)
+				}
+				closeWSwithError(conn, 1011, errReason)
+				return
+			}
+
+			if verboseLevel > VERBOSE_SIMPLE {
+				log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Waiting for codec data...")
+			}
+			time.Sleep(codecCheckInterval)
 		}
 
-		if len(codecData) == 0 {
-			errReason := "No codec information"
-			if verboseLevel > VERBOSE_NONE {
-				log.Error().Err(err).Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg(errReason)
-			}
-			closeWSwithError(conn, 1011, errReason)
-			return
+		if verboseLevel > VERBOSE_SIMPLE {
+			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Any("codecs", codecData).Msg("Validate codecs")
 		}
 		muxer := mp4f.NewMuxer(nil)
 		err = muxer.WriteHeader(codecData)
@@ -187,6 +208,10 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 
 		noKeyFrames := time.NewTimer(keyFramesTimeout)
 
+		// Per-client timestamp normalization: first packet starts at 0
+		var timeOffset time.Duration
+		var timeOffsetSet bool
+
 		if verboseLevel > VERBOSE_SIMPLE {
 			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Start loop")
 		}
@@ -232,7 +257,20 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 					}
 					continue
 				}
-				ready, buf, err := muxer.WritePacket(pck, false)
+
+				// Normalize timestamps: first packet for this client starts at 0
+				if !timeOffsetSet {
+					timeOffset = pck.Time
+					timeOffsetSet = true
+					if verboseLevel > VERBOSE_SIMPLE {
+						log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Dur("time_offset", timeOffset).Msg("Set client time offset")
+					}
+				}
+				// Create a copy of the packet with normalized time
+				normalizedPck := pck
+				normalizedPck.Time = pck.Time - timeOffset
+
+				ready, buf, err := muxer.WritePacket(normalizedPck, false)
 				if err != nil {
 					errReason := "Can't write packet to the muxer"
 					if verboseLevel > VERBOSE_NONE {

@@ -9,20 +9,56 @@
     <video id="livestream" class="mse-video-size" autoplay controls muted/>
   </div>
   <script>
+    let packetCount = 0;
+    let initReceived = false;
+    let firstVideoPacketTime = null;
+
     function initialize () {
       let load = document.getElementById('livestream');
+      console.log("[DEBUG] Initializing MSE player...");
+      console.log("[DEBUG] Video element:", load);
+
       if ('MediaSource' in window) {
+          console.log("[DEBUG] MediaSource is supported");
           let isPlaying = true;
           let ms = new MediaSource();
-          ms.addEventListener('sourceopen', start(ms), false);
+
+          ms.addEventListener('sourceopen', function() {
+            console.log("[DEBUG] MediaSource opened, readyState:", ms.readyState);
+            start(ms);
+          }, false);
+
+          ms.addEventListener('sourceended', function() {
+            console.log("[DEBUG] MediaSource ended");
+          });
+
+          ms.addEventListener('sourceclose', function() {
+            console.log("[DEBUG] MediaSource closed");
+          });
+
           load.src = window.URL.createObjectURL(ms);
+          console.log("[DEBUG] Video src set to:", load.src);
+
           load.onpause = () => {
-            stop()
+            console.log("[DEBUG] Video paused");
           };
           load.onplay = () => {
-            if (isPlaying === false) {
-              start(ms);
-            }
+            console.log("[DEBUG] Video play triggered");
+          };
+          load.oncanplay = () => {
+            console.log("[DEBUG] Video can play now!");
+          };
+          load.onplaying = () => {
+            console.log("[DEBUG] Video is playing!");
+          };
+          load.onerror = (e) => {
+            console.error("[DEBUG] Video error:", load.error);
+          };
+          load.onwaiting = () => {
+            console.log("[DEBUG] Video waiting for data...");
+          };
+          load.onstalled = () => {
+            console.log("[DEBUG] Video stalled");
           };
       } else {
           console.error('Unsupported: MSE')
@@ -37,29 +73,33 @@
       const schema = 'ws'
       const server = 'localhost'
       const port = '8090'
-      const streamID = '566bfe72-1f85-4e7d-9c0a-424e6c3b29f3'
+      const streamID = '13bf3e5c-d537-4f10-98e8-9d0afca8b070'
 
+      console.log("[DEBUG] Starting WebSocket connection...");
       let ws = new WebSocket(schema + '://' + server + ':' + port + '/ws/live?stream_id=' + streamID)
       ws.binaryType = 'arraybuffer'
-      
+
       ws.onopen = function() {
-        console.log("Connections has been established");
+        console.log("[DEBUG] WebSocket connection established");
       };
 
       ws.onclose = function(event) {
         if (event.wasClean) {
-          console.log('Connection closed successfully');
+          console.log('[DEBUG] Connection closed successfully');
         } else {
-          console.log('Connection has been terminated'); 
+          console.log('[DEBUG] Connection has been terminated');
         }
-        console.log('Code: ' + event.code + ' reason: ' + event.reason);
+        console.log('[DEBUG] Code: ' + event.code + ' reason: ' + event.reason);
       };
 
       ws.onmessage = function(event) {
-        console.log("Got packet for decoding");
+        packetCount++;
         const data = new Uint8Array(event.data)
+
         if (data[0] === 9) {
-          // Decond on initialization
+          // Decode initialization
+          console.log("[DEBUG] Received INIT packet, size:", data.length);
+          initReceived = true;
           const decodedArr = data.slice(1)
           let mimeCodec
           if (window.TextDecoder) {
@@ -67,30 +107,84 @@
           } else {
               mimeCodec = String.fromCharCode(decodedArr)
           }
-          console.log("Codec:", mimeCodec);
+          console.log("[DEBUG] Codec string:", mimeCodec);
+
+          const fullMime = 'video/mp4; codecs="' + mimeCodec + '"';
+          console.log("[DEBUG] Full MIME type:", fullMime);
+          console.log("[DEBUG] MediaSource.isTypeSupported:", MediaSource.isTypeSupported(fullMime));
+
           if (!sourceBuffer && load) {
-              sourceBuffer = ms.addSourceBuffer('video/mp4; codecs="' + mimeCodec + '"')
-              sourceBuffer.mode = 'segments'
-              sourceBuffer.addEventListener('updateend', loadPacket())
+              try {
+                  console.log("[DEBUG] Creating SourceBuffer...");
+                  sourceBuffer = ms.addSourceBuffer(fullMime);
+                  sourceBuffer.mode = 'segments';
+                  console.log("[DEBUG] SourceBuffer created, mode:", sourceBuffer.mode);
+
+                  sourceBuffer.addEventListener('updateend', function() {
+                    // console.log("[DEBUG] SourceBuffer updateend, queue size:", streamQueue.length);
+                    loadPacket();
+                  });
+
+                  sourceBuffer.addEventListener('error', function(e) {
+                    console.error("[DEBUG] SourceBuffer error:", e);
+                  });
+
+                  sourceBuffer.addEventListener('abort', function() {
+                    console.log("[DEBUG] SourceBuffer aborted");
+                  });
+              } catch (e) {
+                  console.error("[DEBUG] Failed to create SourceBuffer:", e);
+              }
           }
         } else {
-          /* Write to buffer */
+          // Video/audio data packet
+          if (packetCount <= 5 || packetCount % 100 === 0) {
+            console.log("[DEBUG] Packet #" + packetCount + ", size:", data.length, "bytes, first 4 bytes:",
+              data[0].toString(16), data[1].toString(16), data[2].toString(16), data[3].toString(16));
+          }
+
+          if (!initReceived) {
+            console.warn("[DEBUG] Received data packet before init!");
+            return;
+          }
+
+          if (!firstVideoPacketTime) {
+            firstVideoPacketTime = Date.now();
+            console.log("[DEBUG] First video packet received at:", new Date().toISOString());
+          }
+
           pushPacket(event.data)
         }
       };
       ws.onerror = function(error) {
-        console.log("Error:", error.message);
+        console.error("[DEBUG] WebSocket error:", error);
       };
     }
 
     function pushPacket (data) {
       let load = document.getElementById('livestream');
+
+      if (!sourceBuffer) {
+        console.warn("[DEBUG] pushPacket called but sourceBuffer not ready");
+        return;
+      }
+
       if (!streamStarted && load) {
-          sourceBuffer.appendBuffer(data);
-          streamStarted = true;
+          try {
+            sourceBuffer.appendBuffer(data);
+            streamStarted = true;
+          } catch (e) {
+            console.error("[DEBUG] Error appending first buffer:", e);
+          }
           return;
       }
+
       streamQueue.push(data);
+
+      if (streamQueue.length % 50 === 0) {
+        console.log("[DEBUG] Queue size:", streamQueue.length, "buffered:", getBufferedInfo());
+      }
+
       if (!sourceBuffer.updating) {
           loadPacket();
       }
@@ -98,16 +192,63 @@
 
     function loadPacket () {
       let load = document.getElementById('livestream')
+      if (!sourceBuffer) return;
+
       if (!sourceBuffer.updating && load) {
           if (streamQueue.length > 0) {
               const inp = streamQueue.shift()
-              sourceBuffer.appendBuffer(inp)
+              try {
+                sourceBuffer.appendBuffer(inp)
+              } catch (e) {
+                console.error("[DEBUG] Error in loadPacket appendBuffer:", e);
+              }
           } else {
               streamStarted = false
           }
       }
     }
-    
+
+    function getBufferedInfo() {
+      if (!sourceBuffer || !sourceBuffer.buffered || sourceBuffer.buffered.length === 0) {
+        return "none";
+      }
+      let ranges = [];
+      for (let i = 0; i < sourceBuffer.buffered.length; i++) {
+        ranges.push(sourceBuffer.buffered.start(i).toFixed(2) + "-" + sourceBuffer.buffered.end(i).toFixed(2));
+      }
+      return ranges.join(", ");
+    }
+
+    // Periodic status logging and auto-seek to buffer start
+    setInterval(function() {
+      let load = document.getElementById('livestream');
+      if (load && sourceBuffer) {
+        console.log("[STATUS] currentTime:", load.currentTime.toFixed(2),
+          "buffered:", getBufferedInfo(),
+          "readyState:", load.readyState,
+          "paused:", load.paused,
+          "queue:", streamQueue.length);
+
+        // Auto-seek to buffer start if currentTime is outside buffered range
+        if (sourceBuffer.buffered.length > 0) {
+          const bufferStart = sourceBuffer.buffered.start(0);
+          const bufferEnd = sourceBuffer.buffered.end(0);
+
+          // If currentTime is before buffer start, seek to buffer start
+          if (load.currentTime < bufferStart) {
+            console.log("[DEBUG] Seeking from", load.currentTime.toFixed(2), "to buffer start:", bufferStart.toFixed(2));
+            load.currentTime = bufferStart + 0.1; // Small offset to ensure we're in buffer
+          }
+
+          // Auto-play if paused and we have data
+          if (load.paused && bufferEnd - bufferStart > 0.5) {
+            console.log("[DEBUG] Auto-playing, buffer has", (bufferEnd - bufferStart).toFixed(2), "seconds");
+            load.play().catch(e => console.log("[DEBUG] Auto-play failed:", e));
+          }
+        }
+      }
+    }, 1000);
+
     let sourceBuffer, streamQueue = [];
     let streamStarted = false;
     initialize();
