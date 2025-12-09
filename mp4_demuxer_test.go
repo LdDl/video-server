@@ -11,7 +11,7 @@ import (
 func TestMP4DemuxerOpen(t *testing.T) {
 	testFile := os.Getenv("TEST_MP4_FILE")
 	if testFile == "" {
-		testFile = "/home/dimitrii/faststart.mp4"
+		testFile = "./cmd/video_server/BigBuckBunny_320x180.mp4"
 	}
 
 	// Skip if test file doesn't exist
@@ -41,7 +41,7 @@ func TestMP4DemuxerOpen(t *testing.T) {
 func TestMP4DemuxerReadPackets(t *testing.T) {
 	testFile := os.Getenv("TEST_MP4_FILE")
 	if testFile == "" {
-		testFile = "/home/dimitrii/faststart.mp4"
+		testFile = "./cmd/video_server/BigBuckBunny_320x180.mp4"
 	}
 
 	if _, err := os.Stat(testFile); os.IsNotExist(err) {
@@ -103,7 +103,7 @@ func TestMP4DemuxerReadPackets(t *testing.T) {
 func TestMP4DemuxerSeekToStart(t *testing.T) {
 	testFile := os.Getenv("TEST_MP4_FILE")
 	if testFile == "" {
-		testFile = "/home/dimitrii/faststart.mp4"
+		testFile = "./cmd/video_server/BigBuckBunny_320x180.mp4"
 	}
 
 	if _, err := os.Stat(testFile); os.IsNotExist(err) {
@@ -163,7 +163,7 @@ func TestMP4DemuxerSeekToStart(t *testing.T) {
 func TestLoopTimestampContinuity(t *testing.T) {
 	testFile := os.Getenv("TEST_MP4_FILE")
 	if testFile == "" {
-		testFile = "/home/dimitrii/faststart.mp4"
+		testFile = "./cmd/video_server/BigBuckBunny_320x180.mp4"
 	}
 
 	if _, err := os.Stat(testFile); os.IsNotExist(err) {

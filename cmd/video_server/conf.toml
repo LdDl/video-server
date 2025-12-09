@@ -56,7 +56,7 @@ expose_headers = ["Content-Length"]
 
 [[local_files]]
 guid = "13bf3e5c-d537-4f10-98e8-9d0afca8b070"
-file = "/home/dimitrii/faststart.mp4"
+file = "./cmd/video_server/BigBuckBunny_320x180.mp4"
 output_types = ["mse", "hls"]
 verbose = "v"
 loop = true  # Loop playback for continuous streaming

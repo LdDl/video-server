@@ -18,3 +18,4 @@ video-server-ui
 linux-amd64-video_server.tar.gz 
 ./video_server.exe
 windows-video_server.zip
+hls/
