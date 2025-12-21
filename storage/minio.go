@@ -33,11 +33,19 @@ func (m *MinioProvider) Type() StorageType {
 }
 
 func (m *MinioProvider) MakeBucket(bucket string) error {
-	_ = m.client.MakeBucket(context.Background(),
+	err := m.client.MakeBucket(context.Background(),
 		bucket,
 		minio.MakeBucketOptions{
 			ObjectLocking: true,
 		})
+	// Ignore "bucket already exists" error
+	if err != nil {
+		errResp := minio.ToErrorResponse(err)
+		if errResp.Code != "BucketAlreadyOwnedByYou" && errResp.Code != "BucketAlreadyExists" {
+			return fmt.Errorf("failed to create bucket: %w", err)
+		}
+	}
+
 	config := lifecycle.NewConfiguration()
 	config.Rules = []lifecycle.Rule{
 		{
@@ -49,7 +57,10 @@ func (m *MinioProvider) MakeBucket(bucket string) error {
 		},
 	}
 
-	_ = m.client.SetBucketLifecycle(context.Background(), bucket, config)
+	err = m.client.SetBucketLifecycle(context.Background(), bucket, config)
+	if err != nil {
+		return fmt.Errorf("failed to set bucket lifecycle: %w", err)
+	}
 	return nil
 }
 

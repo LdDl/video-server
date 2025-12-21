@@ -15,12 +15,14 @@
   <h2>Archive Playback (MSE/WebSocket)</h2>
   <div class="archive-controls">
     <label>Stream ID: <input type="text" id="archiveStreamId" value="13bf3e5c-d537-4f10-98e8-9d0afca8b070" size="40"></label>
+    <button onclick="showRanges()">Show available datetime ranges</button>
     <br><br>
     <label>Start from: <input type="datetime-local" id="archiveStartTime" value="2025-12-20T20:30:53"></label>
     <br><br>
     <button onclick="playArchive()">Play</button>
     <button onclick="stopArchive()">Stop</button>
   </div>
+  <div id="archiveRanges" class="archive-ranges"></div>
   <div id="archiveStatus" class="archive-status"></div>
   <div class="archive-video">
     <video id="archivePlayer" class="mse-video-size" autoplay controls muted></video>
@@ -42,6 +44,39 @@
 
     // Flow control: request more data when buffer ahead is less than this
     const BUFFER_LOW_THRESHOLD = 30; // seconds
+
+    function showRanges() {
+      const streamId = document.getElementById('archiveStreamId').value;
+      const rangesDiv = document.getElementById('archiveRanges');
+
+      rangesDiv.innerHTML = '<p>Loading...</p>';
+
+      fetch(`http://${API_HOST}:${API_PORT}/archive/${streamId}/ranges`)
+        .then(response => {
+          if (!response.ok) {
+            return response.json().then(err => { throw new Error(err.error || 'Failed to fetch'); });
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (!data.ranges || data.ranges.length === 0) {
+            rangesDiv.innerHTML = '<p>No archive ranges available</p>';
+            return;
+          }
+
+          let html = '<p><strong>Available ranges:</strong></p><ul>';
+          data.ranges.forEach(range => {
+            const start = new Date(range.start).toLocaleString();
+            const end = new Date(range.end).toLocaleString();
+            html += `<li>${start} — ${end}</li>`;
+          });
+          html += '</ul>';
+          rangesDiv.innerHTML = html;
+        })
+        .catch(err => {
+          rangesDiv.innerHTML = `<p style="color:red">Error: ${err.message}</p>`;
+        });
+    }
 
     function playArchive() {
       const streamId = document.getElementById('archiveStreamId').value;
@@ -468,6 +503,19 @@
         padding: 8px 16px;
         margin-right: 10px;
         cursor: pointer;
+    }
+    .archive-ranges {
+        margin: 10px 0;
+        padding: 10px;
+        background: #f0f8ff;
+        border-radius: 5px;
+    }
+    .archive-ranges:empty {
+        display: none;
+    }
+    .archive-ranges ul {
+        margin: 5px 0;
+        padding-left: 20px;
     }
     .archive-status {
         margin: 10px 0;

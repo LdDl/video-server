@@ -72,10 +72,10 @@ func ArchiveWSHandler(app *Application, wsUpgrader *websocket.Upgrader, verboseL
 			endTime = time.Now().Add(24 * 365 * time.Hour)
 		}
 
-		// Get archive storage
-		archive := app.Streams.GetStreamArchiveStorage(streamID)
-		if archive == nil {
-			closeWSwithError(conn, 1011, "Archive not enabled for this stream")
+		// Get archive storage (stream-specific or global fallback)
+		archive, err := app.GetArchiveStorageForPlayback(streamID)
+		if err != nil {
+			closeWSwithError(conn, 1011, "Archive not available: "+err.Error())
 			return
 		}
 

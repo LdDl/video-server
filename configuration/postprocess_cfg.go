@@ -8,6 +8,16 @@ const (
 )
 
 func postProcessDefaults(cfg *Configuration) {
+	// Backwards compatibility: if Enabled is true but Recording/Serving not set, enable both
+	if cfg.ArchiveCfg.Enabled {
+		if !cfg.ArchiveCfg.Recording {
+			cfg.ArchiveCfg.Recording = true
+		}
+		if !cfg.ArchiveCfg.Serving {
+			cfg.ArchiveCfg.Serving = true
+		}
+	}
+
 	if cfg.HLSCfg.Directory == "" {
 		cfg.HLSCfg.Directory = defaultHlsDir
 	}
@@ -26,7 +36,14 @@ func postProcessDefaults(cfg *Configuration) {
 	for i := range cfg.RTSPStreams {
 		stream := cfg.RTSPStreams[i]
 		archiveCfg := stream.Archive
-		if !archiveCfg.Enabled {
+
+		// Backwards compatibility: if Enabled is true but Recording not set, enable Recording
+		if archiveCfg.Enabled && !archiveCfg.Recording {
+			cfg.RTSPStreams[i].Archive.Recording = true
+		}
+
+		// Skip defaults if recording not enabled for this stream
+		if !cfg.RTSPStreams[i].Archive.Recording {
 			continue
 		}
 
@@ -54,6 +71,16 @@ func postProcessDefaults(cfg *Configuration) {
 		}
 		if archiveCfg.MinioPath == "" {
 			cfg.RTSPStreams[i].Archive.MinioPath = cfg.ArchiveCfg.Minio.DefaultPath
+		}
+	}
+
+	// Process local files archive config
+	for i := range cfg.LocalFiles {
+		archiveCfg := cfg.LocalFiles[i].Archive
+
+		// Backwards compatibility: if Enabled is true but Recording not set, enable Recording
+		if archiveCfg.Enabled && !archiveCfg.Recording {
+			cfg.LocalFiles[i].Archive.Recording = true
 		}
 	}
 }
