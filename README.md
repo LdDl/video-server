@@ -135,6 +135,8 @@ Websockets - [https://github.com/gorilla/websocket](https://github.com/gorilla/w
 
 m3u8 library - [https://github.com/grafov/m3u8](https://github.com/grafov/m3u8). License is [BSD 3-Clause](https://github.com/grafov/m3u8/blob/master/LICENSE)
 
+Working with mp4 files [https://github.com/Eyevinn/mp4ff](https://github.com/Eyevinn/mp4ff). License is [MIT](https://github.com/Eyevinn/mp4ff?tab=MIT-1-ov-file#readme)
+
 errors wrapping - [https://github.com/pkg/errors](https://github.com/pkg/errors) . License is [BSD 2-Clause](https://github.com/pkg/errors/blob/master/LICENSE)
 
 ## License
