@@ -5,60 +5,314 @@
   <title>MSE workaround vanilla</title>
  </head>
  <body>
+  <h2>Live Stream (MSE/WebSocket)</h2>
   <div class="mse-video">
     <video id="livestream" class="mse-video-size" autoplay controls muted/>
   </div>
+
+  <hr>
+
+  <h2>Archive Playback (MSE/WebSocket)</h2>
+  <div class="archive-controls">
+    <label>Stream ID: <input type="text" id="archiveStreamId" value="13bf3e5c-d537-4f10-98e8-9d0afca8b070" size="40"></label>
+    <br><br>
+    <label>Start from: <input type="datetime-local" id="archiveStartTime" value="2025-12-20T20:30:53"></label>
+    <br><br>
+    <button onclick="playArchive()">Play</button>
+    <button onclick="stopArchive()">Stop</button>
+  </div>
+  <div id="archiveStatus" class="archive-status"></div>
+  <div class="archive-video">
+    <video id="archivePlayer" class="mse-video-size" autoplay controls muted></video>
+  </div>
+
   <script>
-    let packetCount = 0;
+    // Archive playback functions
+    const API_HOST = 'localhost';
+    const API_PORT = '8091';
+    const WS_PORT = '8090';
+
+    let archiveWs = null;
+    let archiveMs = null;
+    let archiveSourceBuffer = null;
+    let archiveQueue = [];
+    let archiveInitReceived = false;
+    let serverPaused = false;  // True when server is waiting for "more"
+    let archiveEnded = false;  // True when end-of-stream received and processed
+
+    // Flow control: request more data when buffer ahead is less than this
+    const BUFFER_LOW_THRESHOLD = 30; // seconds
+
+    function playArchive() {
+      const streamId = document.getElementById('archiveStreamId').value;
+      const startTimeInput = document.getElementById('archiveStartTime').value;
+      const statusDiv = document.getElementById('archiveStatus');
+      const player = document.getElementById('archivePlayer');
+
+      if (!startTimeInput) {
+        statusDiv.innerHTML = '<p style="color:red">Please select a start time</p>';
+        return;
+      }
+
+      // Convert datetime-local to Unix timestamp
+      const startDate = new Date(startTimeInput);
+      const startUnix = Math.floor(startDate.getTime() / 1000);
+
+      stopArchive();
+      statusDiv.innerHTML = `<p>Connecting... Starting from ${startDate.toLocaleString()}</p>`;
+
+      if (!('MediaSource' in window)) {
+        statusDiv.innerHTML = '<p style="color:red">MediaSource API not supported</p>';
+        return;
+      }
+
+      archiveMs = new MediaSource();
+      player.src = URL.createObjectURL(archiveMs);
+
+      archiveMs.addEventListener('sourceopen', function() {
+        startArchiveWS(streamId, startUnix, statusDiv, player);
+      });
+
+      archiveMs.addEventListener('sourceended', function() {
+        statusDiv.innerHTML = '<p>Playback complete</p>';
+      });
+    }
+
+    function stopArchive() {
+      if (archiveWs) {
+        archiveWs.close();
+        archiveWs = null;
+      }
+      archiveInitReceived = false;
+      archiveQueue = [];
+      archiveSourceBuffer = null;
+      serverPaused = false;
+      archiveEnded = false;
+      document.getElementById('archiveStatus').innerHTML = '<p>Stopped</p>';
+    }
+
+    function startArchiveWS(streamId, startUnix, statusDiv, player) {
+      // No duration - server streams until archive ends with chunked flow control
+      const wsUrl = `ws://${API_HOST}:${WS_PORT}/ws/archive?stream_id=${streamId}&start=${startUnix}`;
+
+      archiveWs = new WebSocket(wsUrl);
+      archiveWs.binaryType = 'arraybuffer';
+
+      archiveWs.onopen = function() {
+        statusDiv.innerHTML = '<p>Connected, waiting for data...</p>';
+      };
+
+      archiveWs.onclose = function(event) {
+        // Mark as ended and wait for any pending SourceBuffer operations before ending stream
+        archiveEnded = true;
+        finishArchiveStream();
+      };
+
+      archiveWs.onerror = function(error) {
+        console.error('[ARCHIVE] WebSocket error:', error);
+        statusDiv.innerHTML = '<p style="color:red">Connection error</p>';
+      };
+
+      archiveWs.onmessage = function(event) {
+        if (typeof event.data === 'string') {
+          if (event.data === 'eos') {
+            statusDiv.innerHTML = '<p>Playback complete</p>';
+            serverPaused = false;
+            archiveEnded = true;
+            finishArchiveStream();
+          } else if (event.data === 'pause') {
+            serverPaused = true;
+            // Check immediately if we need more data
+            checkBufferAndRequestMore(player);
+          }
+          return;
+        }
+
+        const data = new Uint8Array(event.data);
+
+        if (data[0] === 9) {
+          // Codec info (init packet)
+          archiveInitReceived = true;
+          const mimeBytes = data.slice(1);
+          let mimeCodec;
+          if (window.TextDecoder) {
+            mimeCodec = new TextDecoder('utf-8').decode(mimeBytes);
+          } else {
+            mimeCodec = String.fromCharCode.apply(null, mimeBytes);
+          }
+          const fullMime = 'video/mp4; codecs="' + mimeCodec + '"';
+
+          if (!archiveSourceBuffer && archiveMs.readyState === 'open') {
+            try {
+              archiveSourceBuffer = archiveMs.addSourceBuffer(fullMime);
+              archiveSourceBuffer.mode = 'segments';
+              archiveSourceBuffer.addEventListener('updateend', loadArchivePacket);
+              archiveSourceBuffer.addEventListener('error', function(e) {
+                console.error('[ARCHIVE] SourceBuffer error:', e);
+              });
+              statusDiv.innerHTML = '<p>Receiving video data...</p>';
+              // Process any data that arrived before SourceBuffer was ready
+              if (archiveQueue.length > 0 && !archiveSourceBuffer.updating) {
+                loadArchivePacket();
+              }
+            } catch (e) {
+              console.error('[ARCHIVE] Failed to create SourceBuffer:', e);
+              statusDiv.innerHTML = `<p style="color:red">Failed: ${e.message}</p>`;
+            }
+          }
+        } else {
+          // Video data
+          if (!archiveInitReceived) {
+            return;
+          }
+          pushArchivePacket(event.data, player);
+        }
+      };
+    }
+
+    function pushArchivePacket(data, player) {
+      // Always queue data, even if SourceBuffer isn't ready yet
+      archiveQueue.push(data);
+
+      if (!archiveSourceBuffer) {
+        // SourceBuffer not ready yet, data will be processed when it's created
+        return;
+      }
+
+      if (!archiveSourceBuffer.updating) {
+        loadArchivePacket();
+      }
+
+      // Auto-play when we have some data (but not if archive has ended)
+      if (!archiveEnded && archiveSourceBuffer.buffered.length > 0) {
+        const bufferStart = archiveSourceBuffer.buffered.start(0);
+        const bufferEnd = archiveSourceBuffer.buffered.end(0);
+
+        // Seek to buffer start if currentTime is before it
+        if (player.currentTime < bufferStart) {
+          player.currentTime = bufferStart + 0.1;
+        }
+
+        if (player.paused && bufferEnd - bufferStart > 0.5) {
+          player.play().catch(e => {});
+        }
+      }
+    }
+
+    function loadArchivePacket() {
+      if (!archiveSourceBuffer || archiveSourceBuffer.updating) return;
+
+      if (archiveQueue.length > 0) {
+        const data = archiveQueue.shift();
+        try {
+          archiveSourceBuffer.appendBuffer(data);
+        } catch (e) {
+          console.error('[ARCHIVE] appendBuffer error:', e);
+        }
+      }
+    }
+
+    // Check if buffer is low and request more data from server
+    function checkBufferAndRequestMore(player) {
+      if (!serverPaused || !archiveWs || archiveWs.readyState !== WebSocket.OPEN) {
+        return;
+      }
+
+      if (!archiveSourceBuffer || !archiveSourceBuffer.buffered || archiveSourceBuffer.buffered.length === 0) {
+        // No buffer yet, request more immediately
+        archiveWs.send('more');
+        serverPaused = false;
+        return;
+      }
+
+      const bufferEnd = archiveSourceBuffer.buffered.end(0);
+      const bufferAhead = bufferEnd - player.currentTime;
+
+      if (bufferAhead < BUFFER_LOW_THRESHOLD) {
+        archiveWs.send('more');
+        serverPaused = false;
+      }
+    }
+
+    // Periodic flow control for archive player
+    setInterval(function() {
+      const player = document.getElementById('archivePlayer');
+      if (player && archiveSourceBuffer && archiveSourceBuffer.buffered && archiveSourceBuffer.buffered.length > 0) {
+        const bufStart = archiveSourceBuffer.buffered.start(0);
+        const bufEnd = archiveSourceBuffer.buffered.end(0);
+
+        // Auto-seek to buffer start if needed, but NOT if archive has ended
+        // (to prevent looping back to start after playback completes)
+        if (!archiveEnded && player.currentTime < bufStart) {
+          player.currentTime = bufStart + 0.1;
+        }
+        // Auto-play only if archive hasn't ended
+        if (!archiveEnded && player.paused && bufEnd - bufStart > 0.5) {
+          player.play().catch(e => {});
+        }
+
+        // Check if we need more data from server
+        checkBufferAndRequestMore(player);
+      }
+    }, 1000);
+
+    function finishArchiveStream() {
+      // If no source buffer or MediaSource not open, nothing to do
+      if (!archiveMs || archiveMs.readyState !== 'open') {
+        return;
+      }
+
+      // If SourceBuffer is still updating, wait for it to finish
+      if (archiveSourceBuffer && archiveSourceBuffer.updating) {
+        archiveSourceBuffer.addEventListener('updateend', function onUpdateEnd() {
+          archiveSourceBuffer.removeEventListener('updateend', onUpdateEnd);
+          finishArchiveStream();
+        });
+        return;
+      }
+
+      // Process any remaining queue items
+      if (archiveQueue.length > 0 && archiveSourceBuffer && !archiveSourceBuffer.updating) {
+        const data = archiveQueue.shift();
+        try {
+          archiveSourceBuffer.appendBuffer(data);
+          // Will call finishArchiveStream again via updateend handler
+          archiveSourceBuffer.addEventListener('updateend', function onUpdateEnd() {
+            archiveSourceBuffer.removeEventListener('updateend', onUpdateEnd);
+            finishArchiveStream();
+          });
+          return;
+        } catch (e) {
+          console.error('[ARCHIVE] appendBuffer error in finish:', e);
+        }
+      }
+
+      // All done, safely end the stream
+      try {
+        archiveMs.endOfStream();
+      } catch (e) {
+        // Ignore - stream may already be ended
+      }
+    }
+  </script>
+
+  <script>
     let initReceived = false;
-    let firstVideoPacketTime = null;
 
     function initialize () {
       let load = document.getElementById('livestream');
-      console.log("[DEBUG] Initializing MSE player...");
-      console.log("[DEBUG] Video element:", load);
 
       if ('MediaSource' in window) {
-          console.log("[DEBUG] MediaSource is supported");
-          let isPlaying = true;
           let ms = new MediaSource();
 
           ms.addEventListener('sourceopen', function() {
-            console.log("[DEBUG] MediaSource opened, readyState:", ms.readyState);
             start(ms);
           }, false);
 
-          ms.addEventListener('sourceended', function() {
-            console.log("[DEBUG] MediaSource ended");
-          });
-
-          ms.addEventListener('sourceclose', function() {
-            console.log("[DEBUG] MediaSource closed");
-          });
-
           load.src = window.URL.createObjectURL(ms);
-          console.log("[DEBUG] Video src set to:", load.src);
 
-          load.onpause = () => {
-            console.log("[DEBUG] Video paused");
-          };
-          load.onplay = () => {
-            console.log("[DEBUG] Video play triggered");
-          };
-          load.oncanplay = () => {
-            console.log("[DEBUG] Video can play now!");
-          };
-          load.onplaying = () => {
-            console.log("[DEBUG] Video is playing!");
-          };
           load.onerror = (e) => {
-            console.error("[DEBUG] Video error:", load.error);
-          };
-          load.onwaiting = () => {
-            console.log("[DEBUG] Video waiting for data...");
-          };
-          load.onstalled = () => {
-            console.log("[DEBUG] Video stalled");
+            console.error("[LIVE] Video error:", load.error);
           };
       } else {
           console.error('Unsupported: MSE')
@@ -68,37 +322,19 @@
     // Start job with WebSocket
     function start (ms) {
       let load = document.getElementById('livestream')
-      let isPlaying = true
-      /* Just an eexample how to prepare link for WS */
       const schema = 'ws'
       const server = 'localhost'
       const port = '8090'
       const streamID = '13bf3e5c-d537-4f10-98e8-9d0afca8b070'
 
-      console.log("[DEBUG] Starting WebSocket connection...");
       let ws = new WebSocket(schema + '://' + server + ':' + port + '/ws/live?stream_id=' + streamID)
       ws.binaryType = 'arraybuffer'
 
-      ws.onopen = function() {
-        console.log("[DEBUG] WebSocket connection established");
-      };
-
-      ws.onclose = function(event) {
-        if (event.wasClean) {
-          console.log('[DEBUG] Connection closed successfully');
-        } else {
-          console.log('[DEBUG] Connection has been terminated');
-        }
-        console.log('[DEBUG] Code: ' + event.code + ' reason: ' + event.reason);
-      };
-
       ws.onmessage = function(event) {
-        packetCount++;
         const data = new Uint8Array(event.data)
 
         if (data[0] === 9) {
           // Decode initialization
-          console.log("[DEBUG] Received INIT packet, size:", data.length);
           initReceived = true;
           const decodedArr = data.slice(1)
           let mimeCodec
@@ -107,57 +343,35 @@
           } else {
               mimeCodec = String.fromCharCode(decodedArr)
           }
-          console.log("[DEBUG] Codec string:", mimeCodec);
 
           const fullMime = 'video/mp4; codecs="' + mimeCodec + '"';
-          console.log("[DEBUG] Full MIME type:", fullMime);
-          console.log("[DEBUG] MediaSource.isTypeSupported:", MediaSource.isTypeSupported(fullMime));
 
           if (!sourceBuffer && load) {
               try {
-                  console.log("[DEBUG] Creating SourceBuffer...");
                   sourceBuffer = ms.addSourceBuffer(fullMime);
                   sourceBuffer.mode = 'segments';
-                  console.log("[DEBUG] SourceBuffer created, mode:", sourceBuffer.mode);
 
                   sourceBuffer.addEventListener('updateend', function() {
-                    // console.log("[DEBUG] SourceBuffer updateend, queue size:", streamQueue.length);
                     loadPacket();
                   });
 
                   sourceBuffer.addEventListener('error', function(e) {
-                    console.error("[DEBUG] SourceBuffer error:", e);
-                  });
-
-                  sourceBuffer.addEventListener('abort', function() {
-                    console.log("[DEBUG] SourceBuffer aborted");
+                    console.error("[LIVE] SourceBuffer error:", e);
                   });
               } catch (e) {
-                  console.error("[DEBUG] Failed to create SourceBuffer:", e);
+                  console.error("[LIVE] Failed to create SourceBuffer:", e);
               }
           }
         } else {
           // Video/audio data packet
-          if (packetCount <= 5 || packetCount % 100 === 0) {
-            console.log("[DEBUG] Packet #" + packetCount + ", size:", data.length, "bytes, first 4 bytes:",
-              data[0].toString(16), data[1].toString(16), data[2].toString(16), data[3].toString(16));
-          }
-
           if (!initReceived) {
-            console.warn("[DEBUG] Received data packet before init!");
             return;
           }
-
-          if (!firstVideoPacketTime) {
-            firstVideoPacketTime = Date.now();
-            console.log("[DEBUG] First video packet received at:", new Date().toISOString());
-          }
-
           pushPacket(event.data)
         }
       };
       ws.onerror = function(error) {
-        console.error("[DEBUG] WebSocket error:", error);
+        console.error("[LIVE] WebSocket error:", error);
       };
     }
 
@@ -165,7 +379,6 @@
       let load = document.getElementById('livestream');
 
       if (!sourceBuffer) {
-        console.warn("[DEBUG] pushPacket called but sourceBuffer not ready");
         return;
       }
 
@@ -174,16 +387,12 @@
             sourceBuffer.appendBuffer(data);
             streamStarted = true;
           } catch (e) {
-            console.error("[DEBUG] Error appending first buffer:", e);
+            console.error("[LIVE] Error appending buffer:", e);
           }
           return;
       }
 
       streamQueue.push(data);
-
-      if (streamQueue.length % 50 === 0) {
-        console.log("[DEBUG] Queue size:", streamQueue.length, "buffered:", getBufferedInfo());
-      }
 
       if (!sourceBuffer.updating) {
           loadPacket();
@@ -200,7 +409,7 @@
               try {
                 sourceBuffer.appendBuffer(inp)
               } catch (e) {
-                console.error("[DEBUG] Error in loadPacket appendBuffer:", e);
+                console.error("[LIVE] Error in loadPacket:", e);
               }
           } else {
               streamStarted = false
@@ -208,43 +417,21 @@
       }
     }
 
-    function getBufferedInfo() {
-      if (!sourceBuffer || !sourceBuffer.buffered || sourceBuffer.buffered.length === 0) {
-        return "none";
-      }
-      let ranges = [];
-      for (let i = 0; i < sourceBuffer.buffered.length; i++) {
-        ranges.push(sourceBuffer.buffered.start(i).toFixed(2) + "-" + sourceBuffer.buffered.end(i).toFixed(2));
-      }
-      return ranges.join(", ");
-    }
-
-    // Periodic status logging and auto-seek to buffer start
+    // Periodic auto-seek for live stream
     setInterval(function() {
       let load = document.getElementById('livestream');
-      if (load && sourceBuffer) {
-        console.log("[STATUS] currentTime:", load.currentTime.toFixed(2),
-          "buffered:", getBufferedInfo(),
-          "readyState:", load.readyState,
-          "paused:", load.paused,
-          "queue:", streamQueue.length);
+      if (load && sourceBuffer && sourceBuffer.buffered && sourceBuffer.buffered.length > 0) {
+        const bufferStart = sourceBuffer.buffered.start(0);
+        const bufferEnd = sourceBuffer.buffered.end(0);
 
-        // Auto-seek to buffer start if currentTime is outside buffered range
-        if (sourceBuffer.buffered.length > 0) {
-          const bufferStart = sourceBuffer.buffered.start(0);
-          const bufferEnd = sourceBuffer.buffered.end(0);
+        // If currentTime is before buffer start, seek to buffer start
+        if (load.currentTime < bufferStart) {
+          load.currentTime = bufferStart + 0.1;
+        }
 
-          // If currentTime is before buffer start, seek to buffer start
-          if (load.currentTime < bufferStart) {
-            console.log("[DEBUG] Seeking from", load.currentTime.toFixed(2), "to buffer start:", bufferStart.toFixed(2));
-            load.currentTime = bufferStart + 0.1; // Small offset to ensure we're in buffer
-          }
-
-          // Auto-play if paused and we have data
-          if (load.paused && bufferEnd - bufferStart > 0.5) {
-            console.log("[DEBUG] Auto-playing, buffer has", (bufferEnd - bufferStart).toFixed(2), "seconds");
-            load.play().catch(e => console.log("[DEBUG] Auto-play failed:", e));
-          }
+        // Auto-play if paused and we have data
+        if (load.paused && bufferEnd - bufferStart > 0.5) {
+          load.play().catch(e => {});
         }
       }
     }, 1000);
@@ -255,12 +442,46 @@
     
   </script>
   <style>
+    body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+    }
+    h2 {
+        color: #333;
+    }
     .mse-video-size {
-        top: 0;
-        left: 0;
         width: 720px;
-        height: 640px;
+        height: 400px;
         object-fit: cover;
+        background: #000;
+    }
+    .archive-controls {
+        margin: 15px 0;
+        padding: 15px;
+        background: #f5f5f5;
+        border-radius: 5px;
+    }
+    .archive-controls label {
+        margin-right: 15px;
+    }
+    .archive-controls button {
+        padding: 8px 16px;
+        margin-right: 10px;
+        cursor: pointer;
+    }
+    .archive-status {
+        margin: 10px 0;
+        padding: 10px;
+        background: #e8f4e8;
+        border-radius: 5px;
+    }
+    .archive-status p {
+        margin: 0;
+    }
+    hr {
+        margin: 30px 0;
+        border: none;
+        border-top: 1px solid #ddd;
     }
   </style>
  </body>

@@ -60,3 +60,4 @@ file = "./cmd/video_server/BigBuckBunny_320x180.mp4"
 output_types = ["mse", "hls"]
 verbose = "v"
 loop = true  # Loop playback for continuous streaming
+archive = { enabled = false, ms_per_file = 10000, type = "filesystem", directory = "/home/dimitrii/go_work/video-server/cmd/video_server/data" }
