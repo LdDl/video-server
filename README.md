@@ -122,7 +122,7 @@ You can configure application to write MP4 chunks of custom duration (but not le
 
 - If you want disable archive for specified stream, just set value of the field `enabled` to `false` in streams array. For disabling archive at all you can do the same but in the main configuration (where default values are set)
 
-- To install MinIO (in case if you want to store archive in S3) you can use [./docker-compose.yaml](docker-compose file) or [./scripts/minio-ansible.yml](Ansible script) for example of deployment workflows
+- To install MinIO (in case if you want to store archive in S3) you can use [./docker-compose.yaml](docker-compose.yaml) or [./scripts/minio-ansible.yml](Ansible script) for example of deployment workflows
 
 ## Dependencies
 GIN web-framework - [https://github.com/gin-gonic/gin](https://github.com/gin-gonic/gin). License is [MIT](https://github.com/gin-gonic/gin/blob/master/LICENSE)
