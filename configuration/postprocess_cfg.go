@@ -26,7 +26,9 @@ func postProcessDefaults(cfg *Configuration) {
 	for i := range cfg.RTSPStreams {
 		stream := cfg.RTSPStreams[i]
 		archiveCfg := stream.Archive
-		if !archiveCfg.Enabled {
+
+		// Skip defaults if recording not enabled for this stream
+		if !archiveCfg.Recording {
 			continue
 		}
 
@@ -56,4 +58,5 @@ func postProcessDefaults(cfg *Configuration) {
 			cfg.RTSPStreams[i].Archive.MinioPath = cfg.ArchiveCfg.Minio.DefaultPath
 		}
 	}
+
 }

@@ -19,3 +19,4 @@ linux-amd64-video_server.tar.gz
 ./video_server.exe
 windows-video_server.zip
 hls/
+cmd/video_server/data/

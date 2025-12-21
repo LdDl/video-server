@@ -237,12 +237,14 @@ func (m *MP4ffMuxer) WriteTrailer() error {
 	// Create moov box
 	moov := mp4.NewMoovBox()
 
-	// Calculate total duration for mvhd
+	// Calculate total duration for mvhd (relative duration, not absolute)
 	var maxDuration uint64 = 0
 	for _, track := range m.tracks {
-		if len(track.samples) > 0 {
+		if len(track.samples) > 1 {
+			firstSample := track.samples[0]
 			lastSample := track.samples[len(track.samples)-1]
-			trackDur := lastSample.pts
+			// Duration is relative: last - first
+			trackDur := lastSample.pts - firstSample.pts
 			// Convert to 1000 timescale for mvhd
 			trackDurMvhd := trackDur * 1000 / uint64(track.timescale)
 			if trackDurMvhd > maxDuration {
@@ -284,8 +286,9 @@ func (m *MP4ffMuxer) createTrak(track *mp4ffTrack) (*mp4.TrakBox, error) {
 	var firstSampleDTS uint64 = 0
 	if len(track.samples) > 0 {
 		lastSample := track.samples[len(track.samples)-1]
-		trackDuration = lastSample.pts
 		firstSampleDTS = track.samples[0].dts
+		// Duration should be relative (last - first), not absolute
+		trackDuration = lastSample.pts - track.samples[0].pts
 	}
 
 	// Calculate actual media duration (last DTS - first DTS + last sample duration estimate)
@@ -677,13 +680,14 @@ func annexBToAVCC(data []byte) []byte {
 	return result
 }
 
-// Duration returns the duration of the longest track
+// Duration returns the duration of the longest track (relative, not absolute)
 func (m *MP4ffMuxer) Duration() time.Duration {
 	var maxDur time.Duration
 	for _, track := range m.tracks {
-		if len(track.samples) > 0 {
-			lastSample := track.samples[len(track.samples)-1]
-			dur := time.Duration(float64(lastSample.pts) / float64(track.timescale) * float64(time.Second))
+		if len(track.samples) > 1 {
+			firstPts := track.samples[0].pts
+			lastPts := track.samples[len(track.samples)-1].pts
+			dur := time.Duration(float64(lastPts-firstPts) / float64(track.timescale) * float64(time.Second))
 			if dur > maxDur {
 				maxDur = dur
 			}

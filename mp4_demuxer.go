@@ -22,14 +22,17 @@ type MP4Demuxer struct {
 }
 
 type demuxerTrack struct {
-	trak      *mp4.TrakBox
-	codec     av.CodecData
-	sampleNr  uint32 // 1-based sample number (mp4ff uses 1-based)
+	trak  *mp4.TrakBox
+	codec av.CodecData
+	// 1-based sample number (mp4ff uses 1-based)
+	sampleNr  uint32
 	sampleCnt uint32
 	timescale uint32
-	isVideo   bool
-	isAudio   bool
-	streamIdx int8
+	// Edit list media_time offset (in timescale units)
+	mediaTimeOffset uint64
+	isVideo         bool
+	isAudio         bool
+	streamIdx       int8
 }
 
 // NewMP4Demuxer creates a new demuxer for the given file
@@ -71,6 +74,14 @@ func NewMP4Demuxer(filePath string) (*MP4Demuxer, error) {
 		stbl := trak.Mdia.Minf.Stbl
 		if stbl.Stsz != nil {
 			track.sampleCnt = stbl.Stsz.SampleNumber
+		}
+
+		// Get edit list media_time offset (used to normalize timestamps)
+		if trak.Edts != nil && len(trak.Edts.Elst) > 0 && len(trak.Edts.Elst[0].Entries) > 0 {
+			mediaTime := trak.Edts.Elst[0].Entries[0].MediaTime
+			if mediaTime > 0 {
+				track.mediaTimeOffset = uint64(mediaTime)
+			}
 		}
 
 		// Get handler type
@@ -218,6 +229,9 @@ func (d *MP4Demuxer) ReadPacket() (av.Packet, error) {
 
 	// Get timing info
 	decTime, _ := stbl.Stts.GetDecodeTime(sampleNr)
+	// Don't apply edit list offset here - let the streaming handler normalize
+	// The edit list offset in archive files equals the first sample's time,
+	// so subtracting it would collapse all times to near-0
 	pts := time.Duration(decTime) * time.Second / time.Duration(earliestTrack.timescale)
 
 	// Get composition time offset if present

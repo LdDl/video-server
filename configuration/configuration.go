@@ -46,7 +46,8 @@ type HLSConfiguration struct {
 
 // ArchiveConfiguration is a archive configuration for every stream with enabled archive option
 type ArchiveConfiguration struct {
-	Enabled      bool          `json:"enabled" toml:"enabled"`
+	Recording    bool          `json:"recording" toml:"recording"`
+	Serving      bool          `json:"serving" toml:"serving"`
 	MsPerSegment int64         `json:"ms_per_file" toml:"ms_per_file"`
 	Directory    string        `json:"directory" toml:"directory"`
 	Minio        MinioSettings `json:"minio_settings" toml:"minio_settings"`
@@ -87,9 +88,9 @@ type SingleStreamConfiguration struct {
 	Verbose string `json:"verbose" toml:"verbose"`
 }
 
-// StreamArchiveConfiguration is a archive configuration for cpecific stream. I can overwrite parent archive options in needed
+// StreamArchiveConfiguration is a archive configuration for specific stream. It can overwrite parent archive options if needed
 type StreamArchiveConfiguration struct {
-	Enabled      bool   `json:"enabled" toml:"enabled"`
+	Recording    bool   `json:"recording" toml:"recording"`
 	MsPerSegment int64  `json:"ms_per_file" toml:"ms_per_file"`
 	Directory    string `json:"directory" toml:"directory"`
 	TypeArchive  string `json:"type" toml:"type"`

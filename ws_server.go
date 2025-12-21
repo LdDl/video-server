@@ -50,6 +50,7 @@ func (app *Application) StartVideoServer() {
 		router.Use(cors.New(*app.CorsConfig))
 	}
 	router.GET("/ws/:stream_id", WebSocketWrapper(&app.Streams, &wsUpgrader, app.VideoServerCfg.Verbose))
+	router.GET("/ws/archive", gin.WrapF(ArchiveWSHandler(app, &wsUpgrader, app.VideoServerCfg.Verbose)))
 	router.GET("/hls/:file", HLSWrapper(&app.HLS, app.VideoServerCfg.Verbose))
 
 	url := fmt.Sprintf("%s:%d", app.VideoServerCfg.Host, app.VideoServerCfg.Port)

@@ -20,8 +20,18 @@ type Application struct {
 	VideoServerCfg VideoConfiguration `json:"video"`
 	Streams        StreamsStorage     `json:"streams"`
 	HLS            HLSInfo            `json:"hls"`
-	CorsConfig     *cors.Config       `json:"-"`
-	minioClient    *minio.Client
+	// Global archive config for playback fallback
+	ArchiveConfig ArchiveInfo  `json:"-"`
+	CorsConfig    *cors.Config `json:"-"`
+	minioClient   *minio.Client
+}
+
+// ArchiveInfo stores global archive configuration
+type ArchiveInfo struct {
+	Recording    bool
+	Serving      bool
+	Directory    string
+	MsPerSegment int64
 }
 
 // APIConfiguration is just copy of configuration.APIConfiguration but with some not exported fields
@@ -78,6 +88,12 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 			WindowSize:   cfg.HLSCfg.WindowSize,
 			Capacity:     cfg.HLSCfg.Capacity,
 		},
+		ArchiveConfig: ArchiveInfo{
+			Recording:    cfg.ArchiveCfg.Recording,
+			Serving:      cfg.ArchiveCfg.Serving,
+			Directory:    cfg.ArchiveCfg.Directory,
+			MsPerSegment: cfg.ArchiveCfg.MsPerSegment,
+		},
 	}
 	if cfg.CorsConfig.Enabled {
 		tmp.setCors(cfg.CorsConfig)
@@ -105,9 +121,12 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 		tmp.Streams.store[validUUID] = NewStreamConfiguration(rtspStream.URL, outputTypes)
 		tmp.Streams.store[validUUID].verboseLevel = NewVerboseLevelFrom(rtspStream.Verbose)
 		tmp.Streams.store[validUUID].streamType = STREAM_TYPE_RTSP
-		if rtspStream.Archive.Enabled && cfg.ArchiveCfg.Enabled {
+		// Set up archive storage if recording OR serving is enabled
+		needsArchiveStorage := (rtspStream.Archive.Recording && cfg.ArchiveCfg.Recording) ||
+			(cfg.ArchiveCfg.Serving && rtspStream.Archive.Directory != "")
+		if needsArchiveStorage {
 			if rtspStream.Archive.MsPerSegment == 0 {
-				return nil, fmt.Errorf("bad ms per segment archive stream")
+				rtspStream.Archive.MsPerSegment = cfg.ArchiveCfg.MsPerSegment
 			}
 			storageType := storage.NewStorageTypeFrom(rtspStream.Archive.TypeArchive)
 			var archiveStorage StreamArchiveWrapper
@@ -183,12 +202,12 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 		streamConfig.loop = localFile.Loop
 		tmp.Streams.store[validUUID] = streamConfig
 
-		// Set up archive if enabled
-		// NOTE: Archiving a local file is mostly useless since the source is already a file.
-		// This exists mainly for API consistency with RTSP streams.
-		if localFile.Archive.Enabled && cfg.ArchiveCfg.Enabled {
+		// Set up archive storage if recording OR serving is enabled
+		needsArchiveStorage := (localFile.Archive.Recording && cfg.ArchiveCfg.Recording) ||
+			(cfg.ArchiveCfg.Serving && localFile.Archive.Directory != "")
+		if needsArchiveStorage {
 			if localFile.Archive.MsPerSegment == 0 {
-				return nil, fmt.Errorf("bad ms per segment for local file archive stream")
+				localFile.Archive.MsPerSegment = cfg.ArchiveCfg.MsPerSegment
 			}
 			storageType := storage.NewStorageTypeFrom(localFile.Archive.TypeArchive)
 			var archiveStorage StreamArchiveWrapper
@@ -238,6 +257,35 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 		}
 	}
 	return &tmp, nil
+}
+
+// GetArchiveStorageForPlayback returns archive storage for playback.
+// First tries stream-specific archive, then falls back to global archive config.
+func (app *Application) GetArchiveStorageForPlayback(streamID uuid.UUID) (*StreamArchiveWrapper, error) {
+	// Try stream-specific archive first
+	archive := app.Streams.GetStreamArchiveStorage(streamID)
+	if archive != nil {
+		return archive, nil
+	}
+
+	// Fall back to global archive config (only if serving is enabled)
+	if !app.ArchiveConfig.Serving {
+		return nil, errors.New("archive serving not enabled globally")
+	}
+
+	// Create a temporary wrapper using global config (filesystem only for now)
+	fsStorage, err := storage.NewFileSystemProvider(app.ArchiveConfig.Directory)
+	if err != nil {
+		return nil, errors.Wrap(err, "can't create filesystem provider for archive playback")
+	}
+
+	return &StreamArchiveWrapper{
+		store:         fsStorage,
+		filesystemDir: app.ArchiveConfig.Directory,
+		bucket:        app.ArchiveConfig.Directory,
+		bucketPath:    app.ArchiveConfig.Directory,
+		msPerSegment:  app.ArchiveConfig.MsPerSegment,
+	}, nil
 }
 
 func (app *Application) setCors(cfg configuration.CORSConfiguration) {

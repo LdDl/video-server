@@ -43,6 +43,7 @@ func (app *Application) StartAPIServer() error {
 	router.GET("/status", StatusWrapper(app, app.APICfg.Verbose))
 	router.POST("/enable_camera", EnableCamera(app, app.APICfg.Verbose))
 	router.POST("/disable_camera", DisableCamera(app, app.APICfg.Verbose))
+	router.GET("/archive/:stream_id/ranges", ArchiveRangesWrapper(app, app.APICfg.Verbose))
 
 	url := fmt.Sprintf("%s:%d", app.APICfg.Host, app.APICfg.Port)
 	s := &http.Server{
