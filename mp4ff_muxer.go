@@ -42,7 +42,8 @@ type mp4ffTrack struct {
 }
 
 type mp4ffSample struct {
-	data   []byte
+	// size of data in bytes
+	size   uint32
 	offset int64 // file offset in mdat
 	// In timescale units
 	pts      uint64
@@ -191,7 +192,7 @@ func (m *MP4ffMuxer) WritePacket(pkt av.Packet) error {
 	}
 
 	sample := mp4ffSample{
-		data:            data,
+		size:            uint32(len(data)),
 		offset:          offset,
 		pts:             pts,
 		dts:             dts,
@@ -542,7 +543,7 @@ func (m *MP4ffMuxer) createStbl(track *mp4ffTrack) (*mp4.StblBox, error) {
 	// stsz (sample sizes)
 	stsz := &mp4.StszBox{}
 	for _, s := range track.samples {
-		stsz.SampleSize = append(stsz.SampleSize, uint32(len(s.data)))
+		stsz.SampleSize = append(stsz.SampleSize, s.size)
 	}
 	stsz.SampleNumber = uint32(len(track.samples))
 	stbl.Stsz = stsz
