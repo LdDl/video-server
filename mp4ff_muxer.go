@@ -327,15 +327,13 @@ func (m *MP4ffMuxer) createTrak(track *mp4ffTrack) (*mp4.TrakBox, error) {
 			Version: 0,
 			Flags:   0,
 		}
-		// Single edit entry: play all media starting from firstSampleDTS
-		// segment_duration: duration in movie timescale (1000)
-		// media_time: start time in media timescale
-		// media_rate: 1.0 (0x00010000 in fixed-point)
+		// Single edit entry: play all media from the start
+		// stts stores relative deltas (DTS always starts at 0), so media_time must be 0
 		segmentDuration := mediaDuration * 1000 / uint64(track.timescale)
 		elst.Entries = []mp4.ElstEntry{
 			{
 				SegmentDuration:   segmentDuration,
-				MediaTime:         int64(firstSampleDTS),
+				MediaTime:         0,
 				MediaRateInteger:  1,
 				MediaRateFraction: 0,
 			},
