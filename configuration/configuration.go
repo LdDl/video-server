@@ -13,6 +13,7 @@ type Configuration struct {
 	HLSCfg         HLSConfiguration            `json:"hls" toml:"hls"`
 	ArchiveCfg     ArchiveConfiguration        `json:"archive" toml:"archive"`
 	CorsConfig     CORSConfiguration           `json:"cors" toml:"cors"`
+	OnDemandCfg    OnDemandConfiguration       `json:"on_demand" toml:"on_demand"`
 	RTSPStreams    []SingleStreamConfiguration `json:"rtsp_streams" toml:"rtsp_streams"`
 	LocalFiles     []LocalFileConfiguration    `json:"local_files" toml:"local_files"`
 }
@@ -67,6 +68,21 @@ func (ms *MinioSettings) String() string {
 	return fmt.Sprintf("Host '%s' Port '%d' User '%s' Pass '%s' Bucket '%s' Path '%s'", ms.Host, ms.Port, ms.User, ms.Password, ms.DefaultBucket, ms.DefaultPath)
 }
 
+// OnDemandConfiguration controls lazy upstream connections: when enabled, a stream is pulled
+// from its source only while somebody is watching it (or while it is being recorded)
+type OnDemandConfiguration struct {
+	// Enabled is the default for every stream. A stream can override it with its own 'on_demand' field
+	Enabled bool `json:"enabled" toml:"enabled"`
+	// IdleMs is how long the upstream connection is kept alive after the last viewer has gone
+	IdleMs int64 `json:"idle_ms" toml:"idle_ms"`
+	// HealthCheck enables lightweight periodic probing (RTSP DESCRIBE, no PLAY) of idle on-demand streams
+	HealthCheck bool `json:"health_check" toml:"health_check"`
+	// HealthIntervalMs is the probing period
+	HealthIntervalMs int64 `json:"health_interval_ms" toml:"health_interval_ms"`
+	// HealthTimeoutMs is the budget for a single probe (TCP connect + DESCRIBE)
+	HealthTimeoutMs int64 `json:"health_timeout_ms" toml:"health_timeout_ms"`
+}
+
 // CORSConfiguration is settings for CORS
 type CORSConfiguration struct {
 	Enabled          bool     `json:"enabled" toml:"enabled"`
@@ -86,6 +102,8 @@ type SingleStreamConfiguration struct {
 	Archive     StreamArchiveConfiguration `json:"archive" toml:"archive"`
 	// Level of verbose. Pick 'v' or 'vvv' (or leave it empty)
 	Verbose string `json:"verbose" toml:"verbose"`
+	// OnDemand overrides the global [on_demand].enabled for this stream. Leave it unset to inherit
+	OnDemand *bool `json:"on_demand" toml:"on_demand"`
 }
 
 // StreamArchiveConfiguration is a archive configuration for specific stream. It can overwrite parent archive options if needed
@@ -107,4 +125,6 @@ type LocalFileConfiguration struct {
 	Verbose     string   `json:"verbose" toml:"verbose"`
 	// NOTE: Archiving a local file is mostly useless since the source is already a file.
 	Archive StreamArchiveConfiguration `json:"archive" toml:"archive"`
+	// OnDemand overrides the global [on_demand].enabled for this stream. Leave it unset to inherit
+	OnDemand *bool `json:"on_demand" toml:"on_demand"`
 }

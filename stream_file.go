@@ -1,6 +1,7 @@
 package videoserver
 
 import (
+	"context"
 	"io"
 	"time"
 
@@ -10,7 +11,7 @@ import (
 )
 
 // runLocalFileStream runs stream from a local video file (MP4)
-func (app *Application) runLocalFileStream(streamID uuid.UUID, filePath string, loop, hlsEnabled, archiveEnabled bool, streamVerboseLevel VerboseLevel) error {
+func (app *Application) runLocalFileStream(ctx context.Context, streamID uuid.UUID, filePath string, loop, hlsEnabled, archiveEnabled bool, streamVerboseLevel VerboseLevel) error {
 	var stopHlsCast, stopMP4Cast chan StopSignal
 
 	if hlsEnabled {
@@ -66,6 +67,7 @@ func (app *Application) runLocalFileStream(streamID uuid.UUID, filePath string, 
 	if err != nil {
 		return errors.Wrapf(err, "Can't update status for stream %s", streamID)
 	}
+	_ = app.Streams.UpdateStreamHealth(streamID, true, "")
 
 	// Check if audio-only
 	isAudioOnly := false
@@ -128,6 +130,17 @@ func (app *Application) runLocalFileStream(streamID uuid.UUID, filePath string, 
 	packetLoop:
 		for {
 			select {
+			case <-ctx.Done():
+				if streamVerboseLevel > VERBOSE_NONE {
+					log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_CANCEL).Str("stream_id", streamID.String()).Str("file_path", filePath).Msg("Upstream cancelled")
+				}
+				if hlsEnabled {
+					stopHlsCast <- STOP_SIGNAL_DISCONNECT
+				}
+				if archiveEnabled {
+					stopMP4Cast <- STOP_SIGNAL_DISCONNECT
+				}
+				return ctx.Err()
 			case <-pingStream.C:
 				log.Error().Err(ErrStreamHasNoVideo).Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_EXIT_SIGNAL).Str("stream_id", streamID.String()).Str("file_path", filePath).Msg("Stream has no video (timeout)")
 				if hlsEnabled {

@@ -19,9 +19,10 @@ var (
 )
 
 // wshandler is a websocket handler for user connection
-func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Request, streamsStorage *StreamsStorage, verboseLevel VerboseLevel) {
+func wshandler(app *Application, wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Request, verboseLevel VerboseLevel) {
 	var streamID, clientID uuid.UUID
 	var mseExists, clientAdded bool
+	streamsStorage := &app.Streams
 
 	streamIDSTR := r.FormValue("stream_id")
 	if verboseLevel > VERBOSE_SIMPLE {
@@ -42,6 +43,7 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		}
 		if mseExists && clientAdded {
 			streamsStorage.DeleteViewer(streamID, clientID)
+			app.releaseStream(streamID)
 			if verboseLevel > VERBOSE_SIMPLE {
 				log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Client has been removed")
 			}
@@ -85,6 +87,8 @@ func wshandler(wsUpgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Re
 		if verboseLevel > VERBOSE_SIMPLE {
 			log.Info().Str("scope", SCOPE_WS_HANDLER).Str("event", EVENT_WS_UPGRADER).Str("remote_addr", r.RemoteAddr).Str("stream_id", streamIDSTR).Str("client_id", clientID.String()).Msg("Client has been added")
 		}
+		// On-demand streams are dialed on the first viewer; permanent ones are already running
+		app.acquireStream(streamID)
 
 		// Wait for codec data to become available (with timeout)
 		// This is needed because local file streams may not have loaded codecs yet

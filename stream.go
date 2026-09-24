@@ -1,6 +1,7 @@
 package videoserver
 
 import (
+	"context"
 	"time"
 
 	"github.com/deepch/vdk/format/rtspv2"
@@ -26,7 +27,7 @@ const (
 )
 
 // runStream runs RTSP grabbing process
-func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, archiveEnabled bool, streamVerboseLevel VerboseLevel) error {
+func (app *Application) runStream(ctx context.Context, streamID uuid.UUID, url string, hlsEnabled, archiveEnabled bool, streamVerboseLevel VerboseLevel) error {
 	var stopHlsCast, stopMP4Cast chan StopSignal
 
 	if hlsEnabled {
@@ -79,6 +80,7 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 		if err != nil {
 			return errors.Wrapf(err, "Can't update status for stream %s on empty codecs", streamID)
 		}
+		_ = app.Streams.UpdateStreamHealth(streamID, true, "")
 	}
 
 	isAudioOnly := false
@@ -123,6 +125,17 @@ func (app *Application) runStream(streamID uuid.UUID, url string, hlsEnabled, ar
 	pingStream := time.NewTimer(pingDuration)
 	for {
 		select {
+		case <-ctx.Done():
+			if streamVerboseLevel > VERBOSE_NONE {
+				log.Info().Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_CANCEL).Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Upstream cancelled")
+			}
+			if hlsEnabled {
+				stopHlsCast <- STOP_SIGNAL_DISCONNECT
+			}
+			if archiveEnabled {
+				stopMP4Cast <- STOP_SIGNAL_DISCONNECT
+			}
+			return ctx.Err()
 		case <-pingStream.C:
 			log.Error().Err(ErrStreamHasNoVideo).Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_EXIT_SIGNAL).Str("stream_id", streamID.String()).Str("stream_url", url).Msg("Stream has no video")
 			if hlsEnabled {

@@ -80,6 +80,54 @@ App running at:
 ```
 Paste link to the browser and check if video loaded successfully.
 
+## On-demand streams
+
+By default every configured stream is pulled from its source all the time, whether anybody is watching or not. For a fleet of cameras that nobody looks at most of the day this is a lot of wasted inbound traffic and CPU.
+
+With on-demand mode the upstream connection (RTSP session or local file reader) is opened when the first viewer arrives and closed a little while after the last one leaves:
+
+- **MSE**: the WebSocket connection is the viewer. The first connection dials the source, the last disconnect arms the idle timer.
+- **HLS**: there is no persistent connection, so every playlist/segment request counts as activity. The stream stays alive while requests keep coming. The very first playlist request of a cold stream waits for the first segment to be cut (about two `ms_per_segment`), so expect a start-up delay of that order.
+- **Recording**: a stream with `archive.recording = true` is never released, otherwise the archive would have gaps.
+
+```toml
+[on_demand]
+# default for all streams
+enabled = true
+# keep the upstream alive this long after the last viewer
+idle_ms = 30000
+# probe idle sources so that `online` stays meaningful
+health_check = true
+health_interval_ms = 30000
+health_timeout_ms = 3000
+
+[[rtsp_streams]]
+guid = "..."
+url = "rtsp://..."
+output_types = ["mse"]
+# per-stream override: this one is always on
+on_demand = false
+```
+
+The first viewer of a cold stream waits for the source to answer (typically 1-3 seconds for an RTSP camera) before video starts.
+
+### Health check
+
+An idle on-demand stream is not connected, so the server would not know whether the camera is alive. When `health_check` is enabled, idle sources are probed every `health_interval_ms` with a plain RTSP `DESCRIBE` (Basic and Digest auth are supported). No `PLAY` is sent, so the camera never starts streaming media for a probe. Local-file sources are checked for file existence. Streams with a live upstream are not probed: the session itself is the health signal.
+
+### Status fields
+
+`GET /status` reports, per stream:
+
+- `on_demand` - whether the stream is lazily connected
+- `online` - last known reachability of the source (from the live session or from the health probe)
+- `streaming` - whether the upstream loop is running right now
+- `viewers` - number of attached MSE clients
+- `last_health_check`, `last_health_error` - when the source was last checked and what went wrong, if anything
+- `status` - kept for compatibility: `true` while a live session has codec data
+
+`online = true, streaming = false, viewers = 0` is the normal state of a healthy camera that nobody is watching.
+
 ## Archive
 
 You can configure application to write MP4 chunks of custom duration (but not less than first keyframe duration) to the filesystem or [S3 MinIO](https://min.io/). The archive system supports two independent modes: **recording** (writing new segments) and **serving** (playback of existing archive files).

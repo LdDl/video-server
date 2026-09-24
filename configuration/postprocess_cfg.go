@@ -5,6 +5,10 @@ const (
 	defaultHlsMsPerSegment = 10000
 	defaultHlsCapacity     = 10
 	defaultHlsWindowSize   = 5
+
+	defaultOnDemandIdleMs          = 30000
+	defaultOnDemandHealthInterval  = 30000
+	defaultOnDemandHealthTimeoutMs = 3000
 )
 
 func postProcessDefaults(cfg *Configuration) {
@@ -22,6 +26,15 @@ func postProcessDefaults(cfg *Configuration) {
 	}
 	if cfg.HLSCfg.WindowSize > cfg.HLSCfg.Capacity {
 		cfg.HLSCfg.WindowSize = cfg.HLSCfg.Capacity
+	}
+	if cfg.OnDemandCfg.IdleMs <= 0 {
+		cfg.OnDemandCfg.IdleMs = defaultOnDemandIdleMs
+	}
+	if cfg.OnDemandCfg.HealthIntervalMs <= 0 {
+		cfg.OnDemandCfg.HealthIntervalMs = defaultOnDemandHealthInterval
+	}
+	if cfg.OnDemandCfg.HealthTimeoutMs <= 0 {
+		cfg.OnDemandCfg.HealthTimeoutMs = defaultOnDemandHealthTimeoutMs
 	}
 	for i := range cfg.RTSPStreams {
 		stream := cfg.RTSPStreams[i]

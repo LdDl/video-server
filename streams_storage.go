@@ -1,8 +1,10 @@
 package videoserver
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/deepch/vdk/av"
 	"github.com/deepch/vdk/codec/aacparser"
@@ -20,6 +22,17 @@ type StreamsStorage struct {
 // NewStreamsStorageDefault prepares new allocated storage
 func NewStreamsStorageDefault() StreamsStorage {
 	return StreamsStorage{store: make(map[uuid.UUID]*StreamConfiguration)}
+}
+
+// MarshalJSON renders the storage as a map keyed by stream ID, so that /status actually lists the streams
+func (streams *StreamsStorage) MarshalJSON() ([]byte, error) {
+	streams.RLock()
+	defer streams.RUnlock()
+	out := make(map[string]*StreamConfiguration, len(streams.store))
+	for id, stream := range streams.store {
+		out[id.String()] = stream
+	}
+	return json.Marshal(out)
 }
 
 // GetStreamInfo returns stream URL and its supported output types
@@ -115,6 +128,20 @@ func (streams *StreamsStorage) UpdateStreamStatus(streamID uuid.UUID, status boo
 	return nil
 }
 
+// UpdateStreamHealth records the latest known reachability of the stream source
+func (streams *StreamsStorage) UpdateStreamHealth(streamID uuid.UUID, online bool, lastError string) error {
+	streams.Lock()
+	defer streams.Unlock()
+	stream, ok := streams.store[streamID]
+	if !ok {
+		return ErrStreamNotFound
+	}
+	stream.Online = online
+	stream.LastHealthCheck = time.Now()
+	stream.LastHealthError = lastError
+	return nil
+}
+
 // AddViewer adds client to the given stream. Return newly client ID, buffered channel for stream on success
 func (streams *StreamsStorage) AddViewer(streamID uuid.UUID) (uuid.UUID, chan av.Packet, error) {
 	streams.Lock()
@@ -132,6 +159,7 @@ func (streams *StreamsStorage) AddViewer(streamID uuid.UUID) (uuid.UUID, chan av
 	}
 	ch := make(chan av.Packet, 100)
 	stream.Clients[clientID] = viewer{c: ch}
+	stream.Viewers = len(stream.Clients)
 	return clientID, ch, nil
 }
 
@@ -147,17 +175,19 @@ func (streams *StreamsStorage) DeleteViewer(streamID, clientID uuid.UUID) {
 		log.Info().Str("scope", SCOPE_STREAM).Str("event", EVENT_STREAM_CLIENT_DELETE).Str("stream_id", streamID.String()).Str("client_id", clientID.String()).Msg("Delete client")
 	}
 	delete(stream.Clients, clientID)
+	stream.Viewers = len(stream.Clients)
 }
 
-// CastPacket cast AV Packet to viewers and possible to HLS/MP4 channels
+// CastPacket cast AV Packet to viewers and possible to HLS/MP4 channels.
+// The read lock is held for the whole cast: every send below is non-blocking, and the viewers map
+// is mutated by AddViewer/DeleteViewer under the write lock, so iterating it unlocked would race
 func (streams *StreamsStorage) CastPacket(streamID uuid.UUID, pck av.Packet, hlsEnabled, archiveEnabled bool) error {
-	streams.Lock()
+	streams.RLock()
+	defer streams.RUnlock()
 	stream, ok := streams.store[streamID]
 	if !ok {
-		streams.Unlock()
 		return ErrStreamNotFound
 	}
-	streams.Unlock()
 	if stream.verboseLevel > VERBOSE_ADD {
 		log.Info().Str("scope", SCOPE_STREAM).Str("event", EVENT_STREAM_CAST_PACKET).Str("stream_id", streamID.String()).Bool("hls_enabled", hlsEnabled).Bool("archive_enabled", stream.archive != nil).Int("clients_num", len(stream.Clients)).Msg("Cast packet")
 	}
