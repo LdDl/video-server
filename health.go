@@ -2,6 +2,7 @@ package videoserver
 
 import (
 	"context"
+	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -12,6 +13,10 @@ import (
 
 // healthProbeConcurrency caps how many sources are probed at the same time in one sweep
 const healthProbeConcurrency = 8
+
+// healthProbePerHostConcurrency caps concurrent probes towards one host. Dozens of streams usually
+// sit behind a single VMS or NVR, and a burst of DESCRIBEs into it makes it time out on everything
+const healthProbePerHostConcurrency = 2
 
 // StartHealthMonitor periodically probes idle on-demand streams so that their `online` flag stays
 // meaningful while no video is being pulled. Streams with a live upstream are skipped: the session
@@ -38,6 +43,7 @@ func (app *Application) StartHealthMonitor(ctx context.Context) {
 type probeTarget struct {
 	id         uuid.UUID
 	url        string
+	host       string
 	streamType StreamType
 	verbose    VerboseLevel
 }
@@ -49,17 +55,31 @@ func (app *Application) probeIdleStreams(ctx context.Context) {
 		return
 	}
 	sem := make(chan struct{}, healthProbeConcurrency)
+	perHost := make(map[string]chan struct{})
+	for _, target := range targets {
+		if _, ok := perHost[target.host]; !ok {
+			perHost[target.host] = make(chan struct{}, healthProbePerHostConcurrency)
+		}
+	}
+	// The host slot is taken first: a target queued behind a busy VMS must not hold a global slot
+	// while it waits, otherwise one big host starves every other source
 	var wg sync.WaitGroup
 	for _, target := range targets {
-		select {
-		case sem <- struct{}{}:
-		case <-ctx.Done():
-			wg.Wait()
-			return
-		}
 		wg.Add(1)
 		go func(t probeTarget) {
 			defer wg.Done()
+			hostSem := perHost[t.host]
+			select {
+			case hostSem <- struct{}{}:
+			case <-ctx.Done():
+				return
+			}
+			defer func() { <-hostSem }()
+			select {
+			case sem <- struct{}{}:
+			case <-ctx.Done():
+				return
+			}
 			defer func() { <-sem }()
 			app.probeOne(ctx, t)
 		}(target)
@@ -76,9 +96,21 @@ func (app *Application) idleOnDemandTargets() []probeTarget {
 		if !stream.OnDemand || stream.running {
 			continue
 		}
-		targets = append(targets, probeTarget{id: id, url: stream.URL, streamType: stream.streamType, verbose: stream.verboseLevel})
+		targets = append(targets, probeTarget{id: id, url: stream.URL, host: probeHost(stream.URL, stream.streamType), streamType: stream.streamType, verbose: stream.verboseLevel})
 	}
 	return targets
+}
+
+// probeHost extracts host:port for per-host throttling. Local files share one pseudo-host
+func probeHost(rawURL string, streamType StreamType) string {
+	if streamType != STREAM_TYPE_RTSP {
+		return "local"
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	return parsed.Host
 }
 
 // probeOne probes a single source and records the result.

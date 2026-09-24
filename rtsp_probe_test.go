@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const testSDPVideo = "v=0\r\no=- 0 0 IN IP4 127.0.0.1\r\ns=cam\r\nm=video 0 RTP/AVP 96\r\na=rtpmap:96 H264/90000\r\n"
@@ -204,5 +207,61 @@ func TestProbeRTSP_DefaultPort(t *testing.T) {
 	err := probeRTSP(context.Background(), "rtsp://127.0.0.1/main", 200*time.Millisecond)
 	if err == nil {
 		t.Fatal("expected an error when nothing listens on 554")
+	}
+}
+
+func TestProbeHost(t *testing.T) {
+	cases := map[string]string{
+		"rtsp://admin:admin@10.76.200.31:554/main": "10.76.200.31:554",
+		"rtsp://10.160.1.47:2224/TOKEN/abc":        "10.160.1.47:2224",
+		"rtsp://cam.local/live":                    "cam.local",
+	}
+	for raw, want := range cases {
+		if got := probeHost(raw, STREAM_TYPE_RTSP); got != want {
+			t.Errorf("probeHost(%q) = %q, want %q", raw, got, want)
+		}
+	}
+	if got := probeHost("/data/file.mp4", STREAM_TYPE_LOCAL_FILE); got != "local" {
+		t.Errorf("local file host = %q", got)
+	}
+}
+
+func TestProbeIdleStreams_PerHostLimit(t *testing.T) {
+	var mu sync.Mutex
+	inflight, peak := 0, 0
+	addr := startFakeRTSP(t, func(req fakeRTSPRequest) string {
+		mu.Lock()
+		inflight++
+		if inflight > peak {
+			peak = inflight
+		}
+		mu.Unlock()
+		time.Sleep(50 * time.Millisecond)
+		mu.Lock()
+		inflight--
+		mu.Unlock()
+		return rtspReply(200, req.headers["cseq"], testSDPVideo)
+	})
+	app := &Application{Streams: NewStreamsStorageDefault(), OnDemand: OnDemandInfo{HealthCheck: true, HealthTimeout: time.Second}}
+	ids := make([]uuid.UUID, 0, 12)
+	for i := 0; i < 12; i++ {
+		id := uuid.New()
+		ids = append(ids, id)
+		cfg := NewStreamConfiguration(fmt.Sprintf("rtsp://%s/cam%d", addr, i), []StreamType{STREAM_TYPE_MSE})
+		cfg.streamType = STREAM_TYPE_RTSP
+		cfg.OnDemand = true
+		app.Streams.store[id] = cfg
+	}
+	app.probeIdleStreams(context.Background())
+	if peak > healthProbePerHostConcurrency {
+		t.Fatalf("per-host concurrency exceeded: peak %d, limit %d", peak, healthProbePerHostConcurrency)
+	}
+	for _, id := range ids {
+		app.Streams.RLock()
+		online := app.Streams.store[id].Online
+		app.Streams.RUnlock()
+		if !online {
+			t.Fatalf("stream %s must be online after a successful probe", id)
+		}
 	}
 }
