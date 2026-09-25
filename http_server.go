@@ -107,6 +107,8 @@ type EnablePostData struct {
 	GUID        uuid.UUID `json:"guid"`
 	URL         string    `json:"url"`
 	OutputTypes []string  `json:"output_types"`
+	// OnDemand overrides the global on-demand default for the new stream. Omit to inherit
+	OnDemand *bool `json:"on_demand"`
 }
 
 // EnableCamera adds new stream if does not exist
@@ -146,9 +148,13 @@ func EnableCamera(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Con
 				}
 				outputTypes = append(outputTypes, typ)
 			}
+			streamConfig := NewStreamConfiguration(postData.URL, outputTypes)
+			streamConfig.streamType = STREAM_TYPE_RTSP
+			streamConfig.OnDemand = resolveOnDemand(postData.OnDemand, app.OnDemand.Enabled)
 			app.Streams.Lock()
-			app.Streams.store[postData.GUID] = NewStreamConfiguration(postData.URL, outputTypes)
+			app.Streams.store[postData.GUID] = streamConfig
 			app.Streams.Unlock()
+			// Permanent streams start right away, on-demand ones wait for the first viewer
 			app.StartStream(postData.GUID)
 		}
 		ctx.JSON(200, app)
@@ -171,6 +177,9 @@ func DisableCamera(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Co
 			return
 		}
 		if exist := app.Streams.StreamExists(postData.GUID); exist {
+			// Tear the upstream down first, otherwise its loop would keep redialing the source
+			// for a stream that no longer exists in the storage
+			app.stopStream(postData.GUID)
 			app.Streams.Lock()
 			delete(app.Streams.store, postData.GUID)
 			app.Streams.Unlock()

@@ -1,7 +1,9 @@
 package videoserver
 
 import (
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/LdDl/video-server/configuration"
 	"github.com/LdDl/video-server/storage"
@@ -20,6 +22,7 @@ type Application struct {
 	VideoServerCfg VideoConfiguration `json:"video"`
 	Streams        StreamsStorage     `json:"streams"`
 	HLS            HLSInfo            `json:"hls"`
+	OnDemand       OnDemandInfo       `json:"on_demand"`
 	// Global archive config for playback fallback
 	ArchiveConfig ArchiveInfo  `json:"-"`
 	CorsConfig    *cors.Config `json:"-"`
@@ -59,6 +62,32 @@ type HLSInfo struct {
 	Capacity     uint   `json:"hls_window_capacity"`
 }
 
+// OnDemandInfo is the resolved on-demand / health-check configuration
+type OnDemandInfo struct {
+	Enabled        bool
+	IdleTimeout    time.Duration
+	HealthCheck    bool
+	HealthInterval time.Duration
+	HealthTimeout  time.Duration
+}
+
+// MarshalJSON reports durations in milliseconds, matching the configuration file
+func (info OnDemandInfo) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Enabled          bool  `json:"enabled"`
+		IdleMs           int64 `json:"idle_ms"`
+		HealthCheck      bool  `json:"health_check"`
+		HealthIntervalMs int64 `json:"health_interval_ms"`
+		HealthTimeoutMs  int64 `json:"health_timeout_ms"`
+	}{
+		Enabled:          info.Enabled,
+		IdleMs:           info.IdleTimeout.Milliseconds(),
+		HealthCheck:      info.HealthCheck,
+		HealthIntervalMs: info.HealthInterval.Milliseconds(),
+		HealthTimeoutMs:  info.HealthTimeout.Milliseconds(),
+	})
+}
+
 // ServerInfo is an information about server
 type ServerInfo struct {
 	HTTPAddr      string `json:"http_addr"`
@@ -94,6 +123,13 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 			Directory:    cfg.ArchiveCfg.Directory,
 			MsPerSegment: cfg.ArchiveCfg.MsPerSegment,
 		},
+		OnDemand: OnDemandInfo{
+			Enabled:        cfg.OnDemandCfg.Enabled,
+			IdleTimeout:    time.Duration(cfg.OnDemandCfg.IdleMs) * time.Millisecond,
+			HealthCheck:    cfg.OnDemandCfg.HealthCheck,
+			HealthInterval: time.Duration(cfg.OnDemandCfg.HealthIntervalMs) * time.Millisecond,
+			HealthTimeout:  time.Duration(cfg.OnDemandCfg.HealthTimeoutMs) * time.Millisecond,
+		},
 	}
 	if cfg.CorsConfig.Enabled {
 		tmp.setCors(cfg.CorsConfig)
@@ -121,6 +157,8 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 		tmp.Streams.store[validUUID] = NewStreamConfiguration(rtspStream.URL, outputTypes)
 		tmp.Streams.store[validUUID].verboseLevel = NewVerboseLevelFrom(rtspStream.Verbose)
 		tmp.Streams.store[validUUID].streamType = STREAM_TYPE_RTSP
+		tmp.Streams.store[validUUID].OnDemand = resolveOnDemand(rtspStream.OnDemand, cfg.OnDemandCfg.Enabled)
+		tmp.Streams.store[validUUID].recording = rtspStream.Archive.Recording && cfg.ArchiveCfg.Recording
 		// Set up archive storage if recording OR serving is enabled
 		needsArchiveStorage := (rtspStream.Archive.Recording && cfg.ArchiveCfg.Recording) ||
 			(cfg.ArchiveCfg.Serving && rtspStream.Archive.Directory != "")
@@ -200,6 +238,8 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 		streamConfig.verboseLevel = NewVerboseLevelFrom(localFile.Verbose)
 		streamConfig.streamType = STREAM_TYPE_LOCAL_FILE
 		streamConfig.loop = localFile.Loop
+		streamConfig.OnDemand = resolveOnDemand(localFile.OnDemand, cfg.OnDemandCfg.Enabled)
+		streamConfig.recording = localFile.Archive.Recording && cfg.ArchiveCfg.Recording
 		tmp.Streams.store[validUUID] = streamConfig
 
 		// Set up archive storage if recording OR serving is enabled
@@ -257,6 +297,14 @@ func NewApplication(cfg *configuration.Configuration) (*Application, error) {
 		}
 	}
 	return &tmp, nil
+}
+
+// resolveOnDemand picks the per-stream override when it is set, otherwise the global default
+func resolveOnDemand(override *bool, globalDefault bool) bool {
+	if override != nil {
+		return *override
+	}
+	return globalDefault
 }
 
 // GetArchiveStorageForPlayback returns archive storage for playback.

@@ -1,9 +1,13 @@
 package videoserver
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -49,9 +53,9 @@ func (app *Application) StartVideoServer() {
 			Msg("CORS are enabled")
 		router.Use(cors.New(*app.CorsConfig))
 	}
-	router.GET("/ws/:stream_id", WebSocketWrapper(&app.Streams, &wsUpgrader, app.VideoServerCfg.Verbose))
+	router.GET("/ws/:stream_id", WebSocketWrapper(app, &wsUpgrader, app.VideoServerCfg.Verbose))
 	router.GET("/ws/archive", gin.WrapF(ArchiveWSHandler(app, &wsUpgrader, app.VideoServerCfg.Verbose)))
-	router.GET("/hls/:file", HLSWrapper(&app.HLS, app.VideoServerCfg.Verbose))
+	router.GET("/hls/:file", HLSWrapper(app, app.VideoServerCfg.Verbose))
 
 	url := fmt.Sprintf("%s:%d", app.VideoServerCfg.Host, app.VideoServerCfg.Port)
 	s := &http.Server{
@@ -71,23 +75,27 @@ func (app *Application) StartVideoServer() {
 }
 
 // WebSocketWrapper returns WS handler
-func WebSocketWrapper(streamsStorage *StreamsStorage, wsUpgrader *websocket.Upgrader, verboseLevel VerboseLevel) func(ctx *gin.Context) {
+func WebSocketWrapper(app *Application, wsUpgrader *websocket.Upgrader, verboseLevel VerboseLevel) func(ctx *gin.Context) {
 	return func(ctx *gin.Context) {
 		if verboseLevel > VERBOSE_SIMPLE {
 			log.Info().Str("scope", SCOPE_WS_SERVER).Str("event", EVENT_WS_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Msg("Try to call ws upgrader")
 		}
-		wshandler(wsUpgrader, ctx.Writer, ctx.Request, streamsStorage, verboseLevel)
+		wshandler(app, wsUpgrader, ctx.Writer, ctx.Request, verboseLevel)
 	}
 }
 
+// hlsColdStartPoll is how often an HLS request re-checks whether the playlist has appeared for an on-demand stream
+const hlsColdStartPoll = 250 * time.Millisecond
+
 // HLSWrapper returns HLS handler (static files)
-func HLSWrapper(hlsConf *HLSInfo, verboseLevel VerboseLevel) func(ctx *gin.Context) {
+func HLSWrapper(app *Application, verboseLevel VerboseLevel) func(ctx *gin.Context) {
+	hlsConf := &app.HLS
 	return func(ctx *gin.Context) {
 		if verboseLevel > VERBOSE_SIMPLE {
 			log.Info().Str("scope", SCOPE_WS_SERVER).Str("event", EVENT_WS_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Str("hls_dir", hlsConf.Directory).Msg("Call HLS")
 		}
 		file := ctx.Param("file")
-		_, err := uuid.Parse(uuidRegExp.FindString(file))
+		streamID, err := uuid.Parse(uuidRegExp.FindString(file))
 		if err != nil {
 			errReason := "Not valid UUId"
 			if verboseLevel > VERBOSE_NONE {
@@ -96,10 +104,41 @@ func HLSWrapper(hlsConf *HLSInfo, verboseLevel VerboseLevel) func(ctx *gin.Conte
 			ctx.JSON(http.StatusBadRequest, gin.H{"Error": err.Error()})
 			return
 		}
+		// HLS has no persistent connection, so every request counts as viewer activity
+		app.touchHLS(streamID)
+		if strings.HasSuffix(file, ".m3u8") && app.Streams.StreamExists(streamID) {
+			// Cold start of an on-demand stream: the playlist appears only after the first segment is cut.
+			// Wait for it instead of answering 404 to the very first request
+			app.waitForHLSPlaylist(ctx.Request.Context(), streamID, filepath.Join(hlsConf.Directory, file))
+		}
 		ctx.Header("Cache-Control", "no-cache")
 		if verboseLevel > VERBOSE_SIMPLE {
 			log.Info().Str("scope", SCOPE_WS_SERVER).Str("event", EVENT_WS_REQUEST).Str("method", ctx.Request.Method).Str("route", ctx.Request.URL.Path).Str("remote", ctx.Request.RemoteAddr).Str("hls_dir", hlsConf.Directory).Msg("Send file")
 		}
 		ctx.FileFromFS(file, http.Dir(hlsConf.Directory))
+	}
+}
+
+// waitForHLSPlaylist blocks until the playlist file exists, the upstream stops, or the budget runs out.
+// The budget is about two segment durations, capped below the HTTP write timeout
+func (app *Application) waitForHLSPlaylist(ctx context.Context, streamID uuid.UUID, playlistPath string) {
+	if _, err := os.Stat(playlistPath); err == nil {
+		return
+	}
+	budget := time.Duration(app.HLS.MsPerSegment*2) * time.Millisecond
+	if budget > 25*time.Second {
+		budget = 25 * time.Second
+	}
+	deadline := time.Now().Add(budget)
+	for time.Now().Before(deadline) {
+		if !app.isStreamRunning(streamID) {
+			return
+		}
+		if !sleepCtx(ctx, hlsColdStartPoll) {
+			return
+		}
+		if _, err := os.Stat(playlistPath); err == nil {
+			return
+		}
 	}
 }

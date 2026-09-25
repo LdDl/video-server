@@ -26,6 +26,18 @@ directory = "./mp4"
 ms_per_file = 30000
 minio_settings = { host = "localhost", port = 29199, user = "minio_secret_login", password = "minio_secret_password", default_bucket = "archive-bucket", default_path = "/var/archive_data" }
 
+# Lazy upstream connections. When enabled, a stream is pulled from its source only while
+# somebody is watching it (MSE viewer attached or HLS files requested) or while it is being recorded.
+# A stream can override the default with its own `on_demand = true/false`.
+[on_demand]
+enabled = false
+# How long the upstream is kept alive after the last viewer has gone
+idle_ms = 30000
+# Probe idle on-demand sources with RTSP DESCRIBE (no PLAY, no media) so that `/status` keeps a meaningful `online`
+health_check = false
+health_interval_ms = 30000
+health_timeout_ms = 3000
+
 [cors]
 enabled = true
 allow_origins = ["*"]
@@ -47,6 +59,7 @@ expose_headers = ["Content-Length"]
 # url = "rtsp://localhost:45666/live"
 # output_types = ["mse"]
 # verbose = "v"
+# on_demand = true  # overrides [on_demand].enabled for this stream only
 # archive = { recording = true, ms_per_file = 10000, type = "filesystem", directory = "custom_folder" }
 
 # [[rtsp_streams]]

@@ -11,6 +11,7 @@ const (
 	SCOPE_ARCHIVE       = "archive"
 	SCOPE_MP4           = "mp4"
 	SCOPE_HLS           = "hls"
+	SCOPE_HEALTH        = "health"
 
 	EVENT_APP_CORS_CONFIG = "app_cors_config"
 
@@ -38,6 +39,13 @@ const (
 	EVENT_STREAMING_EOF                 = "streaming_eof"
 	EVENT_STREAMING_LOOP                = "streaming_loop"
 	EVENT_STREAMING_COMPLETE            = "streaming_complete"
+	EVENT_STREAMING_ACQUIRE             = "streaming_acquire"
+	EVENT_STREAMING_RELEASE             = "streaming_release"
+	EVENT_STREAMING_IDLE_STOP           = "streaming_idle_stop"
+	EVENT_STREAMING_CANCEL              = "streaming_cancel"
+
+	EVENT_HEALTH_START = "health_start"
+	EVENT_HEALTH_PROBE = "health_probe"
 
 	EVENT_API_PREPARE     = "api_server_prepare"
 	EVENT_API_START       = "api_server_start"

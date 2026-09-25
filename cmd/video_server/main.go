@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 	"os/signal"
@@ -64,8 +65,13 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// Run streams
+	// Run streams (permanent ones right away; on-demand ones wait for viewers)
 	go app.StartStreams()
+
+	// Probe idle on-demand sources so their status stays meaningful without pulling video
+	healthCtx, healthCancel := context.WithCancel(context.Background())
+	defer healthCancel()
+	go app.StartHealthMonitor(healthCtx)
 
 	// Start "Video" server
 	go app.StartVideoServer()

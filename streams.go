@@ -13,24 +13,7 @@ const (
 	restartStreamDuration = 5 * time.Second
 )
 
-// StartStreams starts all video streams
-func (app *Application) StartStreams() {
-	streamsIDs := app.Streams.GetAllStreamsIDS()
-	for i := range streamsIDs {
-		app.StartStream(streamsIDs[i])
-	}
-}
-
-// StartStream starts single video stream
-func (app *Application) StartStream(streamID uuid.UUID) {
-	go func(id uuid.UUID) {
-		err := app.RunStream(context.Background(), id)
-		if err != nil {
-			log.Error().Err(err).Str("scope", SCOPE_STREAMING).Str("event", EVENT_STREAMING_RUN).Str("stream_id", id.String()).Msg("Error on stream runner")
-		}
-	}(streamID)
-}
-
+// RunStream runs single video stream loop until the context is cancelled
 func (app *Application) RunStream(ctx context.Context, streamID uuid.UUID) error {
 	url, supportedTypes := app.Streams.GetStreamInfo(streamID)
 	if url == "" {
@@ -71,21 +54,30 @@ func (app *Application) startLoop(ctx context.Context, streamID uuid.UUID, url s
 			var err error
 			switch stream.streamType {
 			case STREAM_TYPE_RTSP:
-				err = app.runStream(streamID, url, hlsEnabled, archiveEnabled, streamVerboseLevel)
+				err = app.runStream(ctx, streamID, url, hlsEnabled, archiveEnabled, streamVerboseLevel)
 			case STREAM_TYPE_LOCAL_FILE:
-				err = app.runLocalFileStream(streamID, url, stream.loop, hlsEnabled, archiveEnabled, streamVerboseLevel)
+				err = app.runLocalFileStream(ctx, streamID, url, stream.loop, hlsEnabled, archiveEnabled, streamVerboseLevel)
 			default:
 				log.Error().Str("scope", SCOPE_STREAMING).Str("stream_id", streamID.String()).Str("stream_type", stream.streamType.String()).Msg("Unknown stream type")
 				return
+			}
+			if ctx.Err() != nil {
+				// Deliberate stop, not a source failure: leave the health state as it was
+				continue
 			}
 			if err != nil {
 				if streamVerboseLevel > VERBOSE_NONE {
 					log.Error().Err(err).Str("scope", SCOPE_STREAMING).Str("stream_id", streamID.String()).Str("stream_type", stream.streamType.String()).Msg("Stream error")
 				}
+				_ = app.Streams.UpdateStreamHealth(streamID, false, err.Error())
 			}
-			time.Sleep(time.Second * 2) // Use explicit duration
+			if !sleepCtx(ctx, 2*time.Second) {
+				continue
+			}
 		}
-		time.Sleep(restartStreamDuration)
+		if !sleepCtx(ctx, restartStreamDuration) {
+			continue
+		}
 	}
 }
 
