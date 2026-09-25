@@ -1,0 +1,33 @@
+name: video-server
+
+services:
+  video_server:
+    image: ${VIDEO_SERVER_IMAGE:-dimahkiin/video_server:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    stop_grace_period: 30s
+    command: ["-conf", "/app/conf.toml"]
+    ports:
+      # The server must bind 0.0.0.0 inside the container, see [api].host and [video].host
+      - "${VIDEO_SERVER_BIND_HOST:-127.0.0.1}:${VIDEO_SERVER_PORT:-8090}:8090"
+      - "${VIDEO_SERVER_BIND_HOST:-127.0.0.1}:${VIDEO_SERVER_API_PORT:-8091}:8091"
+    volumes:
+      - type: bind
+        source: ${VIDEO_SERVER_CONFIG:-./cmd/video_server/conf.toml}
+        target: /app/conf.toml
+        read_only: true
+        bind:
+          create_host_path: false
+      - video_server_hls:/app/hls
+      - video_server_mp4:/app/mp4
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  video_server_hls:
+  video_server_mp4:

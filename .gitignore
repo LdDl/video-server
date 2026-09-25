@@ -15,8 +15,12 @@ cmd/video_server/windows-video_server.zip
 cmd/video_server/conf_token.json
 video-server-ui
 /video_server
-linux-amd64-video_server.tar.gz 
 /video_server.exe
-windows-video_server.zip
+/linux-amd64-video_server.tar.gz
+/linux-arm64-video_server.tar.gz
+/darwin-amd64-video_server.tar.gz
+/darwin-arm64-video_server.tar.gz
+/windows-amd64-video_server.zip
+/windows-video_server.zip
 hls/
 cmd/video_server/data/
