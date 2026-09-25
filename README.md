@@ -10,12 +10,24 @@
 - [Golang-based video-server for re-streaming RTSP to HLS/MSE](#golang-based-video-server-for-re-streaming-rtsp-to-hlsmse)
   - [Table of Contents](#table-of-contents)
   - [About](#about)
-  - [Instalation](#instalation)
-    - [Binaries](#binaries)
+  - [Installation](#installation)
+    - [Pre-built binaries](#pre-built-binaries)
     - [From source](#from-source)
   - [Usage](#usage)
     - [Start server](#start-server)
     - [Test Client-Server](#test-client-server)
+  - [Docker](#docker)
+    - [Docker Compose](#docker-compose)
+  - [On-demand streams](#on-demand-streams)
+    - [Health check](#health-check)
+    - [Status fields](#status-fields)
+  - [Archive](#archive)
+    - [Recording vs Serving](#recording-vs-serving)
+    - [Global Configuration](#global-configuration)
+    - [Per-Stream Configuration](#per-stream-configuration)
+    - [Configuration Fallback](#configuration-fallback)
+    - [MinIO Configuration](#minio-configuration)
+    - [Archive REST API](#archive-rest-api)
   - [Dependencies](#dependencies)
   - [License](#license)
   - [Developers](#developers)
@@ -26,20 +38,44 @@ Simple WS/HTTP server for re-streaming video (RTSP) to client in MSE/HLS format.
 
 It is highly inspired by https://github.com/deepch and his projects. So why am I trying to reinvent the wheel? Well, I'm just trying to fit my needs.
 
-## Instalation
-### Binaries
-Linux - [link](https://github.com/LdDl/video-server/releases/download/v0.8.1/linux-amd64-video_server.tar.gz)
+## Installation
+### Pre-built binaries
+
+Download the archive for your platform from the [latest release](https://github.com/LdDl/video-server/releases/latest):
+
+| Platform | Archive |
+| --- | --- |
+| Linux amd64 | [linux-amd64-video_server.tar.gz](https://github.com/LdDl/video-server/releases/latest/download/linux-amd64-video_server.tar.gz) |
+| Linux arm64 | [linux-arm64-video_server.tar.gz](https://github.com/LdDl/video-server/releases/latest/download/linux-arm64-video_server.tar.gz) |
+| macOS amd64 | [darwin-amd64-video_server.tar.gz](https://github.com/LdDl/video-server/releases/latest/download/darwin-amd64-video_server.tar.gz) |
+| macOS arm64 | [darwin-arm64-video_server.tar.gz](https://github.com/LdDl/video-server/releases/latest/download/darwin-arm64-video_server.tar.gz) |
+| Windows amd64 | [windows-amd64-video_server.zip](https://github.com/LdDl/video-server/releases/latest/download/windows-amd64-video_server.zip) |
+
+Each archive contains `video_server` or `video_server.exe`. Extract it into a directory in your `PATH`.
+
+Quick installation on Linux amd64:
+
+```bash
+curl -fsSL https://github.com/LdDl/video-server/releases/latest/download/linux-amd64-video_server.tar.gz \
+  | sudo tar -xz -C /usr/local/bin video_server
+```
+
+For Linux arm64, replace `linux-amd64` with `linux-arm64`. On macOS, use `darwin-amd64` for Intel or `darwin-arm64` for Apple Silicon.
+
+If you would rather run the server in a container, see [Docker](#docker).
 
 ### From source
+
 ```bash
-go get github.com/LdDl/video-server
-# or just clone it
-# git clone https://github.com/LdDl/video-server.git
+go install github.com/LdDl/video-server/cmd/video_server@latest
 ```
-Go to root folder of downloaded repository, move to cmd/video_server folder:
+
+Or clone the repository and build it yourself:
+
 ```bash
-cd $CLONED_PATH/cmd/video_server
-go build -o video_server main.go
+git clone https://github.com/LdDl/video-server.git
+cd video-server
+go build -o video_server ./cmd/video_server
 ```
 
 ## Usage
@@ -79,6 +115,55 @@ App running at:
 - Local:   http://localhost:8080/ 
 ```
 Paste link to the browser and check if video loaded successfully.
+
+## Docker
+
+The image is published as [dimahkiin/video_server](https://hub.docker.com/r/dimahkiin/video_server).
+
+The server does not read environment variables, so a configuration file has to be mounted into the container. Both servers must listen on `0.0.0.0` inside it, otherwise the published ports stay unreachable:
+
+```toml
+[api]
+host = "0.0.0.0"
+port = 8091
+
+[video]
+host = "0.0.0.0"
+port = 8090
+```
+
+Start the latest image with that configuration file:
+
+```bash
+docker run --rm --name video_server --stop-timeout 30 \
+  -p 127.0.0.1:8090:8090 -p 127.0.0.1:8091:8091 \
+  --mount type=bind,source="$(pwd)/conf.toml",target=/app/conf.toml,readonly \
+  -v video_server_hls:/app/hls \
+  -v video_server_mp4:/app/mp4 \
+  docker.io/dimahkiin/video_server:latest -conf /app/conf.toml
+```
+
+Port 8090 serves MSE websockets and HLS files, port 8091 serves the REST API. To accept connections from other hosts, drop the `127.0.0.1:` prefix from the port mappings. The named volumes keep HLS segments and archive files across container recreation; skip them when neither HLS nor recording is enabled.
+
+### Docker Compose
+
+From the repository root, use the published image with the example configuration:
+
+```bash
+VIDEO_SERVER_IMAGE=dimahkiin/video_server:latest \
+docker compose up --no-build --pull always
+```
+
+`VIDEO_SERVER_CONFIG` selects the configuration file (use an absolute path for a file outside the repository), `VIDEO_SERVER_PORT` and `VIDEO_SERVER_API_PORT` change the published host ports, and `VIDEO_SERVER_BIND_HOST` changes the host bind address. The `video_server_hls` and `video_server_mp4` volumes survive container recreation.
+
+```bash
+VIDEO_SERVER_IMAGE=dimahkiin/video_server:latest \
+VIDEO_SERVER_CONFIG=/etc/video_server/conf.toml \
+VIDEO_SERVER_BIND_HOST=0.0.0.0 \
+docker compose up -d --no-build --pull always
+```
+
+The [docker-compose.yaml](docker-compose.yaml) file is unrelated to the server itself: it starts a MinIO instance for the archive, see [MinIO Configuration](#minio-configuration).
 
 ## On-demand streams
 
