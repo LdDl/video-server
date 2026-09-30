@@ -74,7 +74,10 @@ func wshandler(app *Application, wsUpgrader *websocket.Upgrader, w http.Response
 			closeWSwithError(conn, 1011, errReason)
 			return
 		}
-		clientID, ch, err := streamsStorage.AddViewer(streamID)
+		// Assign, never declare: a short declaration here would shadow the outer clientID and
+		// leave the deferred cleanup deleting the zero UUID, so the viewer would live forever
+		var ch chan av.Packet
+		clientID, ch, err = streamsStorage.AddViewer(streamID)
 		if err != nil {
 			errReason := "Can't add client to the queue"
 			if verboseLevel > VERBOSE_NONE {
